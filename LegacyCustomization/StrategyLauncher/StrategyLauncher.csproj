@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\..\StockSharp\Samples\common_samples_net.props" />
+  <Import Project="..\..\StockSharp\Samples\common_connectors.props" />
+
+  <PropertyGroup>
+    <!-- Override the imported TargetFrameworks property -->
+    <TargetFrameworks>net8.0</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>StockSharp.Samples.MaCrossoverBacktester</RootNamespace>
+    <AssemblyName>StrategyLauncher</AssemblyName>
+  </PropertyGroup>
+
+  <!-- Debug configuration for better exception handling -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="StockSharp.Samples.HistoryData" Version="$(StockSharpVer)" />
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\StockSharp\Algo\Algo.csproj" />
+    <ProjectReference Include="..\..\StockSharp\Algo\BusinessEntities\BusinessEntities.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="ConnectorFile.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+</Project>

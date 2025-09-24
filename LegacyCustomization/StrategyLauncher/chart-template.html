@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<title>StockSharp Strategy Chart</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<style>
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+			margin: 0;
+			padding: 20px;
+			background-color: #f5f5f5;
+		}
+
+		.chart-container {
+			background: white;
+			border-radius: 8px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+			padding: 20px;
+			margin-bottom: 20px;
+		}
+
+		.chart-title {
+			font-size: 24px;
+			font-weight: 600;
+			color: #333;
+			margin-bottom: 10px;
+			text-align: center;
+		}
+
+		.chart-subtitle {
+			font-size: 14px;
+			color: #666;
+			text-align: center;
+			margin-bottom: 20px;
+		}
+
+		#chart {
+			height: 600px;
+			width: 100%;
+		}
+
+		.legend {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			gap: 30px;
+			margin-top: 15px;
+			font-size: 14px;
+		}
+
+		.legend-item {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.legend-marker {
+			width: 12px;
+			height: 12px;
+			border-radius: 50%;
+		}
+
+		.buy-marker {
+			background-color: #2196F3;
+		}
+
+		.sell-marker {
+			background-color: #F44336;
+		}
+
+		.performance-summary {
+			background: white;
+			border-radius: 8px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+			padding: 20px;
+			margin-top: 20px;
+		}
+
+		.performance-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+			gap: 20px;
+		}
+
+		.metric-card {
+			background: #f8f9fa;
+			padding: 15px;
+			border-radius: 6px;
+			border-left: 4px solid #2196F3;
+		}
+
+		.metric-label {
+			font-size: 12px;
+			color: #666;
+			text-transform: uppercase;
+			margin-bottom: 5px;
+		}
+
+		.metric-value {
+			font-size: 20px;
+			font-weight: 600;
+			color: #333;
+		}
+
+		.positive {
+			color: #4CAF50;
+		}
+
+		.negative {
+			color: #F44336;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="chart-container">
+		<div class="chart-title">Strategy Performance Chart</div>
+		<div class="chart-subtitle">Candlestick chart with trade markers and performance analysis</div>
+		<div id="chart"></div>
+		<div class="legend">
+			<div class="legend-item">
+				<div class="legend-marker buy-marker"></div>
+				<span>Buy Orders</span>
+			</div>
+			<div class="legend-item">
+				<div class="legend-marker sell-marker"></div>
+				<span>Sell Orders</span>
+			</div>
+		</div>
+	</div>
+
+	<div class="performance-summary" id="performance-section" style="display: none;">
+		<h3 style="margin-top: 0; color: #333;">Performance Summary</h3>
+		<div class="performance-grid" id="performance-grid">
+			<!-- Performance metrics will be inserted here -->
+		</div>
+	</div>
+
+	<script src="https://unpkg.com/lightweight-charts@5.0.8/dist/lightweight-charts.standalone.development.js"></script>
+	<script>
+		// Chart data will be replaced by the C# code
+		const chartData = {{ CHART_DATA }};
+
+		// Make sure the container has dimensions first
+		document.getElementById('chart').style.height = '600px';
+
+		const chart = LightweightCharts.createChart(document.getElementById('chart'), {
+			// Set explicit dimensions
+			width: document.getElementById('chart').clientWidth,
+			height: 600,
+			// Keep your other options
+			layout: {
+				textColor: '#333',
+				background: {
+					type: 'solid',
+					color: '#ffffff'
+				}
+			},
+			grid: {
+				vertLines: {
+					color: '#e1e1e1',
+					style: 0,
+					visible: true,
+				},
+				horzLines: {
+					color: '#e1e1e1',
+					style: 0,
+					visible: true,
+				}
+			},
+			crosshair: {
+				mode: LightweightCharts.CrosshairMode.Normal,
+				vertLine: {
+					width: 1,
+					color: '#C3BCDB44',
+					style: LightweightCharts.LineStyle.Solid,
+					labelBackgroundColor: '#9B7DFF',
+				},
+				horzLine: {
+					width: 1,
+					color: '#C3BCDB44',
+					style: LightweightCharts.LineStyle.Solid,
+					labelBackgroundColor: '#9B7DFF',
+				},
+			},
+			rightPriceScale: {
+				borderColor: '#cccccc',
+				borderVisible: true,
+				entireTextOnly: false,
+			},
+			timeScale: {
+				borderColor: '#cccccc',
+				borderVisible: true,
+				timeVisible: true,
+				secondsVisible: false,
+			},
+			handleScroll: {
+				mouseWheel: true,
+				pressedMouseMove: true,
+			},
+			handleScale: {
+				axisPressedMouseMove: true,
+				mouseWheel: true,
+				pinch: true,
+			},
+		});
+
+		// Wait for the chart to initialize fully
+		setTimeout(() => {
+			// Add candlestick series
+			const candlestickSeries = chart.addSeries(LightweightCharts.CandlestickSeries, {
+				upColor: '#26a69a',
+				downColor: '#ef5350',
+				borderVisible: false,
+				wickUpColor: '#26a69a',
+				wickDownColor: '#ef5350',
+			});
+
+			// Set data after adding series
+			if (chartData && chartData.candles && Array.isArray(chartData.candles)) {
+				candlestickSeries.setData(chartData.candles);
+			}
+
+			// Add trade markers as separate point series
+			if (chartData && chartData.trades && Array.isArray(chartData.trades)) {
+				chartData.trades.forEach(trade => {
+					const isBuy = trade.side === 'buy';
+
+					// Create a point series for each trade
+					const pointSeries = chart.addSeries(LightweightCharts.LineSeries, {
+						color: isBuy ? '#2196F3' : '#F44336',
+						lineWidth: 0,
+						lastValueVisible: false,
+						priceLineVisible: false,
+						pointsVisible: true,
+						pointShape: isBuy ? 'square' : 'circle',
+						pointSize: 10,
+						pointColor: isBuy ? '#2196F3' : '#F44336',
+						title: `${trade.side.toUpperCase()} @ ${trade.price.toFixed(2)}`
+					});
+
+					// Set a single data point for this trade
+					pointSeries.setData([{
+						time: trade.time,
+						value: trade.price
+					}]);
+				});
+			}
+
+			// Fit content after all data is loaded
+			chart.timeScale().fitContent();
+
+			// Add indicators after the main series is established
+			if (chartData && chartData.indicators && Array.isArray(chartData.indicators)) {
+				chartData.indicators.forEach(indicator => {
+					if (indicator.values && indicator.values.length > 0) {
+						const lineSeries = chart.addSeries(LightweightCharts.LineSeries, {
+							color: indicator.color || '#2196F3',
+							lineWidth: 2,
+							title: indicator.name,
+							priceLineVisible: false,
+							crosshairMarkerVisible: false,
+						});
+
+						lineSeries.setData(indicator.values);
+					}
+				});
+			}
+		}, 100);		// Fit content to display all data
+		chart.timeScale().fitContent();
+
+		// Show performance summary if metrics are available
+		if (chartData && chartData.metrics) {
+			showPerformanceMetrics(chartData.metrics);
+		}
+
+		function showPerformanceMetrics(metrics) {
+			const performanceSection = document.getElementById('performance-section');
+			const performanceGrid = document.getElementById('performance-grid');
+
+			// Clear existing metrics
+			performanceGrid.innerHTML = '';
+
+			// Add metrics to grid
+			Object.entries(metrics).forEach(([key, value]) => {
+				const metricCard = document.createElement('div');
+				metricCard.className = 'metric-card';
+
+				const label = document.createElement('div');
+				label.className = 'metric-label';
+				label.textContent = formatMetricLabel(key);
+
+				const valueDiv = document.createElement('div');
+				valueDiv.className = 'metric-value';
+				valueDiv.textContent = formatMetricValue(key, value);
+
+				// Add color coding for certain metrics
+				if (key.toLowerCase().includes('pnl') || key.toLowerCase().includes('return')) {
+					valueDiv.classList.add(value >= 0 ? 'positive' : 'negative');
+				}
+
+				metricCard.appendChild(label);
+				metricCard.appendChild(valueDiv);
+				performanceGrid.appendChild(metricCard);
+			});
+
+			performanceSection.style.display = 'block';
+		}
+
+		function formatMetricLabel(key) {
+			return key
+				.replace(/([A-Z])/g, ' $1')
+				.replace(/^./, str => str.toUpperCase())
+				.trim();
+		}
+
+		function formatMetricValue(key, value) {
+			if (typeof value === 'number') {
+				if (key.toLowerCase().includes('ratio')) {
+					return value.toFixed(2);
+				} else if (key.toLowerCase().includes('percent') || key.toLowerCase().includes('return')) {
+					return `${(value * 100).toFixed(2)}%`;
+				} else if (key.toLowerCase().includes('pnl') || key.toLowerCase().includes('profit')) {
+					return value.toLocaleString('en-US', {
+						style: 'currency',
+						currency: 'USD',
+						minimumFractionDigits: 2
+					});
+				} else {
+					return value.toLocaleString();
+				}
+			}
+			return String(value);
+		}
+
+		// Handle window resize
+		window.addEventListener('resize', () => {
+			chart.applyOptions({
+				width: document.getElementById('chart').clientWidth
+			});
+		});
+
+		// Add some basic chart interactions
+		chart.subscribeCrosshairMove((param) => {
+			if (param.point === undefined || !param.time || param.point.x < 0 || param.point.x > chart.options().width || param.point.y < 0 || param.point.y > chart.options().height) {
+				return;
+			}
+
+			// You can add custom tooltip or info display logic here
+		});
+
+		console.log('Chart initialized with data:', chartData);
+	</script>
+</body>
+
+</html>
