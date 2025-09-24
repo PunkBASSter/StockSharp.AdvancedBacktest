@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="StockSharp.AdvancedBacktest.Tests/StockSharp.AdvancedBacktest.Tests.csproj" />
+  <Project Path="StockSharp.AdvancedBacktest/StockSharp.AdvancedBacktest.csproj" />
+</Solution>
