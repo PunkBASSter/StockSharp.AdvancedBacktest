@@ -1,0 +1,53 @@
+{
+    "mcpServers": {
+        "context7": {
+            "command": "cmd",
+            "args": [
+                "/c",
+                "npx",
+                "-y",
+                "@upstash/context7-mcp@latest"
+            ]
+        },
+        "duckdb": {
+            "command": "uvx",
+            "args": [
+                "mcp-server-duckdb",
+                "--db-path",
+                "${DUCKDB_DB_PATH:-./database.duckdb}"
+            ]
+        },
+        "microsoft-docs": {
+            "type": "http",
+            "url": "https://learn.microsoft.com/api/mcp"
+        },
+        "sequentialthinking": {
+            "command": "docker",
+            "args": [
+                "run",
+                "--rm",
+                "-i",
+                "mcp/sequentialthinking"
+            ]
+        },
+        "youtube-transcript": {
+            "command": "docker",
+            "args": [
+                "run",
+                "-i",
+                "--rm",
+                "mcp/youtube-transcript"
+            ]
+        },
+        "chrome-devtools": {
+            "command": "cmd",
+            "args": [
+                "/c",
+                "npx",
+                "chrome-devtools-mcp@latest",
+                "--executablePath",
+                "C:\\PROGRA~2\\Google\\Chrome\\Application\\chrome.exe"
+            ]
+        }
+    }
+}

@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Andrew/AppData/Roaming/Code/User/**)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "enabledMcpjsonServers": [
+    "context7",
+    "duckdb",
+    "microsoft-docs",
+    "sequentialthinking",
+    "youtube-transcript",
+    "chrome-devtools"
+  ]
+}
