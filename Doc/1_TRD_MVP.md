@@ -120,28 +120,71 @@
 
 ### Project Structure
 
+Based on expert consultation, the library is organized as a modular pipeline with the following structure:
+
 ```
 StockSharp.AdvancedBacktest/
 ├── Core/
+│   ├── Pipeline/
+│   │   ├── IPipelineStage.cs
+│   │   ├── PipelineOrchestrator.cs
+│   │   └── PipelineContext.cs
+│   ├── Configuration/
+│   │   ├── PipelineConfiguration.cs
+│   │   └── ConfigurationExtensions.cs
 │   ├── Strategies/
 │   │   ├── EnhancedStrategyBase.cs
 │   │   └── IParameterValidator.cs
 │   ├── Optimization/
-│   │   ├── OptimizationWrapper.cs
-│   │   └── ResultProcessor.cs
+│   │   ├── BruteForceOptimizerWrapper.cs
+│   │   └── OptimizationStageManager.cs
+│   ├── Validation/
+│   │   ├── WalkForwardValidator.cs
+│   │   ├── MonteCarloValidator.cs
+│   │   └── OutOfSampleValidator.cs
 │   ├── Metrics/
 │   │   ├── PerformanceCalculator.cs
-│   │   └── MetricsExporter.cs
+│   │   ├── MetricsExporter.cs
+│   │   └── RiskAnalyzer.cs
+│   ├── Data/
+│   │   ├── MarketDataManager.cs
+│   │   ├── DataPartitionManager.cs
+│   │   └── CacheManager.cs
 │   └── Artifacts/
+│       ├── ArtifactManager.cs
 │       ├── JsonExporter.cs
 │       └── ReportGenerator.cs
+├── Infrastructure/
+│   ├── Data/
+│   │   ├── FileSystemDataStore.cs
+│   │   ├── HighPerformanceFileReader.cs
+│   │   └── BatchFileWriter.cs
+│   ├── Logging/
+│   │   └── StructuredLogger.cs
+│   └── Serialization/
+│       ├── JsonSerializationService.cs
+│       └── OptimizedDataFormats.cs
 ├── Models/
-│   ├── OptimizationResult.cs
-│   ├── StrategyConfiguration.cs
-│   └── TradeData.cs
+│   ├── Pipeline/
+│   │   ├── PipelineStage.cs
+│   │   ├── StageInput.cs
+│   │   └── StageOutput.cs
+│   ├── Optimization/
+│   │   ├── OptimizationResult.cs
+│   │   ├── ParameterCombination.cs
+│   │   └── OptimizationStatistics.cs
+│   ├── Configuration/
+│   │   ├── StrategyConfiguration.cs
+│   │   ├── DataConfiguration.cs
+│   │   └── ValidationConfiguration.cs
+│   └── Data/
+│       ├── TradeData.cs
+│       ├── MarketDataSet.cs
+│       └── PerformanceMetrics.cs
 └── Extensions/
     ├── StrategyExtensions.cs
-    └── IndicatorExtensions.cs
+    ├── IndicatorExtensions.cs
+    └── ConfigurationExtensions.cs
 ```
 
 ## Core Components
@@ -206,28 +249,40 @@ public class ParameterDefinition
 }
 ```
 
-### 2. Optimization Pipeline Orchestration
+### 2. Data Pipeline Architecture
 
-#### OptimizationPipeline
+#### Pipeline Organization
+
+Based on expert architectural review, the system uses a **modular pipeline with local file system storage** pattern:
+
+**Key Design Principles:**
+- **Single Responsibility**: Each pipeline stage handles one specific concern
+- **Loose Coupling**: Stages communicate via structured JSON artifacts
+- **Fail-Fast**: Each stage validates inputs before processing
+- **Resumable**: Checkpoint-based recovery from failures
+- **Observable**: Rich logging and progress tracking
+
+#### PipelineOrchestrator
 
 **Responsibilities:**
 
-- Orchestrate the entire optimization workflow
-- Manage pipeline stages (optimization → walk-forward → monte-carlo → holdout)
+- Orchestrate the entire optimization workflow using modern .NET patterns
+- Manage pipeline stages with dependency injection and channels
 - Coordinate between different validation methods
-- Control artifact generation and storage
+- Control artifact generation and storage with hierarchical caching
 
 **Data Contracts:**
 
 ```csharp
-public class OptimizationPipeline
+public class PipelineOrchestrator
 {
-    public PipelineConfiguration Configuration { get; set; }
-    public List<PipelineStage> Stages { get; private set; }
+    private readonly IServiceProvider _serviceProvider;
+    private readonly ILogger<PipelineOrchestrator> _logger;
 
-    public async Task<PipelineResult> ExecuteAsync(StrategyRequest request);
-    public event Action<PipelineStageResult> StageCompleted;
-    public event Action<PipelineProgress> ProgressUpdated;
+    public async Task<TOutput> ExecutePipelineAsync<TInput, TOutput>(
+        TInput input,
+        IEnumerable<Type> stageTypes,
+        CancellationToken cancellationToken = default);
 }
 
 public class PipelineConfiguration
@@ -237,7 +292,26 @@ public class PipelineConfiguration
     public bool EnableMonteCarlo { get; set; } = false;  // Phase 2
     public bool EnableHoldout { get; set; } = false;     // Phase 2
     public string OutputDirectory { get; set; }
+    public DataConfiguration DataConfig { get; set; }
+    public PerformanceConfiguration PerformanceConfig { get; set; }
     public ReportSettings ReportSettings { get; set; }
+}
+
+public class DataConfiguration
+{
+    public string BasePath { get; set; } = "./results";
+    public string CacheDirectory { get; set; } = "./cache";
+    public string TempDirectory { get; set; } = "./temp";
+    public string MaxCacheSize { get; set; } = "10GB";
+    public CleanupPolicy CleanupPolicy { get; set; }
+}
+
+public class PerformanceConfiguration
+{
+    public int MaxParallelSymbols { get; set; } = 4;
+    public int MaxParallelTimeframes { get; set; } = 2;
+    public int ChunkSizeMonths { get; set; } = 3;
+    public int MemoryLimitMB { get; set; } = 4096;
 }
 ```
 
@@ -339,26 +413,70 @@ public interface IMetricsRepository
 }
 ```
 
-### 4. Artifact Management System
+### 4. Data Management System
+
+#### DataPartitionManager
+
+**Responsibilities:**
+
+- Implement hierarchical data partitioning strategy
+- Manage data locality for parallel processing optimization
+- Coordinate shared cache usage across optimization runs
+- Handle data lifecycle and cleanup policies
+
+**Data Contracts:**
+
+```csharp
+public class DataPartitionManager
+{
+    private readonly DataConfiguration _config;
+    private readonly ILogger<DataPartitionManager> _logger;
+
+    public async Task<DataPartition> PreparePartitionAsync(OptimizationRequest request);
+    public async Task<IEnumerable<DataChunk>> PartitionByTimeAsync(
+        SecurityId security,
+        TimeFrame timeframe,
+        DateRange range,
+        TimeSpan chunkSize = default);
+}
+
+public class DataPartition
+{
+    public string StrategyName { get; set; }
+    public DateRange DateRange { get; set; }
+    public string Symbol { get; set; }
+    public string Timeframe { get; set; }
+    public DataRequirements DataRequirements { get; set; }
+    public ParameterSpace Parameters { get; set; }
+
+    public string GetPartitionPath() =>
+        $"by-strategy/{StrategyName}/by-date-range/{DateRange.Start:yyyyMMdd}_{DateRange.End:yyyyMMdd}/by-symbol/{Symbol}/by-timeframe/{Timeframe}";
+}
+```
 
 #### ArtifactManager
 
 **Responsibilities:**
 
-- Manage structured storage of optimization artifacts
-- Coordinate artifact generation across pipeline stages
-- Provide artifact retrieval and indexing
-- Handle artifact cleanup and archival
+- Manage structured storage of optimization artifacts using hierarchical partitioning
+- Coordinate artifact generation across pipeline stages with shared caching
+- Provide high-performance artifact retrieval and indexing
+- Handle artifact cleanup and archival with configurable policies
 
 **Data Contracts:**
 
 ```csharp
 public class ArtifactManager
 {
-    public ArtifactPath CreateArtifactPath(StrategyRequest request, PipelineStage stage);
+    private readonly IDataStore _dataStore;
+    private readonly JsonSerializationService _serializer;
+    private readonly ILogger<ArtifactManager> _logger;
+
+    public ArtifactPath CreateArtifactPath(DataPartition partition, PipelineStage stage);
     public async Task StoreArtifactAsync<T>(ArtifactPath path, string filename, T data);
     public async Task<T> RetrieveArtifactAsync<T>(ArtifactPath path, string filename);
     public async Task GenerateReportAsync(ArtifactPath basePath);
+    public async Task CleanupExpiredArtifactsAsync(CleanupPolicy policy);
 }
 
 public class ArtifactPath
@@ -371,26 +489,73 @@ public class ArtifactPath
     public string ParameterHash { get; set; }
 
     public string GetFullPath() =>
-        $"{StrategyName}/{DateRange.Start:yyyyMMdd}_{DateRange.End:yyyyMMdd}/{Symbol}/{Timeframe}/{Stage}/{ParameterHash}";
+        $"by-strategy/{StrategyName}/by-date-range/{DateRange.Start:yyyyMMdd}_{DateRange.End:yyyyMMdd}/by-symbol/{Symbol}/by-timeframe/{Timeframe}/{Stage}";
 }
 ```
 
-#### JsonExporter
+#### MarketDataManager
 
 **Responsibilities:**
 
-- Export optimization results to structured JSON format
-- Maintain JSON schema versioning
-- Support incremental export for large datasets
-- Validate exported data integrity
+- Implement efficient market data caching and retrieval
+- Manage data format optimization (Parquet for time series)
+- Coordinate data sharing across multiple optimization runs
+- Handle data validation and integrity checks
 
 **Data Contracts:**
 
 ```csharp
-public class JsonExporter
+public class MarketDataManager
+{
+    private readonly IMarketDataCache _cache;
+    private readonly OptimizedDataFormats _dataFormats;
+
+    public async Task<MarketDataSet> GetOrLoadAsync(DataRequirements requirements);
+    public async Task<IEnumerable<DataChunk>> PartitionByTimeAsync(
+        SecurityId security,
+        TimeFrame timeframe,
+        DateRange range,
+        TimeSpan chunkSize = default);
+    public async Task CacheIndicatorDataAsync<T>(string indicatorType, string parametersHash, T data);
+}
+```
+
+#### JsonSerializationService
+
+**Responsibilities:**
+
+- High-performance JSON serialization using System.Text.Json
+- Support progressive loading for large datasets
+- Implement compressed storage for large time series data
+- Maintain schema versioning and validation
+
+**Data Contracts:**
+
+```csharp
+public class JsonSerializationService
+{
+    private static readonly JsonSerializerOptions DefaultOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters =
+        {
+            new JsonStringEnumConverter(),
+            new DateTimeConverter(),
+            new DecimalConverter()
+        }
+    };
+
+    public async Task SerializeToFileAsync<T>(T data, string filePath, CancellationToken cancellationToken = default);
+    public async Task<T?> DeserializeFromFileAsync<T>(string filePath, CancellationToken cancellationToken = default);
+    public async Task ExportWithPaginationAsync<T>(IEnumerable<T> data, string basePath, int pageSize = 1000);
+}
+
+public class ProgressiveJsonExporter
 {
     public async Task ExportStrategyConfigAsync(ArtifactPath path, StrategyConfiguration config);
-    public async Task ExportMarketDataAsync(ArtifactPath path, MarketDataSet data);
+    public async Task ExportMarketDataReferenceAsync(ArtifactPath path, MarketDataReference data);
     public async Task ExportTradesAsync(ArtifactPath path, List<TradeExecution> trades);
     public async Task ExportMetricsAsync(ArtifactPath path, PerformanceMetrics metrics);
     public async Task ExportOptimizationResultsAsync(ArtifactPath path, OptimizationStageResult results);
@@ -456,10 +621,17 @@ public class ReportData
 - `StockSharp.Messages` - Market data and trading messages
 - `StockSharp.BusinessEntities` - Securities, portfolios, trades
 
-### External Dependencies
+### Modern .NET Dependencies
 
-- `System.Text.Json` - JSON serialization
-- `Microsoft.Extensions.Logging` - Logging framework
+Based on expert .NET guidance, the library leverages modern .NET 10 patterns:
+
+- `Microsoft.Extensions.Hosting` - Host builder pattern for pipeline orchestration
+- `Microsoft.Extensions.Configuration.Json` - Configuration management with IOptions
+- `Microsoft.Extensions.DependencyInjection` - Dependency injection throughout
+- `Microsoft.Extensions.Logging` - Structured logging with Serilog
+- `System.Threading.Channels` - High-performance pipeline coordination
+- `System.Text.Json` - High-performance JSON serialization
+- `System.Buffers` - Memory-efficient data processing with ArrayPool/MemoryPool
 
 ## Optimization Pipeline Flow
 
@@ -589,72 +761,113 @@ graph TD
     S --> U[HTML Reports]
 ```
 
-### Enhanced Artifact Structure with Pipeline Stages
+### Enhanced Data Partitioning Strategy
+
+Based on expert data architecture review, the system implements **hierarchical data partitioning with shared caching** for optimal performance:
+
+#### Primary Partitioning Scheme
 
 ```
 results/
-  {strategy-name}/
-    {start-date}_{end-date}/
-      {symbol}/
-        {timeframe}/
-          optimization/                    # Stage 1: Basic Optimization (MVP)
-            {parameter-hash}/
-              manifest.json               # Artifact manifest and metadata
-              strategy-config.json        # Strategy parameters
-              market-data.json           # OHLCV data
-              trades.json               # Trade execution details
-              performance-metrics.json   # Calculated metrics
-              optimization-results.json  # Full optimization results
-              index.html                # Next.js report template
-              assets/                   # Static assets for report
-                app.js                  # JavaScript bundle
-                styles.css              # Report styling
-                charts/                 # Chart data files
-                  equity-curve.json
-                  trade-distribution.json
-                  drawdown-analysis.json
-
-          walk-forward/                   # Stage 2: Walk-Forward Analysis (Phase 2)
-            {analysis-id}/
-              manifest.json
-              walk-forward-config.json    # WF analysis parameters
-              period-results.json         # Results by period
-              stability-metrics.json      # Parameter stability analysis
-              efficiency-metrics.json     # Walk-forward efficiency
-              index.html                  # WF analysis report
-              periods/                    # Individual period results
-                {period-id}/
-                  optimization-results.json
-                  out-of-sample-results.json
-
-          monte-carlo/                    # Stage 3: Monte Carlo Validation (Phase 2)
-            {simulation-id}/
-              manifest.json
-              simulation-config.json      # MC simulation parameters
-              simulation-results.json     # Statistical results
-              confidence-intervals.json   # Confidence analysis
-              significance-tests.json     # Statistical tests
-              index.html                  # MC analysis report
-              simulations/                # Individual simulation runs
-                {run-id}/
-                  randomized-trades.json
-                  performance-metrics.json
-
-          holdout/                        # Stage 4: Holdout Validation (Phase 2)
-            {validation-id}/
-              manifest.json
-              holdout-config.json         # Holdout parameters
-              validation-results.json     # Final validation results
-              deployment-metrics.json     # Deployment readiness
-              index.html                  # Final validation report
-
-          summary/                        # Consolidated Results
-            pipeline-summary.json         # Overall pipeline results
-            best-configurations.json      # Top performing configurations
-            risk-analysis.json           # Comprehensive risk metrics
-            deployment-report.json       # Final deployment recommendations
-            index.html                   # Executive summary report
+├── by-strategy/
+│   └── {strategy-name}/
+│       ├── by-date-range/
+│       │   └── {start-yyyymmdd}_{end-yyyymmdd}/
+│       │       ├── by-symbol/
+│       │       │   └── {symbol}/
+│       │       │       └── by-timeframe/
+│       │       │           └── {timeframe}/
+│       │       │               ├── raw-data/           # Market data cache
+│       │       │               ├── optimization/       # Stage 1 results
+│       │       │               ├── validation/         # Stage 2-4 results
+│       │       │               └── reports/           # Generated reports
+│       │       └── multi-symbol/                      # Cross-symbol strategies
+│       │           └── {symbol-basket}/
+│       │               └── {timeframe}/
+│       └── metadata/
+│           ├── strategy-definition.json
+│           ├── parameter-schemas.json
+│           └── version-history.json
+├── shared-cache/                                      # Reusable data cache
+│   ├── market-data/
+│   │   └── {symbol}/
+│   │       └── {timeframe}/
+│   │           └── {year}/
+│   │               └── {month}/
+│   │                   ├── ohlcv.parquet           # Columnar format for speed
+│   │                   └── metadata.json
+│   └── indicator-cache/                             # Pre-calculated indicators
+│       └── {indicator-type}/
+│           └── {parameters-hash}/
+│               └── {symbol}_{timeframe}_data.parquet
+└── temp/                                            # Temporary processing files
+    └── {session-id}/
+        ├── processing/
+        └── cleanup-after-{timestamp}/
 ```
+
+#### Pipeline Stage Artifacts
+
+```
+results/by-strategy/{strategy}/by-date-range/{dates}/by-symbol/{symbol}/by-timeframe/{timeframe}/
+├── optimization/                    # Stage 1: Basic Optimization (MVP)
+│   └── {parameter-hash}/
+│       ├── manifest.json               # Artifact manifest and metadata
+│       ├── strategy-config.json        # Strategy parameters
+│       ├── market-data.json           # OHLCV data reference
+│       ├── trades.json               # Trade execution details
+│       ├── performance-metrics.json   # Calculated metrics
+│       ├── optimization-results.json  # Full optimization results
+│       ├── index.html                # Next.js report template
+│       └── assets/                   # Static assets for report
+│           ├── app.js                  # JavaScript bundle
+│           ├── styles.css              # Report styling
+│           └── charts/                 # Chart data files
+│               ├── equity-curve.json
+│               ├── trade-distribution.json
+│               └── drawdown-analysis.json
+├── validation/                      # Stage 2-4: Validation (Phase 2)
+│   ├── walk-forward/
+│   │   └── {analysis-id}/
+│   │       ├── manifest.json
+│   │       ├── walk-forward-config.json
+│   │       ├── period-results.json
+│   │       ├── stability-metrics.json
+│   │       └── efficiency-metrics.json
+│   ├── monte-carlo/
+│   │   └── {simulation-id}/
+│   │       ├── manifest.json
+│   │       ├── simulation-config.json
+│   │       ├── simulation-results.json
+│   │       └── confidence-intervals.json
+│   └── holdout/
+│       └── {validation-id}/
+│           ├── manifest.json
+│           ├── holdout-config.json
+│           └── validation-results.json
+└── reports/                         # Consolidated Reports
+    ├── pipeline-summary.json         # Overall pipeline results
+    ├── best-configurations.json      # Top performing configurations
+    ├── risk-analysis.json           # Comprehensive risk metrics
+    └── index.html                   # Executive summary report
+```
+
+#### Performance Optimizations
+
+**1. Batch Processing with Checkpoints:**
+- Process optimizations in parameter batches with intermediate checkpointing
+- Resume capability for interrupted optimization runs
+- Memory-efficient parameter space exploration
+
+**2. Hierarchical Caching:**
+- Three-tier caching system (memory → SSD cache → full storage)
+- Shared market data cache across optimization runs
+- Pre-calculated indicator caching with parameter hashing
+
+**3. Resource-Aware Execution:**
+- Memory and disk I/O throttling to prevent system exhaustion
+- Parallel processing by symbol/timeframe combinations
+- Automatic cleanup of temporary files based on configurable policies
 
 ### Artifact Manifest Structure
 
