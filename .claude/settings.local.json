@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Read(//c/Users/Andrew/AppData/Roaming/Code/User/**)"
+      "Read(//c/Users/Andrew/AppData/Roaming/Code/User/**)",
+      "mcp__sequentialthinking__sequentialthinking"
     ],
     "deny": [],
     "ask": []
