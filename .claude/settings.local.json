@@ -1,18 +1,19 @@
 {
-  "permissions": {
-    "allow": [
-      "Read(//c/Users/Andrew/AppData/Roaming/Code/User/**)",
-      "mcp__sequentialthinking__sequentialthinking"
-    ],
-    "deny": [],
-    "ask": []
-  },
-  "enabledMcpjsonServers": [
-    "context7",
-    "duckdb",
-    "microsoft-docs",
-    "sequentialthinking",
-    "youtube-transcript",
-    "chrome-devtools"
-  ]
+    "permissions": {
+        "allow": [
+            "Read(//c/Users/Andrew/AppData/Roaming/Code/User/**)",
+            "mcp__sequentialthinking__sequentialthinking",
+            "Bash(mkdir:*)"
+        ],
+        "deny": [],
+        "ask": []
+    },
+    "enabledMcpjsonServers": [
+        "context7",
+        "duckdb",
+        "microsoft-docs",
+        "sequentialthinking",
+        "youtube-transcript",
+        "chrome-devtools"
+    ]
 }

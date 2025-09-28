@@ -56,3 +56,7 @@ nunit-*.xml
 # Symlinks to external dependencies
 StockSharp/
 .vs/
+
+*.duckdb
+.claude/settings.local.json
+.mcp.json
