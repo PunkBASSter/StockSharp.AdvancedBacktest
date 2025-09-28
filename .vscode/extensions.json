@@ -1,0 +1,38 @@
+{
+    "recommendations": [
+        // Core .NET development
+        "ms-dotnettools.csdevkit",
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.vscode-dotnet-runtime",
+        // Testing support
+        "ms-dotnettools.dotnet-test-explorer",
+        "hbenl.vscode-test-explorer",
+        "formulahendry.dotnet-test-explorer",
+        // Git and version control
+        "eamodio.gitlens",
+        "donjayamanne.githistory",
+        // Code quality and analysis
+        "SonarSource.sonarlint-vscode",
+        "ms-vscode.vscode-json",
+        // Productivity
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "vscode-icons-team.vscode-icons",
+        "ms-vscode.powershell",
+        // XML support for project files
+        "redhat.vscode-xml",
+        // Markdown support for documentation
+        "yzhang.markdown-all-in-one",
+        "DavidAnson.vscode-markdownlint",
+        // Code formatting and linting
+        "ms-vscode.vscode-eslint",
+        "esbenp.prettier-vscode",
+        // Task and workflow management
+        "ms-vscode.vscode-tasks",
+        // Debugging enhancements
+        "ms-vscode.vscode-js-debug",
+        // Remote development (if needed)
+        "ms-vscode-remote.remote-containers",
+        "ms-vscode-remote.remote-wsl"
+    ]
+}

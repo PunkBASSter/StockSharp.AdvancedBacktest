@@ -1,0 +1,103 @@
+{
+    "dotnet.defaultSolution": "StockSharp.AdvancedBacktest.slnx",
+    "dotnet.completion.showCompletionItemsFromUnimportedNamespaces": true,
+    "dotnet.inlayHints.enableInlayHintsForParameters": true,
+    "dotnet.inlayHints.enableInlayHintsForLiteralParameters": true,
+    "dotnet.inlayHints.enableInlayHintsForIndexerParameters": true,
+    "dotnet.inlayHints.enableInlayHintsForObjectCreationParameters": true,
+    "dotnet.inlayHints.enableInlayHintsForOtherParameters": true,
+    "dotnet.inlayHints.suppressInlayHintsForParametersThatDifferOnlyBySuffix": true,
+    "dotnet.inlayHints.suppressInlayHintsForParametersThatMatchMethodIntent": true,
+    "dotnet.inlayHints.suppressInlayHintsForParametersThatMatchArgumentName": true,
+    // Test Explorer Configuration
+    "dotnet.testWindow.useTestingPlatformProtocol": true,
+    "dotnet.unitTests.runSettingsPath": "",
+    // Test Discovery and Running
+    "testExplorer.useNativeTesting": true,
+    "testExplorer.showCollapseButton": true,
+    "testExplorer.showExpandButton": true,
+    "testExplorer.showOnRun": true,
+    "testExplorer.onStart": "reset",
+    "testExplorer.onReload": "reset",
+    "testExplorer.codeLens": true,
+    "testExplorer.gutterDecoration": true,
+    "testExplorer.errorDecoration": true,
+    "testExplorer.errorDecorationHover": true,
+    // File associations for better intellisense
+    "files.associations": {
+        "*.csproj": "xml",
+        "*.slnx": "xml"
+    },
+    // Editor settings for test files
+    "editor.formatOnSave": true,
+    "editor.formatOnType": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit",
+        "source.fixAll": "explicit"
+    },
+    // Terminal settings for test output
+    "terminal.integrated.env.windows": {
+        "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+        "DOTNET_SKIP_FIRST_TIME_EXPERIENCE": "1"
+    },
+    // Search settings to include test files
+    "search.exclude": {
+        "**/bin": true,
+        "**/obj": true,
+        "**/node_modules": true,
+        "**/.git": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true
+    },
+    // File watching for test discovery
+    "files.watcherExclude": {
+        "**/bin/**": true,
+        "**/obj/**": true,
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/node_modules/**": true
+    },
+    // Problems panel configuration for test errors
+    "problems.decorations.enabled": true,
+    "problems.showCurrentInStatus": true,
+    // IntelliSense and code completion
+    "editor.suggestSelection": "first",
+    "editor.quickSuggestions": {
+        "other": true,
+        "comments": false,
+        "strings": false
+    },
+    // Git settings to handle test changes
+    "git.enableCommitSigning": false,
+    "git.autofetch": true,
+    "git.confirmSync": false,
+    // Debugging settings for tests
+    "debug.internalConsoleOptions": "openOnSessionStart",
+    "debug.console.fontSize": 12,
+    "debug.console.lineHeight": 16,
+    // Performance settings
+    "dotnet.backgroundAnalysis.analyzerDiagnosticsScope": "openFiles",
+    "dotnet.backgroundAnalysis.compilerDiagnosticsScope": "openFiles",
+    // Language specific settings
+    "[csharp]": {
+        "editor.defaultFormatter": "ms-dotnettools.csharp",
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true,
+        "editor.detectIndentation": false,
+        "editor.formatOnSave": true,
+        "editor.formatOnType": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit",
+            "source.fixAll": "explicit"
+        }
+    },
+    "[xml]": {
+        "editor.tabSize": 2,
+        "editor.insertSpaces": true
+    },
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features",
+        "editor.tabSize": 2,
+        "editor.insertSpaces": true
+    }
+}

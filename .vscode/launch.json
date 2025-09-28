@@ -1,0 +1,77 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Tests (.NET Core)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "dotnet",
+            "args": [
+                "test",
+                "${workspaceFolder}/StockSharp.AdvancedBacktest.Tests/StockSharp.AdvancedBacktest.Tests.csproj",
+                "--logger",
+                "console;verbosity=detailed",
+                "--no-build"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "internalConsoleOptions": "openOnSessionStart",
+            "preLaunchTask": "Build"
+        },
+        {
+            "name": "Debug Specific Test Class",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "dotnet",
+            "args": [
+                "test",
+                "${workspaceFolder}/StockSharp.AdvancedBacktest.Tests/StockSharp.AdvancedBacktest.Tests.csproj",
+                "--filter",
+                "FullyQualifiedName~${input:testClassName}",
+                "--logger",
+                "console;verbosity=detailed",
+                "--no-build"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "internalConsoleOptions": "openOnSessionStart",
+            "preLaunchTask": "Build"
+        },
+        {
+            "name": "Debug Changed Files Tests",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "dotnet",
+            "args": [
+                "test",
+                "${workspaceFolder}/StockSharp.AdvancedBacktest.Tests/StockSharp.AdvancedBacktest.Tests.csproj",
+                "--filter",
+                "FullyQualifiedName~ParameterSet|FullyQualifiedName~ParameterValidator|FullyQualifiedName~PerformanceTracker|FullyQualifiedName~RiskManager|FullyQualifiedName~StrategyEventHandler|FullyQualifiedName~ValidationResult|FullyQualifiedName~ParameterDefinition",
+                "--logger",
+                "console;verbosity=detailed",
+                "--no-build"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "internalConsoleOptions": "openOnSessionStart",
+            "preLaunchTask": "Build"
+        },
+        {
+            "name": "Attach to Process",
+            "type": "coreclr",
+            "request": "attach",
+            "processId": "${command:pickProcess}"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "testClassName",
+            "description": "Enter test class name to filter",
+            "default": "ParameterSetTests",
+            "type": "promptString"
+        }
+    ]
+}

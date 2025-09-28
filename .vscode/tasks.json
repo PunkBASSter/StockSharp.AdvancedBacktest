@@ -1,0 +1,183 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Test: All Tests",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "test",
+                "StockSharp.AdvancedBacktest.Tests/StockSharp.AdvancedBacktest.Tests.csproj",
+                "--logger",
+                "console;verbosity=normal"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "clear": false,
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false
+            },
+            "problemMatcher": [
+                "$msCompile"
+            ]
+        },
+        {
+            "label": "Test: Changed Files Only",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "test",
+                "StockSharp.AdvancedBacktest.Tests/StockSharp.AdvancedBacktest.Tests.csproj",
+                "--filter",
+                "FullyQualifiedName~ParameterSet|FullyQualifiedName~ParameterValidator|FullyQualifiedName~PerformanceTracker|FullyQualifiedName~RiskManager|FullyQualifiedName~StrategyEventHandler|FullyQualifiedName~ValidationResult|FullyQualifiedName~ParameterDefinition",
+                "--logger",
+                "console;verbosity=normal"
+            ],
+            "group": "test",
+            "presentation": {
+                "clear": false,
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false
+            },
+            "problemMatcher": [
+                "$msCompile"
+            ]
+        },
+        {
+            "label": "Test: Interface Tests",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "test",
+                "StockSharp.AdvancedBacktest.Tests/StockSharp.AdvancedBacktest.Tests.csproj",
+                "--filter",
+                "FullyQualifiedName~InterfaceTests",
+                "--logger",
+                "console;verbosity=normal"
+            ],
+            "group": "test",
+            "presentation": {
+                "clear": false,
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false
+            },
+            "problemMatcher": [
+                "$msCompile"
+            ]
+        },
+        {
+            "label": "Test: Model Tests",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "test",
+                "StockSharp.AdvancedBacktest.Tests/StockSharp.AdvancedBacktest.Tests.csproj",
+                "--filter",
+                "FullyQualifiedName~Models",
+                "--logger",
+                "console;verbosity=normal"
+            ],
+            "group": "test",
+            "presentation": {
+                "clear": false,
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false
+            },
+            "problemMatcher": [
+                "$msCompile"
+            ]
+        },
+        {
+            "label": "Test: Implementation Tests",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "test",
+                "StockSharp.AdvancedBacktest.Tests/StockSharp.AdvancedBacktest.Tests.csproj",
+                "--filter",
+                "FullyQualifiedName~ParameterSet|FullyQualifiedName~ParameterValidator|FullyQualifiedName~PerformanceTracker|FullyQualifiedName~RiskManager|FullyQualifiedName~StrategyEventHandler",
+                "--logger",
+                "console;verbosity=normal"
+            ],
+            "group": "test",
+            "presentation": {
+                "clear": false,
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false
+            },
+            "problemMatcher": [
+                "$msCompile"
+            ]
+        },
+        {
+            "label": "Test: Build and Test All",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "test",
+                "StockSharp.AdvancedBacktest.Tests/StockSharp.AdvancedBacktest.Tests.csproj",
+                "--logger",
+                "console;verbosity=normal",
+                "--collect",
+                "\"XPlat Code Coverage\""
+            ],
+            "group": "test",
+            "presentation": {
+                "clear": false,
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false
+            },
+            "problemMatcher": [
+                "$msCompile"
+            ],
+            "dependsOn": "Build"
+        },
+        {
+            "label": "Build",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "StockSharp.AdvancedBacktest.slnx",
+                "--configuration",
+                "Debug"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "clear": false,
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false
+            },
+            "problemMatcher": [
+                "$msCompile"
+            ]
+        }
+    ]
+}
