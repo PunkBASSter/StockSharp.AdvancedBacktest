@@ -58,3 +58,13 @@ The project depends on StockSharp through a symbolic link:
 - xUnit v3 framework
 - Microsoft Testing Platform support (commented out, requires .NET 10 SDK)
 - Test runner configuration via `xunit.runner.json`
+
+### JSON Serialization Standards
+
+**Always use System.Text.Json for new implementations. Newtonsoft.Json is acceptable ONLY for reverse compatibility scenarios.**
+
+- **Primary choice**: System.Text.Json with source generation for optimal performance
+- **Financial precision**: Custom decimal converters to prevent precision loss in trading calculations
+- **Configuration**: JsonSerializerOptions with CamelCase naming policy and null value handling
+- **Reverse compatibility**: Newtonsoft.Json usage is limited to scenarios where legacy systems or external dependencies require it (e.g., StockSharp integration dependencies)
+- **Migration approach**: When refactoring existing code, evaluate migrating from Newtonsoft.Json to System.Text.Json unless constrained by external dependencies

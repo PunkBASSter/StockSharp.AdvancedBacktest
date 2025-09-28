@@ -49,4 +49,16 @@ When implementing solutions:
 5. **Consider maintenance burden** - simpler solutions are easier to maintain
 6. **Explain trade-offs honestly** - why this approach over alternatives
 
+## JSON Serialization Standards
+
+**Always use System.Text.Json for new implementations. Newtonsoft.Json is acceptable ONLY for reverse compatibility scenarios.**
+
+JSON serialization approach:
+- **Primary choice**: `System.Text.Json` with source generation for performance
+- **Configuration**: Use `JsonSerializerOptions` with `CamelCase` naming policy
+- **Financial data**: Implement custom decimal converters to maintain precision
+- **Performance**: Generate serialization contexts using `[JsonSourceGeneration]` attributes
+- **Compatibility exception**: Use `Newtonsoft.Json` only when integrating with legacy systems that require it
+- **Migration strategy**: When encountering `Newtonsoft.Json` in existing code, evaluate migration to `System.Text.Json` unless constrained by external dependencies
+
 **Remember: The best code is code that works reliably, is easy to understand, and solves the actual problem without unnecessary complexity. Elegant simplicity beats sophisticated complexity.**
