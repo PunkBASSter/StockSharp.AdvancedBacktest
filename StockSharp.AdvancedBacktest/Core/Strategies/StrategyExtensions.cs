@@ -8,19 +8,8 @@ using System.Collections.Immutable;
 
 namespace StockSharp.AdvancedBacktest.Core.Strategies;
 
-/// <summary>
-/// Extension methods for StockSharp Strategy integration with enhanced features
-/// </summary>
 public static class StrategyExtensions
 {
-    #region Strategy Configuration
-
-    /// <summary>
-    /// Configure enhanced strategy with dependency injection
-    /// </summary>
-    /// <param name="strategy">Strategy to configure</param>
-    /// <param name="serviceProvider">Service provider</param>
-    /// <returns>Configured strategy</returns>
     public static T ConfigureEnhanced<T>(this T strategy, IServiceProvider serviceProvider)
         where T : Strategy, IEnhancedStrategy
     {
@@ -35,12 +24,6 @@ public static class StrategyExtensions
         return strategy;
     }
 
-    /// <summary>
-    /// Add enhanced parameters to strategy
-    /// </summary>
-    /// <param name="strategy">Strategy to configure</param>
-    /// <param name="parameterDefinitions">Parameter definitions</param>
-    /// <returns>Configured strategy</returns>
     public static T WithParameters<T>(this T strategy, params ParameterDefinition[] parameterDefinitions)
         where T : Strategy, IEnhancedStrategy
     {
@@ -59,12 +42,6 @@ public static class StrategyExtensions
         return strategy;
     }
 
-    /// <summary>
-    /// Configure risk management for strategy
-    /// </summary>
-    /// <param name="strategy">Strategy to configure</param>
-    /// <param name="configure">Risk configuration action</param>
-    /// <returns>Configured strategy</returns>
     public static T WithRiskManagement<T>(this T strategy, Action<Interfaces.IRiskManager> configure)
         where T : Strategy, IEnhancedStrategy
     {
@@ -81,15 +58,6 @@ public static class StrategyExtensions
         return strategy;
     }
 
-    #endregion
-
-    #region Portfolio Extensions
-
-    /// <summary>
-    /// Get enhanced portfolio snapshot from StockSharp portfolio
-    /// </summary>
-    /// <param name="portfolio">StockSharp portfolio</param>
-    /// <returns>Portfolio snapshot</returns>
     public static PortfolioSnapshot ToSnapshot(this Portfolio portfolio)
     {
         if (portfolio == null)
@@ -104,11 +72,6 @@ public static class StrategyExtensions
         );
     }
 
-    /// <summary>
-    /// Get current portfolio metrics
-    /// </summary>
-    /// <param name="portfolio">StockSharp portfolio</param>
-    /// <returns>Portfolio metrics</returns>
     public static PortfolioMetrics GetMetrics(this Portfolio portfolio)
     {
         if (portfolio == null)
@@ -126,17 +89,6 @@ public static class StrategyExtensions
         );
     }
 
-    #endregion
-
-    #region Order Extensions
-
-    /// <summary>
-    /// Create enhanced trade execution data from StockSharp trade
-    /// </summary>
-    /// <param name="trade">StockSharp trade</param>
-    /// <param name="parameters">Strategy parameters</param>
-    /// <param name="portfolioSnapshot">Portfolio snapshot</param>
-    /// <returns>Trade execution data</returns>
     public static TradeExecutionData ToExecutionData(
         this Trade trade,
         ImmutableDictionary<string, object?> parameters,
@@ -155,12 +107,6 @@ public static class StrategyExtensions
         );
     }
 
-    /// <summary>
-    /// Validate order against enhanced risk rules
-    /// </summary>
-    /// <param name="order">Order to validate</param>
-    /// <param name="riskManager">Risk manager</param>
-    /// <returns>Validation result</returns>
     public static ValidationResult ValidateRisk(this Order order, Interfaces.IRiskManager riskManager)
     {
         if (order == null)
@@ -185,15 +131,6 @@ public static class StrategyExtensions
         return errors.Count == 0 ? ValidationResult.CreateSuccess() : ValidationResult.Failure(errors);
     }
 
-    #endregion
-
-    #region Performance Extensions
-
-    /// <summary>
-    /// Calculate strategy performance metrics
-    /// </summary>
-    /// <param name="strategy">Strategy instance</param>
-    /// <returns>Performance metrics</returns>
     public static PerformanceMetrics CalculatePerformance(this Strategy strategy)
     {
         if (strategy == null)
@@ -218,11 +155,6 @@ public static class StrategyExtensions
         );
     }
 
-    /// <summary>
-    /// Get strategy state from StockSharp strategy
-    /// </summary>
-    /// <param name="strategy">Strategy instance</param>
-    /// <returns>Strategy state</returns>
     public static StrategyStatus GetEnhancedStatus(this Strategy strategy)
     {
         if (strategy == null)
@@ -237,18 +169,6 @@ public static class StrategyExtensions
         };
     }
 
-    #endregion
-
-    #region Logging Extensions
-
-    /// <summary>
-    /// Log strategy event with structured logging
-    /// </summary>
-    /// <param name="strategy">Strategy instance</param>
-    /// <param name="logger">Logger instance</param>
-    /// <param name="logLevel">Log level</param>
-    /// <param name="message">Log message</param>
-    /// <param name="args">Message arguments</param>
     public static void LogStrategyEvent(
         this Strategy strategy,
         ILogger logger,
@@ -266,12 +186,6 @@ public static class StrategyExtensions
         logger.Log(logLevel, "[Strategy: {StrategyName}] " + message, enrichedArgs);
     }
 
-    /// <summary>
-    /// Log trade execution with enhanced details
-    /// </summary>
-    /// <param name="strategy">Strategy instance</param>
-    /// <param name="logger">Logger instance</param>
-    /// <param name="trade">Trade details</param>
     public static void LogTradeExecution(this Strategy strategy, ILogger logger, Trade trade)
     {
         if (strategy == null || logger == null || trade == null)
@@ -287,31 +201,14 @@ public static class StrategyExtensions
             trade.Price);
     }
 
-    #endregion
 }
 
-/// <summary>
-/// Portfolio metrics record
-/// </summary>
-/// <param name="TotalPositions">Total number of positions</param>
-/// <param name="TotalValue">Total portfolio value</param>
-/// <param name="Leverage">Current leverage</param>
-/// <param name="Timestamp">Metrics timestamp</param>
 public readonly record struct PortfolioMetrics(
     int TotalPositions,
     decimal TotalValue,
     decimal Leverage,
     DateTimeOffset Timestamp
 );
-
-/// <summary>
-/// Performance metrics record
-/// </summary>
-/// <param name="TotalReturn">Total return percentage</param>
-/// <param name="UnrealizedPnL">Unrealized profit/loss</param>
-/// <param name="RealizedPnL">Realized profit/loss</param>
-/// <param name="TotalPnL">Total profit/loss</param>
-/// <param name="Timestamp">Metrics timestamp</param>
 public readonly record struct PerformanceMetrics(
     decimal TotalReturn,
     decimal UnrealizedPnL,
@@ -320,8 +217,5 @@ public readonly record struct PerformanceMetrics(
     DateTimeOffset Timestamp
 )
 {
-    /// <summary>
-    /// Empty performance metrics
-    /// </summary>
     public static readonly PerformanceMetrics Empty = new(0m, 0m, 0m, 0m, DateTimeOffset.UtcNow);
 }

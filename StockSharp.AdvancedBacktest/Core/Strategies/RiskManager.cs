@@ -7,9 +7,6 @@ using System.Collections.Concurrent;
 
 namespace StockSharp.AdvancedBacktest.Core.Strategies;
 
-/// <summary>
-/// Risk management implementation with configurable limits and violation tracking
-/// </summary>
 public class RiskManager : IRiskManager
 {
     private readonly ILogger<RiskManager> _logger;
@@ -25,46 +22,28 @@ public class RiskManager : IRiskManager
     private decimal _currentRiskLevel;
     private readonly object _riskCalculationLock = new();
 
-    /// <summary>
-    /// Maximum allowed drawdown percentage
-    /// </summary>
     public decimal MaxDrawdownLimit
     {
         get => _maxDrawdownLimit;
         set => _maxDrawdownLimit = Math.Max(0m, Math.Min(1m, value)); // Clamp between 0-100%
     }
 
-    /// <summary>
-    /// Maximum position size
-    /// </summary>
     public decimal MaxPositionSize
     {
         get => _maxPositionSize;
         set => _maxPositionSize = Math.Max(0m, value);
     }
 
-    /// <summary>
-    /// Daily loss limit
-    /// </summary>
     public decimal DailyLossLimit
     {
         get => _dailyLossLimit;
         set => _dailyLossLimit = Math.Max(0m, value);
     }
 
-    /// <summary>
-    /// Current risk level (0-1 scale)
-    /// </summary>
     public decimal CurrentRiskLevel => _currentRiskLevel;
 
-    /// <summary>
-    /// Whether risk limits are currently breached
-    /// </summary>
     public bool IsRiskLimitBreached => _currentRiskLevel >= 0.8m; // 80% threshold
 
-    /// <summary>
-    /// Initialize risk manager with configurable violation history size
-    /// </summary>
     public RiskManager(ILogger<RiskManager> logger, int violationHistorySize = 100)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -73,9 +52,6 @@ public class RiskManager : IRiskManager
         _logger.LogDebug("Risk manager initialized with violation history size {HistorySize}", violationHistorySize);
     }
 
-    /// <summary>
-    /// Validate an order before execution
-    /// </summary>
     public bool ValidateOrder(Order order)
     {
         if (_isDisposed || order == null)
@@ -130,9 +106,6 @@ public class RiskManager : IRiskManager
         }
     }
 
-    /// <summary>
-    /// Validate a position size
-    /// </summary>
     public bool ValidatePositionSize(Security security, decimal volume)
     {
         if (_isDisposed || security == null)
@@ -166,9 +139,6 @@ public class RiskManager : IRiskManager
         }
     }
 
-    /// <summary>
-    /// Check if drawdown limit is breached
-    /// </summary>
     public bool IsDrawdownLimitBreached(decimal currentDrawdown)
     {
         var isBreached = currentDrawdown > _maxDrawdownLimit;
@@ -185,9 +155,6 @@ public class RiskManager : IRiskManager
         return isBreached;
     }
 
-    /// <summary>
-    /// Check if daily loss limit is breached
-    /// </summary>
     public bool IsDailyLossLimitBreached(decimal dailyPnL)
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -209,9 +176,6 @@ public class RiskManager : IRiskManager
         return isBreached;
     }
 
-    /// <summary>
-    /// Record a risk violation
-    /// </summary>
     public void RecordViolation(RiskViolation violation)
     {
         if (_isDisposed || violation == null)
@@ -240,9 +204,6 @@ public class RiskManager : IRiskManager
         }
     }
 
-    /// <summary>
-    /// Get recent risk violations
-    /// </summary>
     public IReadOnlyList<RiskViolation> GetRecentViolations(int count = 10)
     {
         if (_isDisposed)
@@ -262,9 +223,6 @@ public class RiskManager : IRiskManager
         }
     }
 
-    /// <summary>
-    /// Reset daily risk counters
-    /// </summary>
     public void ResetDaily()
     {
         try
@@ -296,9 +254,6 @@ public class RiskManager : IRiskManager
         }
     }
 
-    /// <summary>
-    /// Emergency stop all positions
-    /// </summary>
     public async Task EmergencyStopAsync()
     {
         if (_isDisposed)
@@ -330,9 +285,6 @@ public class RiskManager : IRiskManager
         }
     }
 
-    /// <summary>
-    /// Update position size tracking
-    /// </summary>
     public void UpdatePositionSize(string securityCode, decimal positionSize)
     {
         if (_isDisposed || string.IsNullOrEmpty(securityCode))
@@ -346,9 +298,6 @@ public class RiskManager : IRiskManager
         }
     }
 
-    /// <summary>
-    /// Get projected position size after order execution
-    /// </summary>
     private decimal GetProjectedPositionSize(string securityCode, decimal volume, Sides direction)
     {
         var currentPosition = _positionSizes.GetValueOrDefault(securityCode, 0m);
@@ -356,9 +305,6 @@ public class RiskManager : IRiskManager
         return currentPosition + volumeWithDirection;
     }
 
-    /// <summary>
-    /// Update current risk level based on recent violations and metrics
-    /// </summary>
     private void UpdateRiskLevel()
     {
         try
@@ -400,9 +346,6 @@ public class RiskManager : IRiskManager
         }
     }
 
-    /// <summary>
-    /// Dispose pattern implementation
-    /// </summary>
     protected virtual void Dispose(bool disposing)
     {
         if (!_isDisposed && disposing)
@@ -416,9 +359,6 @@ public class RiskManager : IRiskManager
         }
     }
 
-    /// <summary>
-    /// <inheritdoc/>
-    /// </summary>
     public void Dispose()
     {
         Dispose(true);

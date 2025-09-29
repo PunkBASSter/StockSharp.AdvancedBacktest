@@ -8,9 +8,6 @@ using System.Runtime.CompilerServices;
 
 namespace StockSharp.AdvancedBacktest.Core.Strategies;
 
-/// <summary>
-/// High-performance strategy performance tracking using Span&lt;T&gt; and memory-efficient patterns
-/// </summary>
 public class PerformanceTracker : IPerformanceTracker
 {
     private readonly ILogger<PerformanceTracker> _logger;
@@ -29,19 +26,10 @@ public class PerformanceTracker : IPerformanceTracker
 
     private readonly object _calculationLock = new();
 
-    /// <summary>
-    /// Current portfolio value
-    /// </summary>
     public decimal CurrentValue => _currentValue;
 
-    /// <summary>
-    /// Total return percentage
-    /// </summary>
     public decimal TotalReturn => _initialValue > 0 ? (_currentValue - _initialValue) / _initialValue : 0m;
 
-    /// <summary>
-    /// Sharpe ratio calculation (annualized)
-    /// </summary>
     public decimal SharpeRatio
     {
         get
@@ -57,39 +45,18 @@ public class PerformanceTracker : IPerformanceTracker
         }
     }
 
-    /// <summary>
-    /// Maximum drawdown percentage
-    /// </summary>
     public decimal MaxDrawdown => _maxValue > 0 ? Math.Max(0m, (_maxValue - _maxDrawdownValue) / _maxValue) : 0m;
 
-    /// <summary>
-    /// Current drawdown percentage
-    /// </summary>
     public decimal CurrentDrawdown => _maxValue > 0 ? Math.Max(0m, (_maxValue - _currentValue) / _maxValue) : 0m;
 
-    /// <summary>
-    /// Win rate percentage
-    /// </summary>
     public decimal WinRate => _totalTrades > 0 ? (decimal)_winningTrades / _totalTrades : 0m;
 
-    /// <summary>
-    /// Total number of trades
-    /// </summary>
     public int TotalTrades => _totalTrades;
 
-    /// <summary>
-    /// Number of winning trades
-    /// </summary>
     public int WinningTrades => _winningTrades;
 
-    /// <summary>
-    /// Whether performance metrics are consistent
-    /// </summary>
     public bool IsConsistent => _currentValue >= 0 && _maxValue >= _currentValue && _totalTrades >= 0;
 
-    /// <summary>
-    /// Initialize performance tracker with specified history size
-    /// </summary>
     public PerformanceTracker(ILogger<PerformanceTracker> logger, int historySize = 1000)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -106,9 +73,6 @@ public class PerformanceTracker : IPerformanceTracker
         _logger.LogDebug("Performance tracker initialized with history size {HistorySize}", historySize);
     }
 
-    /// <summary>
-    /// Record a new trade execution with zero-allocation performance
-    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void RecordTrade(Trade trade)
     {
@@ -132,9 +96,6 @@ public class PerformanceTracker : IPerformanceTracker
         }
     }
 
-    /// <summary>
-    /// Update portfolio value with thread-safe operations
-    /// </summary>
     public void UpdatePortfolioValue(decimal value, DateTimeOffset timestamp)
     {
         if (_isDisposed || value < 0)
@@ -182,9 +143,6 @@ public class PerformanceTracker : IPerformanceTracker
         }
     }
 
-    /// <summary>
-    /// Calculate volatility using Span&lt;T&gt; for zero-allocation performance
-    /// </summary>
     public decimal CalculateVolatility(int periods = 252)
     {
         if (_isDisposed)
@@ -206,9 +164,6 @@ public class PerformanceTracker : IPerformanceTracker
         }
     }
 
-    /// <summary>
-    /// Get current performance snapshot
-    /// </summary>
     public PerformanceSnapshot GetSnapshot()
     {
         if (_isDisposed)
@@ -217,9 +172,6 @@ public class PerformanceTracker : IPerformanceTracker
         return CreateSnapshot(DateTimeOffset.UtcNow);
     }
 
-    /// <summary>
-    /// Get performance history within date range
-    /// </summary>
     public ImmutableArray<PerformanceSnapshot> GetHistory(DateTimeOffset? from = null, DateTimeOffset? to = null)
     {
         if (_isDisposed)
@@ -241,9 +193,6 @@ public class PerformanceTracker : IPerformanceTracker
         }
     }
 
-    /// <summary>
-    /// Reset all performance metrics
-    /// </summary>
     public void Reset()
     {
         if (_isDisposed)
@@ -268,9 +217,6 @@ public class PerformanceTracker : IPerformanceTracker
         _logger.LogInformation("Performance tracker reset");
     }
 
-    /// <summary>
-    /// Create performance snapshot with current metrics
-    /// </summary>
     private PerformanceSnapshot CreateSnapshot(DateTimeOffset timestamp)
     {
         // Calculate daily PnL
@@ -293,9 +239,6 @@ public class PerformanceTracker : IPerformanceTracker
         );
     }
 
-    /// <summary>
-    /// Calculate standard deviation using vectorized operations where possible
-    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static decimal CalculateStandardDeviation(ReadOnlySpan<decimal> values)
     {
@@ -322,9 +265,6 @@ public class PerformanceTracker : IPerformanceTracker
         return (decimal)Math.Sqrt((double)variance);
     }
 
-    /// <summary>
-    /// Dispose pattern implementation
-    /// </summary>
     protected virtual void Dispose(bool disposing)
     {
         if (!_isDisposed && disposing)
@@ -340,9 +280,6 @@ public class PerformanceTracker : IPerformanceTracker
         }
     }
 
-    /// <summary>
-    /// <inheritdoc/>
-    /// </summary>
     public void Dispose()
     {
         Dispose(true);
@@ -350,10 +287,6 @@ public class PerformanceTracker : IPerformanceTracker
     }
 }
 
-/// <summary>
-/// High-performance circular buffer for fixed-size collections
-/// </summary>
-/// <typeparam name="T">Element type</typeparam>
 internal class CircularBuffer<T>
 {
     private readonly T[] _buffer;

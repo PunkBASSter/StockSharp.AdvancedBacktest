@@ -14,27 +14,15 @@ public record ParameterDefinition(
     [property: JsonPropertyName("validationPattern")] string? ValidationPattern = null
 )
 {
-    /// <summary>
-    /// Type name for serialization
-    /// </summary>
     [JsonPropertyName("typeName")]
     public string TypeName => Type.Name;
 
-    /// <summary>
-    /// Full type name for serialization
-    /// </summary>
     [JsonPropertyName("fullTypeName")]
     public string FullTypeName => Type.FullName ?? Type.Name;
 
-    /// <summary>
-    /// Whether this parameter supports numeric operations
-    /// </summary>
     [JsonPropertyName("isNumeric")]
     public bool IsNumeric => IsNumericType(Type);
 
-    /// <summary>
-    /// Check if a type is numeric (including nullable numeric types)
-    /// </summary>
     private static bool IsNumericType(Type type)
     {
         // Handle nullable types
@@ -45,27 +33,15 @@ public record ParameterDefinition(
             i.IsGenericType && i.GetGenericTypeDefinition() == typeof(INumber<>));
     }
 
-    /// <summary>
-    /// Whether this parameter is a string type
-    /// </summary>
     [JsonPropertyName("isString")]
     public bool IsString => Type == typeof(string);
 
-    /// <summary>
-    /// Whether this parameter is a boolean type
-    /// </summary>
     [JsonPropertyName("isBoolean")]
     public bool IsBoolean => Type == typeof(bool) || Type == typeof(bool?);
 
-    /// <summary>
-    /// Whether this parameter is an enum type
-    /// </summary>
     [JsonPropertyName("isEnum")]
     public bool IsEnum => Type.IsEnum;
 
-    /// <summary>
-    /// Create a numeric parameter definition
-    /// </summary>
     public static ParameterDefinition CreateNumeric<T>(
         string name,
         T? minValue = null,
@@ -85,9 +61,6 @@ public record ParameterDefinition(
         );
     }
 
-    /// <summary>
-    /// Create a string parameter definition
-    /// </summary>
     public static ParameterDefinition CreateString(
         string name,
         string? defaultValue = null,
@@ -105,9 +78,6 @@ public record ParameterDefinition(
         );
     }
 
-    /// <summary>
-    /// Create a boolean parameter definition
-    /// </summary>
     public static ParameterDefinition CreateBoolean(
         string name,
         bool? defaultValue = null,
@@ -123,9 +93,6 @@ public record ParameterDefinition(
         );
     }
 
-    /// <summary>
-    /// Create an enum parameter definition
-    /// </summary>
     public static ParameterDefinition CreateEnum<T>(
         string name,
         T? defaultValue = null,
@@ -141,9 +108,6 @@ public record ParameterDefinition(
         );
     }
 
-    /// <summary>
-    /// Validate a value against this parameter definition
-    /// </summary>
     public ValidationResult ValidateValue(object? value)
     {
         var errors = new List<string>();
@@ -195,35 +159,16 @@ public record ParameterDefinition(
     }
 }
 
-/// <summary>
-/// Typed parameter wrapper for compile-time type safety
-/// </summary>
-/// <typeparam name="T">Parameter value type</typeparam>
 public class TypedParameter<T> where T : struct, INumber<T>
 {
-    /// <summary>
-    /// Parameter name
-    /// </summary>
     public required string Name { get; init; }
 
-    /// <summary>
-    /// Parameter value
-    /// </summary>
     public required T Value { get; init; }
 
-    /// <summary>
-    /// Minimum allowed value
-    /// </summary>
     public T? MinValue { get; init; }
 
-    /// <summary>
-    /// Maximum allowed value
-    /// </summary>
     public T? MaxValue { get; init; }
 
-    /// <summary>
-    /// Validate the parameter value using generic math
-    /// </summary>
     public bool IsValid()
     {
         if (MinValue is not null && Value < MinValue)
@@ -235,9 +180,6 @@ public class TypedParameter<T> where T : struct, INumber<T>
         return true;
     }
 
-    /// <summary>
-    /// Get validation error message
-    /// </summary>
     public string? GetValidationError()
     {
         if (MinValue is not null && Value < MinValue)

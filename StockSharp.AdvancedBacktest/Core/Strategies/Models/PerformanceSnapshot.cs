@@ -16,9 +16,6 @@ public record PerformanceSnapshot(
     [property: JsonPropertyName("dailyPnL")] decimal DailyPnL
 )
 {
-    /// <summary>
-    /// Empty performance snapshot for initialization
-    /// </summary>
     public static readonly PerformanceSnapshot Empty = new(
         Timestamp: DateTimeOffset.UtcNow,
         PortfolioValue: 0m,
@@ -33,33 +30,18 @@ public record PerformanceSnapshot(
         DailyPnL: 0m
     );
 
-    /// <summary>
-    /// Losing trades count
-    /// </summary>
     [JsonPropertyName("losingTrades")]
     public int LosingTrades => TotalTrades - WinningTrades;
 
-    /// <summary>
-    /// Average win amount (if trades > 0)
-    /// </summary>
     [JsonPropertyName("averageWin")]
     public decimal AverageWin => WinningTrades > 0 ? TotalReturn / WinningTrades : 0m;
 
-    /// <summary>
-    /// Average loss amount (if trades > 0)
-    /// </summary>
     [JsonPropertyName("averageLoss")]
     public decimal AverageLoss => LosingTrades > 0 ? -TotalReturn / LosingTrades : 0m;
 
-    /// <summary>
-    /// Profit factor (total wins / total losses)
-    /// </summary>
     [JsonPropertyName("profitFactor")]
     public decimal ProfitFactor => AverageLoss != 0m ? Math.Abs(AverageWin / AverageLoss) : 0m;
 
-    /// <summary>
-    /// Create a new snapshot with updated values
-    /// </summary>
     public PerformanceSnapshot With(
         DateTimeOffset? timestamp = null,
         decimal? portfolioValue = null,

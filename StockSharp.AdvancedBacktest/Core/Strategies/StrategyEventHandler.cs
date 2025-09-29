@@ -5,9 +5,6 @@ using System.Threading.Channels;
 
 namespace StockSharp.AdvancedBacktest.Core.Strategies;
 
-/// <summary>
-/// High-performance strategy event handler using System.Threading.Channels
-/// </summary>
 public class StrategyEventHandler : IStrategyEventHandler
 {
     private readonly Channel<TradeExecutionData> _tradeChannel;
@@ -20,29 +17,14 @@ public class StrategyEventHandler : IStrategyEventHandler
     private readonly Task _processingTask;
     private volatile bool _isDisposed;
 
-    /// <summary>
-    /// Trade execution events channel
-    /// </summary>
     public ChannelReader<TradeExecutionData> TradeEvents => _tradeChannel.Reader;
 
-    /// <summary>
-    /// Performance snapshot events channel
-    /// </summary>
     public ChannelReader<PerformanceSnapshot> PerformanceEvents => _performanceChannel.Reader;
 
-    /// <summary>
-    /// Risk violation events channel
-    /// </summary>
     public ChannelReader<RiskViolation> RiskEvents => _riskChannel.Reader;
 
-    /// <summary>
-    /// Strategy state change events channel
-    /// </summary>
     public ChannelReader<StrategyStateChange> StateEvents => _stateChannel.Reader;
 
-    /// <summary>
-    /// Initialize the event handler with unbounded channels for maximum performance
-    /// </summary>
     public StrategyEventHandler(ILogger<StrategyEventHandler> logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -65,18 +47,12 @@ public class StrategyEventHandler : IStrategyEventHandler
         _processingTask = Task.Run(async () => await ProcessEventsAsync(_cancellationTokenSource.Token));
     }
 
-    /// <summary>
-    /// Start event processing (already started in constructor)
-    /// </summary>
     public Task StartProcessingAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Strategy event processing started");
         return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// Stop event processing
-    /// </summary>
     public async Task StopProcessingAsync()
     {
         try
@@ -100,9 +76,6 @@ public class StrategyEventHandler : IStrategyEventHandler
         }
     }
 
-    /// <summary>
-    /// Publish a trade execution event
-    /// </summary>
     public bool PublishTradeEvent(TradeExecutionData tradeData)
     {
         if (_isDisposed || _cancellationTokenSource.Token.IsCancellationRequested)
@@ -119,9 +92,6 @@ public class StrategyEventHandler : IStrategyEventHandler
         }
     }
 
-    /// <summary>
-    /// Publish a performance snapshot event
-    /// </summary>
     public bool PublishPerformanceEvent(PerformanceSnapshot snapshot)
     {
         if (_isDisposed || _cancellationTokenSource.Token.IsCancellationRequested)
@@ -138,9 +108,6 @@ public class StrategyEventHandler : IStrategyEventHandler
         }
     }
 
-    /// <summary>
-    /// Publish a risk violation event
-    /// </summary>
     public bool PublishRiskEvent(RiskViolation violation)
     {
         if (_isDisposed || _cancellationTokenSource.Token.IsCancellationRequested)
@@ -163,9 +130,6 @@ public class StrategyEventHandler : IStrategyEventHandler
         }
     }
 
-    /// <summary>
-    /// Publish a strategy state change event
-    /// </summary>
     public bool PublishStateEvent(StrategyStateChange stateChange)
     {
         if (_isDisposed || _cancellationTokenSource.Token.IsCancellationRequested)
@@ -185,9 +149,6 @@ public class StrategyEventHandler : IStrategyEventHandler
         }
     }
 
-    /// <summary>
-    /// Background event processing with proper error handling
-    /// </summary>
     private async Task ProcessEventsAsync(CancellationToken cancellationToken)
     {
         try
@@ -215,9 +176,6 @@ public class StrategyEventHandler : IStrategyEventHandler
         }
     }
 
-    /// <summary>
-    /// Process trade execution events
-    /// </summary>
     private async Task ProcessTradeEventsAsync(CancellationToken cancellationToken)
     {
         try
@@ -242,9 +200,6 @@ public class StrategyEventHandler : IStrategyEventHandler
         }
     }
 
-    /// <summary>
-    /// Process performance snapshot events
-    /// </summary>
     private async Task ProcessPerformanceEventsAsync(CancellationToken cancellationToken)
     {
         try
@@ -267,9 +222,6 @@ public class StrategyEventHandler : IStrategyEventHandler
         }
     }
 
-    /// <summary>
-    /// Process risk violation events
-    /// </summary>
     private async Task ProcessRiskEventsAsync(CancellationToken cancellationToken)
     {
         try
@@ -292,9 +244,6 @@ public class StrategyEventHandler : IStrategyEventHandler
         }
     }
 
-    /// <summary>
-    /// Process strategy state change events
-    /// </summary>
     private async Task ProcessStateEventsAsync(CancellationToken cancellationToken)
     {
         try
@@ -317,45 +266,30 @@ public class StrategyEventHandler : IStrategyEventHandler
         }
     }
 
-    /// <summary>
-    /// Process individual trade event (override in derived classes for custom behavior)
-    /// </summary>
     protected virtual async Task ProcessTradeEventAsync(TradeExecutionData tradeEvent, CancellationToken cancellationToken)
     {
         // Default implementation - extend as needed
         await Task.Yield(); // Prevent synchronous execution
     }
 
-    /// <summary>
-    /// Process individual performance snapshot (override in derived classes for custom behavior)
-    /// </summary>
     protected virtual async Task ProcessPerformanceSnapshotAsync(PerformanceSnapshot snapshot, CancellationToken cancellationToken)
     {
         // Default implementation - extend as needed
         await Task.Yield(); // Prevent synchronous execution
     }
 
-    /// <summary>
-    /// Process individual risk violation (override in derived classes for custom behavior)
-    /// </summary>
     protected virtual async Task ProcessRiskViolationAsync(RiskViolation violation, CancellationToken cancellationToken)
     {
         // Default implementation - extend as needed
         await Task.Yield(); // Prevent synchronous execution
     }
 
-    /// <summary>
-    /// Process individual state change (override in derived classes for custom behavior)
-    /// </summary>
     protected virtual async Task ProcessStateChangeAsync(StrategyStateChange stateChange, CancellationToken cancellationToken)
     {
         // Default implementation - extend as needed
         await Task.Yield(); // Prevent synchronous execution
     }
 
-    /// <summary>
-    /// Async dispose pattern implementation
-    /// </summary>
     public async ValueTask DisposeAsync()
     {
         if (_isDisposed)

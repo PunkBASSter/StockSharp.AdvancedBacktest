@@ -32,9 +32,6 @@ public record RiskViolation(
     [property: JsonPropertyName("orderId")] long? OrderId = null
 )
 {
-    /// <summary>
-    /// Create a drawdown violation
-    /// </summary>
     public static RiskViolation DrawdownExceeded(decimal currentDrawdown, decimal maxAllowed) =>
         new(RiskViolationType.MaxDrawdownExceeded,
             RiskSeverity.Critical,
@@ -43,9 +40,6 @@ public record RiskViolation(
             currentDrawdown,
             maxAllowed);
 
-    /// <summary>
-    /// Create a position size violation
-    /// </summary>
     public static RiskViolation PositionSizeExceeded(string securityCode, decimal requestedSize, decimal maxAllowed) =>
         new(RiskViolationType.PositionSizeExceeded,
             RiskSeverity.Warning,
@@ -55,9 +49,6 @@ public record RiskViolation(
             maxAllowed,
             securityCode);
 
-    /// <summary>
-    /// Create a daily loss limit violation
-    /// </summary>
     public static RiskViolation DailyLossExceeded(decimal dailyLoss, decimal maxAllowed) =>
         new(RiskViolationType.DailyLossLimitExceeded,
             RiskSeverity.Critical,
@@ -66,9 +57,6 @@ public record RiskViolation(
             Math.Abs(dailyLoss),
             Math.Abs(maxAllowed));
 
-    /// <summary>
-    /// Create an order validation failure
-    /// </summary>
     public static RiskViolation OrderValidationFailed(Order order, string reason) =>
         new(RiskViolationType.OrderValidationFailed,
             RiskSeverity.Warning,
@@ -79,9 +67,6 @@ public record RiskViolation(
             order.Security?.Code,
             order.Id);
 
-    /// <summary>
-    /// Create an emergency stop violation
-    /// </summary>
     public static RiskViolation EmergencyStop(string reason) =>
         new(RiskViolationType.EmergencyStop,
             RiskSeverity.Emergency,
@@ -90,9 +75,6 @@ public record RiskViolation(
             0m,
             0m);
 
-    /// <summary>
-    /// Create a custom violation
-    /// </summary>
     public static RiskViolation Custom(string message, decimal currentValue, decimal threshold, RiskSeverity severity = RiskSeverity.Warning) =>
         new(RiskViolationType.CustomViolation,
             severity,

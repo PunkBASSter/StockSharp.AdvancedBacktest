@@ -4,14 +4,8 @@ using System.Text.RegularExpressions;
 
 namespace StockSharp.AdvancedBacktest.Core.Strategies;
 
-/// <summary>
-/// Default parameter validator implementation with comprehensive validation rules
-/// </summary>
 public class ParameterValidator : IParameterValidator
 {
-    /// <summary>
-    /// Validate a single parameter
-    /// </summary>
     public ValidationResult ValidateParameter(string parameterName, object? value, ParameterDefinition definition)
     {
         if (string.IsNullOrEmpty(parameterName))
@@ -79,9 +73,6 @@ public class ParameterValidator : IParameterValidator
         }
     }
 
-    /// <summary>
-    /// Validate all parameters in a set
-    /// </summary>
     public ValidationResult ValidateParameterSet(IParameterSet parameters)
     {
         if (parameters == null)
@@ -123,9 +114,6 @@ public class ParameterValidator : IParameterValidator
         }
     }
 
-    /// <summary>
-    /// Validate parameter dependencies and relationships
-    /// </summary>
     public ValidationResult ValidateDependencies(IParameterSet parameters)
     {
         if (parameters == null)
@@ -158,9 +146,6 @@ public class ParameterValidator : IParameterValidator
 
     #region Private Helper Methods
 
-    /// <summary>
-    /// Check if value type is compatible with expected type
-    /// </summary>
     private static bool IsTypeCompatible(object value, Type expectedType)
     {
         if (value == null)
@@ -168,24 +153,18 @@ public class ParameterValidator : IParameterValidator
 
         var valueType = value.GetType();
 
-        // Direct type match
         if (expectedType.IsAssignableFrom(valueType))
             return true;
 
-        // Numeric conversions
         if (IsNumericType(expectedType) && IsNumericType(valueType))
             return true;
 
-        // String conversions
         if (expectedType == typeof(string))
             return true;
 
         return false;
     }
 
-    /// <summary>
-    /// Check if type is numeric
-    /// </summary>
     private static bool IsNumericType(Type type)
     {
         return type == typeof(int) || type == typeof(long) || type == typeof(decimal) ||
@@ -198,9 +177,6 @@ public class ParameterValidator : IParameterValidator
                type == typeof(ushort?) || type == typeof(sbyte?);
     }
 
-    /// <summary>
-    /// Validate numeric range
-    /// </summary>
     private static void ValidateNumericRange(
         string parameterName,
         IComparable value,
@@ -218,7 +194,6 @@ public class ParameterValidator : IParameterValidator
             errors.Add($"Parameter '{parameterName}' value {value} is above maximum {max}");
         }
 
-        // Warning for values near limits
         if (definition.MinValue is IComparable minWarn && definition.MaxValue is IComparable maxWarn)
         {
             var range = Convert.ToDecimal(maxWarn) - Convert.ToDecimal(minWarn);
@@ -240,9 +215,6 @@ public class ParameterValidator : IParameterValidator
         }
     }
 
-    /// <summary>
-    /// Validate string parameter
-    /// </summary>
     private static void ValidateString(
         string parameterName,
         string value,
@@ -250,7 +222,6 @@ public class ParameterValidator : IParameterValidator
         List<string> errors,
         List<string> warnings)
     {
-        // Pattern validation
         if (!string.IsNullOrEmpty(definition.ValidationPattern))
         {
             try
@@ -266,7 +237,6 @@ public class ParameterValidator : IParameterValidator
             }
         }
 
-        // Length validations
         if (string.IsNullOrWhiteSpace(value) && definition.IsRequired)
         {
             errors.Add($"Required parameter '{parameterName}' cannot be empty or whitespace");
@@ -278,9 +248,6 @@ public class ParameterValidator : IParameterValidator
         }
     }
 
-    /// <summary>
-    /// Validate boolean parameter
-    /// </summary>
     private static void ValidateBoolean(
         string parameterName,
         bool value,
@@ -292,9 +259,6 @@ public class ParameterValidator : IParameterValidator
         // Could add business logic validation here if needed
     }
 
-    /// <summary>
-    /// Validate enum parameter
-    /// </summary>
     private static void ValidateEnum(
         string parameterName,
         object value,
@@ -308,9 +272,6 @@ public class ParameterValidator : IParameterValidator
         }
     }
 
-    /// <summary>
-    /// Validate common parameter dependencies
-    /// </summary>
     private static void ValidateCommonDependencies(
         IParameterSet parameters,
         List<string> errors,
@@ -320,9 +281,6 @@ public class ParameterValidator : IParameterValidator
         // For now, no generic common dependencies to validate
     }
 
-    /// <summary>
-    /// Validate trading-specific dependencies
-    /// </summary>
     private static void ValidateTradingDependencies(
         IParameterSet parameters,
         List<string> errors,
@@ -332,9 +290,6 @@ public class ParameterValidator : IParameterValidator
         // For now, no generic trading dependencies to validate
     }
 
-    /// <summary>
-    /// Validate risk management dependencies
-    /// </summary>
     private static void ValidateRiskDependencies(
         IParameterSet parameters,
         List<string> errors,
@@ -344,9 +299,6 @@ public class ParameterValidator : IParameterValidator
         // For now, no generic risk dependencies to validate
     }
 
-    /// <summary>
-    /// Validate parameter set completeness
-    /// </summary>
     private static ValidationResult ValidateCompleteness(IParameterSet parameters)
     {
         var errors = new List<string>();

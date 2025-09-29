@@ -8,28 +8,16 @@ using System.Text.Json.Serialization;
 
 namespace StockSharp.AdvancedBacktest.Core.Strategies;
 
-/// <summary>
-/// Thread-safe parameter set implementation with generic math support
-/// </summary>
 public class ParameterSet : IParameterSet
 {
     private readonly ConcurrentDictionary<string, object?> _values = new();
     private readonly ImmutableArray<ParameterDefinition> _definitions;
     private readonly IParameterValidator _validator;
 
-    /// <summary>
-    /// Number of parameters in the set
-    /// </summary>
     public int Count => _definitions.Length;
 
-    /// <summary>
-    /// Get all parameter definitions
-    /// </summary>
     public ImmutableArray<ParameterDefinition> Definitions => _definitions;
 
-    /// <summary>
-    /// Initialize parameter set with definitions
-    /// </summary>
     public ParameterSet(IEnumerable<ParameterDefinition> definitions, IParameterValidator? validator = null)
     {
         if (definitions == null)
@@ -48,9 +36,6 @@ public class ParameterSet : IParameterSet
         }
     }
 
-    /// <summary>
-    /// Get parameter value by name with generic math support
-    /// </summary>
     public T GetValue<T>(string name) where T : INumber<T>
     {
         if (string.IsNullOrEmpty(name))
@@ -71,9 +56,6 @@ public class ParameterSet : IParameterSet
         throw new KeyNotFoundException($"Parameter '{name}' not found");
     }
 
-    /// <summary>
-    /// Set parameter value by name with generic math support
-    /// </summary>
     public void SetValue<T>(string name, T value) where T : INumber<T>
     {
         if (string.IsNullOrEmpty(name))
@@ -95,9 +77,6 @@ public class ParameterSet : IParameterSet
         _values[name] = value;
     }
 
-    /// <summary>
-    /// Get parameter value as object
-    /// </summary>
     public object? GetValue(string name)
     {
         if (string.IsNullOrEmpty(name))
@@ -106,9 +85,6 @@ public class ParameterSet : IParameterSet
         return _values.TryGetValue(name, out var value) ? value : null;
     }
 
-    /// <summary>
-    /// Set parameter value as object
-    /// </summary>
     public void SetValue(string name, object? value)
     {
         if (string.IsNullOrEmpty(name))
@@ -126,33 +102,21 @@ public class ParameterSet : IParameterSet
         _values[name] = value;
     }
 
-    /// <summary>
-    /// Check if parameter exists
-    /// </summary>
     public bool HasParameter(string name)
     {
         return !string.IsNullOrEmpty(name) && _definitions.Any(d => d.Name == name);
     }
 
-    /// <summary>
-    /// Validate all parameters
-    /// </summary>
     public ValidationResult Validate()
     {
         return _validator.ValidateParameterSet(this);
     }
 
-    /// <summary>
-    /// Create a snapshot of current parameter values
-    /// </summary>
     public ImmutableDictionary<string, object?> GetSnapshot()
     {
         return _values.ToImmutableDictionary();
     }
 
-    /// <summary>
-    /// Clone the parameter set
-    /// </summary>
     public IParameterSet Clone()
     {
         var clone = new ParameterSet(_definitions, _validator);
@@ -165,33 +129,21 @@ public class ParameterSet : IParameterSet
         return clone;
     }
 
-    /// <summary>
-    /// Get parameter definition by name
-    /// </summary>
     private ParameterDefinition? GetDefinition(string name)
     {
         return _definitions.FirstOrDefault(d => d.Name == name);
     }
 
-    /// <summary>
-    /// Get all parameter names
-    /// </summary>
     public IEnumerable<string> GetParameterNames()
     {
         return _definitions.Select(d => d.Name);
     }
 
-    /// <summary>
-    /// Get parameter definition by name
-    /// </summary>
     public ParameterDefinition? GetParameterDefinition(string name)
     {
         return GetDefinition(name);
     }
 
-    /// <summary>
-    /// Bulk set parameters from dictionary
-    /// </summary>
     public void SetValues(IReadOnlyDictionary<string, object?> values)
     {
         if (values == null)
@@ -215,9 +167,6 @@ public class ParameterSet : IParameterSet
             throw new ArgumentException($"Failed to set {errors.Count} parameters: {string.Join("; ", errors)}");
     }
 
-    /// <summary>
-    /// Get typed parameter value with fallback
-    /// </summary>
     public T GetValue<T>(string name, T fallback) where T : INumber<T>
     {
         try
@@ -230,9 +179,6 @@ public class ParameterSet : IParameterSet
         }
     }
 
-    /// <summary>
-    /// Try to get parameter value
-    /// </summary>
     public bool TryGetValue<T>(string name, out T value) where T : INumber<T>
     {
         value = default(T)!;
@@ -248,17 +194,11 @@ public class ParameterSet : IParameterSet
         }
     }
 
-    /// <summary>
-    /// Try to get parameter value as object
-    /// </summary>
     public bool TryGetValue(string name, out object? value)
     {
         return _values.TryGetValue(name, out value);
     }
 
-    /// <summary>
-    /// Get parameter statistics
-    /// </summary>
     public ParameterSetStatistics GetStatistics()
     {
         var totalParams = _definitions.Length;
@@ -277,9 +217,6 @@ public class ParameterSet : IParameterSet
         );
     }
 
-    /// <summary>
-    /// Serialize parameter set to JSON string
-    /// </summary>
     public string ToJson(JsonSerializerOptions? options = null)
     {
         var statistics = GetStatistics();
@@ -302,9 +239,6 @@ public class ParameterSet : IParameterSet
         return JsonSerializer.Serialize(data, options);
     }
 
-    /// <summary>
-    /// Create parameter set from JSON string
-    /// </summary>
     public static ParameterSet FromJson(string json, IParameterValidator? validator = null, JsonSerializerOptions? options = null)
     {
         if (string.IsNullOrEmpty(json))
@@ -335,9 +269,6 @@ public class ParameterSet : IParameterSet
         return parameterSet;
     }
 
-    /// <summary>
-    /// Export parameter set as optimization configuration
-    /// </summary>
     public ParameterOptimizationConfig ToOptimizationConfig()
     {
         var ranges = new Dictionary<string, ParameterRange>();
@@ -362,9 +293,6 @@ public class ParameterSet : IParameterSet
         );
     }
 
-    /// <summary>
-    /// Create parameter set from optimization result
-    /// </summary>
     public static ParameterSet FromOptimizationResult(
         IEnumerable<ParameterDefinition> definitions,
         IReadOnlyDictionary<string, object?> optimizedValues,
@@ -375,9 +303,6 @@ public class ParameterSet : IParameterSet
         return parameterSet;
     }
 
-    /// <summary>
-    /// Get default JSON serialization options
-    /// </summary>
     private static JsonSerializerOptions GetDefaultJsonOptions()
     {
         return new JsonSerializerOptions
@@ -390,17 +315,10 @@ public class ParameterSet : IParameterSet
     }
 }
 
-
-/// <summary>
-/// Builder for creating parameter sets
-/// </summary>
 public class ParameterSetBuilder
 {
     private readonly List<ParameterDefinition> _definitions = new();
 
-    /// <summary>
-    /// Add a numeric parameter
-    /// </summary>
     public ParameterSetBuilder AddNumeric<T>(
         string name,
         T? minValue = null,
@@ -415,9 +333,6 @@ public class ParameterSetBuilder
         return this;
     }
 
-    /// <summary>
-    /// Add a string parameter
-    /// </summary>
     public ParameterSetBuilder AddString(
         string name,
         string? defaultValue = null,
@@ -431,9 +346,6 @@ public class ParameterSetBuilder
         return this;
     }
 
-    /// <summary>
-    /// Add a boolean parameter
-    /// </summary>
     public ParameterSetBuilder AddBoolean(
         string name,
         bool? defaultValue = null,
@@ -446,9 +358,6 @@ public class ParameterSetBuilder
         return this;
     }
 
-    /// <summary>
-    /// Add an enum parameter
-    /// </summary>
     public ParameterSetBuilder AddEnum<T>(
         string name,
         T? defaultValue = null,
@@ -461,9 +370,6 @@ public class ParameterSetBuilder
         return this;
     }
 
-    /// <summary>
-    /// Build the parameter set
-    /// </summary>
     public ParameterSet Build(IParameterValidator? validator = null)
     {
         return new ParameterSet(_definitions, validator);

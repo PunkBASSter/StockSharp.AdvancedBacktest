@@ -11,10 +11,6 @@ using System.Threading.Channels;
 
 namespace StockSharp.AdvancedBacktest.Core.Strategies;
 
-/// <summary>
-/// Enhanced strategy base class that extends StockSharp Strategy with modern .NET patterns
-/// while maintaining 100% compatibility with the StockSharp ecosystem
-/// </summary>
 public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsyncDisposable
 {
     #region Private Fields
@@ -41,71 +37,37 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
 
     #region Protected Fields
 
-    /// <summary>
-    /// Logger instance for structured logging
-    /// </summary>
     protected readonly ILogger<EnhancedStrategyBase> _logger;
-
-    /// <summary>
-    /// Service provider for dependency resolution
-    /// </summary>
     protected readonly IServiceProvider? _serviceProvider;
 
     #endregion
 
     #region Required Properties (C# 11+ Pattern)
 
-    /// <summary>
-    /// Strategy parameters using modern C# patterns
-    /// </summary>
     public new required IParameterSet Parameters { get; init; }
 
     #endregion
 
     #region Public Properties
 
-    /// <summary>
-    /// Performance tracking interface
-    /// </summary>
     public IPerformanceTracker? Performance { get; private set; }
 
-    /// <summary>
-    /// Risk management interface
-    /// </summary>
     public new IRiskManager? RiskManager { get; protected set; }
 
-    /// <summary>
-    /// High-performance event channel for trade execution data
-    /// </summary>
     public ChannelReader<TradeExecutionData> TradeEvents => _tradeChannel.Reader;
 
-    /// <summary>
-    /// High-performance event channel for performance snapshots
-    /// </summary>
     public ChannelReader<PerformanceSnapshot> PerformanceEvents => _performanceChannel.Reader;
 
-    /// <summary>
-    /// Risk violation events channel
-    /// </summary>
     public ChannelReader<RiskViolation> RiskEvents => _riskChannel.Reader;
 
-    /// <summary>
-    /// Strategy state change events channel
-    /// </summary>
     public ChannelReader<StrategyStateChange> StateEvents => _stateChannel.Reader;
 
-    /// <summary>
-    /// Current strategy state
-    /// </summary>
     public StrategyState CurrentState => _currentState;
 
     #endregion
 
     #region Constructors
 
-    /// <summary>
-    /// StockSharp requires parameterless constructor for some scenarios
-    /// </summary>
     protected EnhancedStrategyBase() : base()
     {
         // Initialize with service locator pattern as fallback
@@ -122,9 +84,6 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
         _snapshotPool = _serviceProvider?.GetService<ObjectPool<PerformanceSnapshot>>();
     }
 
-    /// <summary>
-    /// Preferred constructor for dependency injection scenarios
-    /// </summary>
     protected EnhancedStrategyBase(
         ILogger<EnhancedStrategyBase> logger,
         IServiceProvider serviceProvider) : base()
@@ -146,9 +105,6 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
 
     #region Enhanced Strategy Lifecycle
 
-    /// <summary>
-    /// Start the enhanced strategy with initialization
-    /// </summary>
     public virtual async Task StartEnhancedAsync()
     {
         try
@@ -172,9 +128,6 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
         }
     }
 
-    /// <summary>
-    /// Stop the enhanced strategy with cleanup
-    /// </summary>
     public virtual async Task StopEnhancedAsync()
     {
         try
@@ -194,9 +147,6 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
         }
     }
 
-    /// <summary>
-    /// Process an order with enhanced risk management
-    /// </summary>
     public virtual bool ProcessOrder(Order order)
     {
         try
@@ -226,9 +176,6 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
         }
     }
 
-    /// <summary>
-    /// Process a trade with enhanced performance tracking
-    /// </summary>
     public virtual void ProcessTrade(Trade trade)
     {
         try
@@ -248,9 +195,6 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
 
     #region Enhanced Functionality
 
-    /// <summary>
-    /// Initialize enhanced features with dependency injection
-    /// </summary>
     public async Task InitializeAsync(IServiceProvider serviceProvider)
     {
         if (_isInitialized)
@@ -276,9 +220,6 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
         }
     }
 
-    /// <summary>
-    /// Validate strategy parameters
-    /// </summary>
     public ValidationResult ValidateParameters()
     {
         try
@@ -296,18 +237,12 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
 
     #region Private Helper Methods
 
-    /// <summary>
-    /// Initialize logger for service locator pattern
-    /// </summary>
     private ILogger<EnhancedStrategyBase> InitializeLogger()
     {
         // Fallback to null logger if no service provider available
         return Microsoft.Extensions.Logging.Abstractions.NullLogger<EnhancedStrategyBase>.Instance;
     }
 
-    /// <summary>
-    /// Initialize service provider for service locator pattern
-    /// </summary>
     private IServiceProvider? InitializeServiceProvider()
     {
         // Service locator pattern - would be configured by the application
@@ -315,9 +250,6 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
         return null;
     }
 
-    /// <summary>
-    /// Initialize enhanced features after StockSharp setup
-    /// </summary>
     private async Task InitializeEnhancedFeaturesAsync()
     {
         try
@@ -343,9 +275,6 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
         }
     }
 
-    /// <summary>
-    /// Cleanup enhanced features
-    /// </summary>
     private async Task CleanupEnhancedFeaturesAsync()
     {
         try
@@ -373,9 +302,6 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
         }
     }
 
-    /// <summary>
-    /// Enhanced pre-order processing
-    /// </summary>
     private void EnhancedPreOrderProcessing(Order order)
     {
         // Track enhanced order data
@@ -388,9 +314,6 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
             order.Id, order.Security?.Code, order.Direction, order.Volume, order.Price);
     }
 
-    /// <summary>
-    /// Enhanced post-order processing
-    /// </summary>
     private void EnhancedPostOrderProcessing(Order order)
     {
         // Update state with pending orders
@@ -398,9 +321,6 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
         UpdateState(_currentState.WithPositionsAndOrders(_currentState.ActivePositions, pendingOrders));
     }
 
-    /// <summary>
-    /// Record trade execution without allocation in hot path
-    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void RecordTradeExecution(Trade trade)
     {
@@ -433,9 +353,6 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
         }
     }
 
-    /// <summary>
-    /// Get current portfolio snapshot
-    /// </summary>
     private PortfolioSnapshot GetCurrentPortfolioSnapshot()
     {
         var portfolio = Portfolio;
@@ -453,9 +370,6 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
         );
     }
 
-    /// <summary>
-    /// Update strategy state
-    /// </summary>
     private void UpdateState(StrategyStatus status, string? reason = null)
     {
         var previousState = _currentState;
@@ -465,9 +379,6 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
         _ = _stateChannel.Writer.TryWrite(stateChange);
     }
 
-    /// <summary>
-    /// Update strategy state with new state object
-    /// </summary>
     private void UpdateState(StrategyState newState)
     {
         var previousState = _currentState;
@@ -477,18 +388,12 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
         _ = _stateChannel.Writer.TryWrite(stateChange);
     }
 
-    /// <summary>
-    /// Publish risk violation event
-    /// </summary>
     private bool PublishRiskEvent(RiskViolation violation)
     {
         RiskManager?.RecordViolation(violation);
         return _riskChannel.Writer.TryWrite(violation);
     }
 
-    /// <summary>
-    /// Background event processing
-    /// </summary>
     private async Task ProcessEventsAsync(CancellationToken cancellationToken)
     {
         try
@@ -511,9 +416,6 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
 
     #region IDisposable Implementation
 
-    /// <summary>
-    /// Dispose pattern implementation
-    /// </summary>
     protected virtual void Dispose(bool disposing)
     {
         if (!_isDisposed && disposing)
@@ -529,18 +431,12 @@ public abstract class EnhancedStrategyBase : Strategy, IEnhancedStrategy, IAsync
         }
     }
 
-    /// <summary>
-    /// <inheritdoc/>
-    /// </summary>
     public new void Dispose()
     {
         Dispose(true);
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>
-    /// Async dispose pattern implementation
-    /// </summary>
     public async ValueTask DisposeAsync()
     {
         if (!_isDisposed)
