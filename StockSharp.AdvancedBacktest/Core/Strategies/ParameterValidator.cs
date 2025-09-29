@@ -1,89 +1,58 @@
+// Backward compatibility wrapper around the enhanced ParameterValidator
+// This file provides aliases to maintain compatibility while new code uses the enhanced implementation
+
+using StockSharp.AdvancedBacktest.Core.Configuration.Validation;
 using StockSharp.AdvancedBacktest.Core.Strategies.Interfaces;
 using StockSharp.AdvancedBacktest.Core.Strategies.Models;
-using System.Text.RegularExpressions;
 
 namespace StockSharp.AdvancedBacktest.Core.Strategies;
 
+/// <summary>
+/// Backward compatibility wrapper around the enhanced ParameterValidator.
+/// New code should use StockSharp.AdvancedBacktest.Core.Configuration.Validation.ParameterValidator.
+/// </summary>
+[Obsolete("Use StockSharp.AdvancedBacktest.Core.Configuration.Validation.ParameterValidator instead. This alias will be removed in v3.0.")]
 public class ParameterValidator : IParameterValidator
 {
-    public ValidationResult ValidateParameter(string parameterName, object? value, ParameterDefinition definition)
+    private readonly StockSharp.AdvancedBacktest.Core.Configuration.Validation.ParameterValidator _enhanced;
+
+    public ParameterValidator()
     {
-        if (string.IsNullOrEmpty(parameterName))
-            return ValidationResult.Failure("Parameter name cannot be null or empty");
-
-        if (definition == null)
-            return ValidationResult.Failure($"Parameter definition for '{parameterName}' is null");
-
-        var errors = new List<string>();
-        var warnings = new List<string>();
-
-        try
-        {
-            // Check required parameters
-            if (definition.IsRequired && value == null)
-            {
-                errors.Add($"Required parameter '{parameterName}' is missing");
-                return ValidationResult.Failure(errors);
-            }
-
-            // Allow null for non-required parameters
-            if (value == null)
-            {
-                return ValidationResult.CreateSuccess();
-            }
-
-            // Type validation
-            if (!IsTypeCompatible(value, definition.Type))
-            {
-                errors.Add($"Parameter '{parameterName}' expects type {definition.Type.Name} but got {value.GetType().Name}");
-            }
-
-            // Numeric range validation
-            if (definition.IsNumeric && value is IComparable comparableValue)
-            {
-                ValidateNumericRange(parameterName, comparableValue, definition, errors, warnings);
-            }
-
-            // String validation
-            if (definition.IsString && value is string stringValue)
-            {
-                ValidateString(parameterName, stringValue, definition, errors, warnings);
-            }
-
-            // Boolean validation
-            if (definition.IsBoolean && value is bool boolValue)
-            {
-                ValidateBoolean(parameterName, boolValue, definition, errors, warnings);
-            }
-
-            // Enum validation
-            if (definition.IsEnum)
-            {
-                ValidateEnum(parameterName, value, definition, errors, warnings);
-            }
-
-            return errors.Count == 0
-                ? (warnings.Count == 0 ? ValidationResult.CreateSuccess() : ValidationResult.SuccessWithWarnings(warnings))
-                : ValidationResult.Failure(errors, warnings);
-        }
-        catch (Exception ex)
-        {
-            errors.Add($"Validation error for parameter '{parameterName}': {ex.Message}");
-            return ValidationResult.Failure(errors);
-        }
+        _enhanced = new StockSharp.AdvancedBacktest.Core.Configuration.Validation.ParameterValidator();
     }
 
-    public ValidationResult ValidateParameterSet(IParameterSet parameters)
+    public Models.ValidationResult ValidateParameter(string parameterName, object? value, Models.ParameterDefinition definition)
+    {
+        if (string.IsNullOrEmpty(parameterName))
+            return Models.ValidationResult.Failure("Parameter name cannot be null or empty");
+
+        if (definition == null)
+            return Models.ValidationResult.Failure($"Parameter definition for '{parameterName}' is null");
+
+        // Use the enhanced validator
+        var result = _enhanced.ValidateParameter(definition, value);
+        return Models.ValidationResult.FromEnhanced(result);
+    }
+
+    public Models.ValidationResult ValidateParameterSet(IParameterSet parameters)
     {
         if (parameters == null)
-            return ValidationResult.Failure("Parameter set cannot be null");
+            return Models.ValidationResult.Failure("Parameter set cannot be null");
 
+        // Convert to enhanced parameter set for validation if it's our wrapper
+        if (parameters is ParameterSet legacySet)
+        {
+            var result = legacySet.Validate();
+            return result;
+        }
+
+        // Fallback for other implementations
         var allErrors = new List<string>();
         var allWarnings = new List<string>();
 
         try
         {
-            // Validate each parameter
+            // Validate each parameter using the legacy method
             foreach (var definition in parameters.Definitions)
             {
                 var value = parameters.GetValue(definition.Name);
@@ -93,232 +62,31 @@ public class ParameterValidator : IParameterValidator
                 allWarnings.AddRange(result.Warnings);
             }
 
-            // Validate dependencies
-            var dependencyResult = ValidateDependencies(parameters);
-            allErrors.AddRange(dependencyResult.Errors);
-            allWarnings.AddRange(dependencyResult.Warnings);
-
-            // Validate completeness
-            var completenessResult = ValidateCompleteness(parameters);
-            allErrors.AddRange(completenessResult.Errors);
-            allWarnings.AddRange(completenessResult.Warnings);
+            // Basic completeness check
+            var statistics = parameters.GetStatistics();
+            if (!statistics.IsComplete)
+            {
+                var missing = statistics.RequiredParameters - statistics.RequiredParametersSet;
+                allErrors.Add($"{missing} required parameter(s) are missing");
+            }
 
             return allErrors.Count == 0
-                ? (allWarnings.Count == 0 ? ValidationResult.CreateSuccess() : ValidationResult.SuccessWithWarnings(allWarnings))
-                : ValidationResult.Failure(allErrors, allWarnings);
+                ? (allWarnings.Count == 0 ? Models.ValidationResult.CreateSuccess() : Models.ValidationResult.SuccessWithWarnings(allWarnings.ToArray()))
+                : Models.ValidationResult.Failure(allErrors, allWarnings);
         }
         catch (Exception ex)
         {
             allErrors.Add($"Parameter set validation error: {ex.Message}");
-            return ValidationResult.Failure(allErrors);
+            return Models.ValidationResult.Failure(allErrors);
         }
     }
 
-    public ValidationResult ValidateDependencies(IParameterSet parameters)
+    public Models.ValidationResult ValidateDependencies(IParameterSet parameters)
     {
         if (parameters == null)
-            return ValidationResult.Failure("Parameter set cannot be null");
+            return Models.ValidationResult.Failure("Parameter set cannot be null");
 
-        var errors = new List<string>();
-        var warnings = new List<string>();
-
-        try
-        {
-            // Common dependency validations
-            ValidateCommonDependencies(parameters, errors, warnings);
-
-            // Trading-specific validations
-            ValidateTradingDependencies(parameters, errors, warnings);
-
-            // Risk management validations
-            ValidateRiskDependencies(parameters, errors, warnings);
-
-            return errors.Count == 0
-                ? (warnings.Count == 0 ? ValidationResult.CreateSuccess() : ValidationResult.SuccessWithWarnings(warnings))
-                : ValidationResult.Failure(errors, warnings);
-        }
-        catch (Exception ex)
-        {
-            errors.Add($"Dependency validation error: {ex.Message}");
-            return ValidationResult.Failure(errors);
-        }
-    }
-
-    private static bool IsTypeCompatible(object value, Type expectedType)
-    {
-        if (value == null)
-            return !expectedType.IsValueType || Nullable.GetUnderlyingType(expectedType) != null;
-
-        var valueType = value.GetType();
-
-        if (expectedType.IsAssignableFrom(valueType))
-            return true;
-
-        if (IsNumericType(expectedType) && IsNumericType(valueType))
-            return true;
-
-        if (expectedType == typeof(string))
-            return true;
-
-        return false;
-    }
-
-    private static bool IsNumericType(Type type)
-    {
-        return type == typeof(int) || type == typeof(long) || type == typeof(decimal) ||
-               type == typeof(double) || type == typeof(float) || type == typeof(short) ||
-               type == typeof(byte) || type == typeof(uint) || type == typeof(ulong) ||
-               type == typeof(ushort) || type == typeof(sbyte) ||
-               type == typeof(int?) || type == typeof(long?) || type == typeof(decimal?) ||
-               type == typeof(double?) || type == typeof(float?) || type == typeof(short?) ||
-               type == typeof(byte?) || type == typeof(uint?) || type == typeof(ulong?) ||
-               type == typeof(ushort?) || type == typeof(sbyte?);
-    }
-
-    private static void ValidateNumericRange(
-        string parameterName,
-        IComparable value,
-        ParameterDefinition definition,
-        List<string> errors,
-        List<string> warnings)
-    {
-        if (definition.MinValue is IComparable min && value.CompareTo(min) < 0)
-        {
-            errors.Add($"Parameter '{parameterName}' value {value} is below minimum {min}");
-        }
-
-        if (definition.MaxValue is IComparable max && value.CompareTo(max) > 0)
-        {
-            errors.Add($"Parameter '{parameterName}' value {value} is above maximum {max}");
-        }
-
-        if (definition.MinValue is IComparable minWarn && definition.MaxValue is IComparable maxWarn)
-        {
-            var range = Convert.ToDecimal(maxWarn) - Convert.ToDecimal(minWarn);
-            var valueDecimal = Convert.ToDecimal(value);
-            var minDecimal = Convert.ToDecimal(minWarn);
-            var maxDecimal = Convert.ToDecimal(maxWarn);
-
-            var distanceFromMin = (valueDecimal - minDecimal) / range;
-            var distanceFromMax = (maxDecimal - valueDecimal) / range;
-
-            if (distanceFromMin < 0.1m)
-            {
-                warnings.Add($"Parameter '{parameterName}' value {value} is very close to minimum {minWarn}");
-            }
-            else if (distanceFromMax < 0.1m)
-            {
-                warnings.Add($"Parameter '{parameterName}' value {value} is very close to maximum {maxWarn}");
-            }
-        }
-    }
-
-    private static void ValidateString(
-        string parameterName,
-        string value,
-        ParameterDefinition definition,
-        List<string> errors,
-        List<string> warnings)
-    {
-        if (!string.IsNullOrEmpty(definition.ValidationPattern))
-        {
-            try
-            {
-                if (!Regex.IsMatch(value, definition.ValidationPattern))
-                {
-                    errors.Add($"Parameter '{parameterName}' value '{value}' does not match required pattern");
-                }
-            }
-            catch (Exception ex)
-            {
-                errors.Add($"Parameter '{parameterName}' pattern validation failed: {ex.Message}");
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(value) && definition.IsRequired)
-        {
-            errors.Add($"Required parameter '{parameterName}' cannot be empty or whitespace");
-        }
-
-        if (value.Length > 1000) // Reasonable upper limit
-        {
-            warnings.Add($"Parameter '{parameterName}' value is very long ({value.Length} characters)");
-        }
-    }
-
-    private static void ValidateBoolean(
-        string parameterName,
-        bool value,
-        ParameterDefinition definition,
-        List<string> errors,
-        List<string> warnings)
-    {
-        // No specific validation for boolean values
-        // Could add business logic validation here if needed
-    }
-
-    private static void ValidateEnum(
-        string parameterName,
-        object value,
-        ParameterDefinition definition,
-        List<string> errors,
-        List<string> warnings)
-    {
-        if (!Enum.IsDefined(definition.Type, value))
-        {
-            errors.Add($"Parameter '{parameterName}' value '{value}' is not a valid {definition.Type.Name} enum value");
-        }
-    }
-
-    private static void ValidateCommonDependencies(
-        IParameterSet parameters,
-        List<string> errors,
-        List<string> warnings)
-    {
-        // Example validations would go here based on actual parameter names
-        // For now, no generic common dependencies to validate
-    }
-
-    private static void ValidateTradingDependencies(
-        IParameterSet parameters,
-        List<string> errors,
-        List<string> warnings)
-    {
-        // Example trading validations would go here based on actual parameter names
-        // For now, no generic trading dependencies to validate
-    }
-
-    private static void ValidateRiskDependencies(
-        IParameterSet parameters,
-        List<string> errors,
-        List<string> warnings)
-    {
-        // Example risk validations would go here based on actual parameter names
-        // For now, no generic risk dependencies to validate
-    }
-
-    private static ValidationResult ValidateCompleteness(IParameterSet parameters)
-    {
-        var errors = new List<string>();
-        var warnings = new List<string>();
-
-        // Check if all required parameters are set
-        var statistics = ((ParameterSet)parameters).GetStatistics();
-        if (!statistics.IsComplete)
-        {
-            var missing = statistics.RequiredParameters - statistics.RequiredParametersSet;
-            errors.Add($"{missing} required parameter(s) are missing");
-        }
-
-        // Warn about optional parameters that might be important
-        var setRatio = (decimal)statistics.SetParameters / statistics.TotalParameters;
-        if (setRatio < 0.5m)
-        {
-            warnings.Add($"Only {setRatio:P0} of parameters are set - consider reviewing optional parameters");
-        }
-
-        return errors.Count == 0
-            ? (warnings.Count == 0 ? ValidationResult.CreateSuccess() : ValidationResult.SuccessWithWarnings(warnings))
-            : ValidationResult.Failure(errors, warnings);
+        // Simplified dependency validation for backward compatibility
+        return Models.ValidationResult.CreateSuccess();
     }
 }

@@ -120,10 +120,10 @@ public class IEnhancedStrategyTests
         public ImmutableDictionary<string, object?> GetSnapshot() => ImmutableDictionary<string, object?>.Empty;
         public ParameterSetStatistics GetStatistics() => new(0, 0, 0, 0, true);
         public object? GetValue(string name) => null;
-        public T GetValue<T>(string name) where T : System.Numerics.INumber<T> => default(T)!;
+        public T GetValue<T>(string name) where T : struct, IComparable<T>, System.Numerics.INumber<T> => default(T);
         public bool HasParameter(string name) => false;
         public void SetValue(string name, object? value) { }
-        public void SetValue<T>(string name, T value) where T : System.Numerics.INumber<T> { }
+        public void SetValue<T>(string name, T value) where T : struct, IComparable<T>, System.Numerics.INumber<T> { }
         public bool TryGetValue(string name, out object? value) { value = null; return false; }
         public ValidationResult Validate() => ValidationResult.CreateSuccess();
     }

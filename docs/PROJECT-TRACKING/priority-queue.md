@@ -8,8 +8,8 @@
 
 | Priority | Task ID | Epic | Task | Agent | Status | Dependencies |
 |----------|---------|------|------|-------|--------|--------------|
-| HIGH-01 | P1-CORE-01 | Phase1-Foundation | Create Enhanced Strategy Base Classes | dotnet-csharp-expert | READY | None |
-| HIGH-02 | P1-CORE-02 | Phase1-Foundation | Implement ParameterSet with Validation | dotnet-csharp-expert | READY | P1-CORE-01 |
+| HIGH-01 | P1-CORE-01 | Phase1-Foundation | Create Enhanced Strategy Base Classes | dotnet-csharp-expert | DONE | None |
+| HIGH-02 | P1-CORE-02 | Phase1-Foundation | Implement ParameterSet with Validation | dotnet-csharp-expert | IN-PROGRESS | P1-CORE-01 |
 | HIGH-03 | P1-OPT-01 | Phase1-Foundation | Create BruteForceOptimizerWrapper | dotnet-csharp-expert | READY | P1-CORE-01, P1-CORE-02 |
 | HIGH-04 | P1-PERF-01 | Phase1-Foundation | Implement PerformanceCalculator | quantum-trading-expert | READY | P1-OPT-01 |
 | HIGH-05 | P1-DATA-01 | Phase1-Foundation | Create JsonSerializationService | dotnet-csharp-expert | READY | None |

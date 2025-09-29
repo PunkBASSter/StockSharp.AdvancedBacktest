@@ -1,10 +1,11 @@
 using System.Collections.Immutable;
+using StockSharp.AdvancedBacktest.Core.Configuration.Parameters;
 
 namespace StockSharp.AdvancedBacktest.Core.Strategies.Models;
 
 public sealed class ParameterSetJson
 {
-    public ParameterDefinition[] Definitions { get; set; } = [];
+    public ParameterDefinitionBase[] Definitions { get; set; } = [];
 
     public ImmutableDictionary<string, object?> Values { get; set; } = ImmutableDictionary<string, object?>.Empty;
 

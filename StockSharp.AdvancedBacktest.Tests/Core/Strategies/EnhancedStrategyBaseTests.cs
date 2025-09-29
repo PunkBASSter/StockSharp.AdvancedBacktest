@@ -5,6 +5,8 @@ using StockSharp.BusinessEntities;
 using StockSharp.AdvancedBacktest.Core.Strategies;
 using StockSharp.AdvancedBacktest.Core.Strategies.Interfaces;
 using StockSharp.AdvancedBacktest.Core.Strategies.Models;
+using StockSharp.AdvancedBacktest.Core.Configuration.Parameters;
+using StockSharp.AdvancedBacktest.Core.Configuration.Validation;
 using System.Collections.Immutable;
 using System.Numerics;
 using System.Threading.Channels;
@@ -392,47 +394,47 @@ public class EnhancedStrategyBaseTests
     private class TestParameterSet : IParameterSet
     {
         public int Count => 1;
-        public ImmutableArray<ParameterDefinition> Definitions => ImmutableArray.Create(
-            ParameterDefinition.CreateNumeric<int>("TestParam", 1, 100, 50)
+        public ImmutableArray<StockSharp.AdvancedBacktest.Core.Strategies.Models.ParameterDefinition> Definitions => ImmutableArray.Create(
+            StockSharp.AdvancedBacktest.Core.Strategies.Models.ParameterDefinition.CreateNumeric<int>("TestParam", 1, 100, 50)
         );
 
-        public T GetValue<T>(string name) where T : INumber<T> => T.CreateChecked(50);
+        public T GetValue<T>(string name) where T : struct, IComparable<T>, INumber<T> => T.CreateChecked(50);
         public object? GetValue(string name) => 50;
-        public void SetValue<T>(string name, T value) where T : INumber<T> { }
+        public void SetValue<T>(string name, T value) where T : struct, IComparable<T>, INumber<T> { }
         public void SetValue(string name, object? value) { }
         public bool HasParameter(string name) => name == "TestParam";
         public ImmutableDictionary<string, object?> GetSnapshot() => ImmutableDictionary<string, object?>.Empty.Add("TestParam", 50);
-        public ValidationResult Validate() => ValidationResult.Success;
+        public StockSharp.AdvancedBacktest.Core.Strategies.Models.ValidationResult Validate() => StockSharp.AdvancedBacktest.Core.Strategies.Models.ValidationResult.CreateSuccess();
         public IParameterSet Clone() => new TestParameterSet();
         public bool TryGetValue(string name, out object? value)
         {
             value = name == "TestParam" ? 50 : null;
             return name == "TestParam";
         }
-        public ParameterSetStatistics GetStatistics() => new(1, 1, 1, 1, true);
+        public StockSharp.AdvancedBacktest.Core.Strategies.Interfaces.ParameterSetStatistics GetStatistics() => new(1, 1, 1, 1, true);
     }
 
     private class TestInvalidParameterSet : IParameterSet
     {
         public int Count => 1;
-        public ImmutableArray<ParameterDefinition> Definitions => ImmutableArray.Create(
-            ParameterDefinition.CreateNumeric<int>("InvalidParam", 1, 100, 150) // Invalid default
+        public ImmutableArray<StockSharp.AdvancedBacktest.Core.Strategies.Models.ParameterDefinition> Definitions => ImmutableArray.Create(
+            StockSharp.AdvancedBacktest.Core.Strategies.Models.ParameterDefinition.CreateNumeric<int>("InvalidParam", 1, 100, 150) // Invalid default
         );
 
-        public T GetValue<T>(string name) where T : INumber<T> => T.CreateChecked(150);
+        public T GetValue<T>(string name) where T : struct, IComparable<T>, INumber<T> => T.CreateChecked(150);
         public object? GetValue(string name) => 150;
-        public void SetValue<T>(string name, T value) where T : INumber<T> { }
+        public void SetValue<T>(string name, T value) where T : struct, IComparable<T>, INumber<T> { }
         public void SetValue(string name, object? value) { }
         public bool HasParameter(string name) => name == "InvalidParam";
         public ImmutableDictionary<string, object?> GetSnapshot() => ImmutableDictionary<string, object?>.Empty.Add("InvalidParam", 150);
-        public ValidationResult Validate() => ValidationResult.Failure("Invalid parameter value");
+        public StockSharp.AdvancedBacktest.Core.Strategies.Models.ValidationResult Validate() => StockSharp.AdvancedBacktest.Core.Strategies.Models.ValidationResult.Failure("Invalid parameter value");
         public IParameterSet Clone() => new TestInvalidParameterSet();
         public bool TryGetValue(string name, out object? value)
         {
             value = name == "InvalidParam" ? 150 : null;
             return name == "InvalidParam";
         }
-        public ParameterSetStatistics GetStatistics() => new(1, 1, 1, 0, false);
+        public StockSharp.AdvancedBacktest.Core.Strategies.Interfaces.ParameterSetStatistics GetStatistics() => new(1, 1, 1, 0, false);
     }
 
     private class TestPerformanceTracker : IPerformanceTracker

@@ -1,10 +1,11 @@
-using StockSharp.AdvancedBacktest.Core.Strategies.Models;
+using StockSharp.AdvancedBacktest.Core.Configuration.Parameters;
+using ParameterDefinition = StockSharp.AdvancedBacktest.Core.Configuration.Parameters.ParameterDefinition;
 using System.Numerics;
 
 namespace StockSharp.AdvancedBacktest.Tests.Core.Strategies.Models;
 
 /// <summary>
-/// Tests for ParameterDefinition record and related functionality
+/// Tests for ParameterDefinition<T> record and related functionality
 /// </summary>
 public class ParameterDefinitionTests
 {
@@ -12,7 +13,7 @@ public class ParameterDefinitionTests
     public void ParameterDefinition_CreateNumeric_ShouldCreateValidDefinition()
     {
         // Act
-        var definition = ParameterDefinition.CreateNumeric<int>("TestParam", 1, 100, 50, "Test description", true);
+        var definition = ParameterDefinition.CreateNumeric<int>("TestParam", 1, 100, 50, description: "Test description", isRequired: true);
 
         // Assert
         Assert.Equal("TestParam", definition.Name);
@@ -23,66 +24,65 @@ public class ParameterDefinitionTests
         Assert.Equal("Test description", definition.Description);
         Assert.True(definition.IsRequired);
         Assert.True(definition.IsNumeric);
-        Assert.False(definition.IsString);
-        Assert.False(definition.IsBoolean);
-        Assert.False(definition.IsEnum);
+        Assert.True(definition.HasMinValue);
+        Assert.True(definition.HasMaxValue);
+        Assert.True(definition.HasDefaultValue);
     }
 
     [Fact]
-    public void ParameterDefinition_CreateString_ShouldCreateValidDefinition()
+    public void ParameterDefinition_CreateInteger_ShouldCreateValidDefinition()
     {
         // Act
-        var definition = ParameterDefinition.CreateString("StringParam", "default", "String parameter", true, @"^[a-zA-Z]+$");
+        var definition = ParameterDefinition.CreateInteger("IntParam", 0, 1000, 500, 10, "Integer parameter", true);
 
         // Assert
-        Assert.Equal("StringParam", definition.Name);
-        Assert.Equal(typeof(string), definition.Type);
-        Assert.Equal("default", definition.DefaultValue);
-        Assert.Equal("String parameter", definition.Description);
+        Assert.Equal("IntParam", definition.Name);
+        Assert.Equal(typeof(int), definition.Type);
+        Assert.Equal(0, definition.MinValue);
+        Assert.Equal(1000, definition.MaxValue);
+        Assert.Equal(500, definition.DefaultValue);
+        Assert.Equal(10, definition.Step);
+        Assert.Equal("Integer parameter", definition.Description);
         Assert.True(definition.IsRequired);
-        Assert.Equal(@"^[a-zA-Z]+$", definition.ValidationPattern);
-        Assert.False(definition.IsNumeric);
-        Assert.True(definition.IsString);
-        Assert.False(definition.IsBoolean);
-        Assert.False(definition.IsEnum);
+        Assert.True(definition.IsNumeric);
+        Assert.True(definition.HasStep);
     }
 
     [Fact]
-    public void ParameterDefinition_CreateBoolean_ShouldCreateValidDefinition()
+    public void ParameterDefinition_CreateDecimal_ShouldCreateValidDefinition()
     {
         // Act
-        var definition = ParameterDefinition.CreateBoolean("BoolParam", true, "Boolean parameter", false);
+        var definition = ParameterDefinition.CreateDecimal("DecimalParam", 0.1m, 99.9m, 50.0m, 0.1m, "Decimal parameter", false);
 
         // Assert
-        Assert.Equal("BoolParam", definition.Name);
-        Assert.Equal(typeof(bool), definition.Type);
-        Assert.Equal(true, definition.DefaultValue);
-        Assert.Equal("Boolean parameter", definition.Description);
+        Assert.Equal("DecimalParam", definition.Name);
+        Assert.Equal(typeof(decimal), definition.Type);
+        Assert.Equal(0.1m, definition.MinValue);
+        Assert.Equal(99.9m, definition.MaxValue);
+        Assert.Equal(50.0m, definition.DefaultValue);
+        Assert.Equal(0.1m, definition.Step);
+        Assert.Equal("Decimal parameter", definition.Description);
         Assert.False(definition.IsRequired);
-        Assert.False(definition.IsNumeric);
-        Assert.False(definition.IsString);
-        Assert.True(definition.IsBoolean);
-        Assert.False(definition.IsEnum);
+        Assert.True(definition.IsNumeric);
+        Assert.True(definition.HasStep);
     }
 
-    public enum TestEnum { Value1, Value2, Value3 }
-
     [Fact]
-    public void ParameterDefinition_CreateEnum_ShouldCreateValidDefinition()
+    public void ParameterDefinition_CreateDouble_ShouldCreateValidDefinition()
     {
         // Act
-        var definition = ParameterDefinition.CreateEnum<TestEnum>("EnumParam", TestEnum.Value2, "Enum parameter", true);
+        var definition = ParameterDefinition.CreateDouble("DoubleParam", 0.0, 100.0, 50.0, 1.0, "Double parameter", true);
 
         // Assert
-        Assert.Equal("EnumParam", definition.Name);
-        Assert.Equal(typeof(TestEnum), definition.Type);
-        Assert.Equal(TestEnum.Value2, definition.DefaultValue);
-        Assert.Equal("Enum parameter", definition.Description);
+        Assert.Equal("DoubleParam", definition.Name);
+        Assert.Equal(typeof(double), definition.Type);
+        Assert.Equal(0.0, definition.MinValue);
+        Assert.Equal(100.0, definition.MaxValue);
+        Assert.Equal(50.0, definition.DefaultValue);
+        Assert.Equal(1.0, definition.Step);
+        Assert.Equal("Double parameter", definition.Description);
         Assert.True(definition.IsRequired);
-        Assert.False(definition.IsNumeric);
-        Assert.False(definition.IsString);
-        Assert.False(definition.IsBoolean);
-        Assert.True(definition.IsEnum);
+        Assert.True(definition.IsNumeric);
     }
 
     [Fact]
@@ -90,11 +90,11 @@ public class ParameterDefinitionTests
     {
         // Arrange
         var intDefinition = ParameterDefinition.CreateNumeric<int>("IntParam");
-        var stringDefinition = ParameterDefinition.CreateString("StringParam");
+        var decimalDefinition = ParameterDefinition.CreateDecimal("DecimalParam");
 
         // Act & Assert
         Assert.Equal("Int32", intDefinition.TypeName);
-        Assert.Equal("String", stringDefinition.TypeName);
+        Assert.Equal("Decimal", decimalDefinition.TypeName);
     }
 
     [Fact]
@@ -155,7 +155,7 @@ public class ParameterDefinitionTests
     public void ParameterDefinition_ValidateValue_WithNullForRequired_ShouldReturnError()
     {
         // Arrange
-        var definition = ParameterDefinition.CreateString("RequiredParam", isRequired: true);
+        var definition = ParameterDefinition.CreateInteger("RequiredParam", isRequired: true);
 
         // Act
         var result = definition.ValidateValue(null);
@@ -170,7 +170,7 @@ public class ParameterDefinitionTests
     public void ParameterDefinition_ValidateValue_WithNullForOptional_ShouldReturnSuccess()
     {
         // Arrange
-        var definition = ParameterDefinition.CreateString("OptionalParam", isRequired: false);
+        var definition = ParameterDefinition.CreateInteger("OptionalParam", isRequired: false);
 
         // Act
         var result = definition.ValidateValue(null);
@@ -196,13 +196,13 @@ public class ParameterDefinitionTests
     }
 
     [Fact]
-    public void ParameterDefinition_ValidateValue_StringWithPattern_ValidValue_ShouldReturnSuccess()
+    public void ParameterDefinition_ValidateValue_WithStep_ValidValue_ShouldReturnSuccess()
     {
         // Arrange
-        var definition = ParameterDefinition.CreateString("EmailParam", validationPattern: @"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$");
+        var definition = ParameterDefinition.CreateInteger("StepParam", 0, 100, 50, 10);
 
         // Act
-        var result = definition.ValidateValue("test@example.com");
+        var result = definition.ValidateValue(20); // Valid: 0 + 2*10
 
         // Assert
         Assert.True(result.IsValid);
@@ -210,18 +210,18 @@ public class ParameterDefinitionTests
     }
 
     [Fact]
-    public void ParameterDefinition_ValidateValue_StringWithPattern_InvalidValue_ShouldReturnError()
+    public void ParameterDefinition_ValidateValue_WithStep_InvalidValue_ShouldReturnError()
     {
         // Arrange
-        var definition = ParameterDefinition.CreateString("EmailParam", validationPattern: @"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$");
+        var definition = ParameterDefinition.CreateInteger("StepParam", 0, 100, 50, 10);
 
         // Act
-        var result = definition.ValidateValue("not-an-email");
+        var result = definition.ValidateValue(25); // Invalid: not aligned to step
 
         // Assert
         Assert.False(result.IsValid);
         Assert.True(result.HasErrors);
-        Assert.Contains("does not match required pattern", result.Errors[0]);
+        Assert.Contains("not aligned to step", result.Errors[0]);
     }
 
     [Fact]
@@ -239,86 +239,119 @@ public class ParameterDefinitionTests
     }
 
     [Fact]
-    public void TypedParameter_WithValidValue_ShouldBeValid()
+    public void ParameterDefinition_WithValidValue_ShouldValidateCorrectly()
     {
         // Arrange
-        var parameter = new TypedParameter<decimal>
-        {
-            Name = "Price",
-            Value = 100.50m,
-            MinValue = 0m,
-            MaxValue = 1000m
-        };
+        var definition = ParameterDefinition.CreateDecimal("Price", 0m, 1000m, 100.50m);
 
         // Act
-        var isValid = parameter.IsValid();
-        var error = parameter.GetValidationError();
+        var result = definition.ValidateValue(100.50m);
 
         // Assert
-        Assert.True(isValid);
-        Assert.Null(error);
+        Assert.True(result.IsValid);
+        Assert.Equal("Price", definition.Name);
+        Assert.Equal(typeof(decimal), definition.Type);
     }
 
     [Fact]
-    public void TypedParameter_WithValueBelowMinimum_ShouldBeInvalid()
+    public void ParameterDefinition_WithValueBelowMinimum_ShouldBeInvalid()
     {
         // Arrange
-        var parameter = new TypedParameter<decimal>
-        {
-            Name = "Price",
-            Value = -10m,
-            MinValue = 0m,
-            MaxValue = 1000m
-        };
+        var definition = ParameterDefinition.CreateDecimal("Price", 0m, 1000m, 100.50m);
 
         // Act
-        var isValid = parameter.IsValid();
-        var error = parameter.GetValidationError();
+        var result = definition.ValidateValue(-10m);
 
         // Assert
-        Assert.False(isValid);
-        Assert.NotNull(error);
-        Assert.Contains("below minimum", error);
+        Assert.False(result.IsValid);
+        Assert.True(result.HasErrors);
+        Assert.Contains("below minimum", result.Errors[0]);
     }
 
     [Fact]
-    public void TypedParameter_WithValueAboveMaximum_ShouldBeInvalid()
+    public void ParameterDefinition_WithValueAboveMaximum_ShouldBeInvalid()
     {
         // Arrange
-        var parameter = new TypedParameter<decimal>
-        {
-            Name = "Price",
-            Value = 1500m,
-            MinValue = 0m,
-            MaxValue = 1000m
-        };
+        var definition = ParameterDefinition.CreateDecimal("Price", 0m, 1000m, 100.50m);
 
         // Act
-        var isValid = parameter.IsValid();
-        var error = parameter.GetValidationError();
+        var result = definition.ValidateValue(1500m);
 
         // Assert
-        Assert.False(isValid);
-        Assert.NotNull(error);
-        Assert.Contains("above maximum", error);
+        Assert.False(result.IsValid);
+        Assert.True(result.HasErrors);
+        Assert.Contains("above maximum", result.Errors[0]);
     }
 
     [Fact]
-    public void TypedParameter_WithoutMinMax_ShouldBeValid()
+    public void ParameterDefinition_WithoutMinMax_ShouldAcceptAnyValue()
     {
         // Arrange
-        var parameter = new TypedParameter<int>
-        {
-            Name = "Count",
-            Value = 42
-        };
+        var definition = ParameterDefinition.CreateNumeric<int>("Count");
+
+        // Act & Assert
+        var result1 = definition.ValidateValue(42);
+        var result2 = definition.ValidateValue(-1000);
+        var result3 = definition.ValidateValue(int.MaxValue);
+
+        Assert.True(result1.IsValid);
+        Assert.True(result2.IsValid);
+        Assert.True(result3.IsValid);
+    }
+
+    [Fact]
+    public void ParameterDefinition_GenerateValidValues_ShouldEnumerateCorrectly()
+    {
+        // Arrange
+        var definition = ParameterDefinition.CreateInteger("TestParam", 0, 10, 5, 2);
 
         // Act
-        var isValid = parameter.IsValid();
-        var error = parameter.GetValidationError();
+        var values = definition.GenerateValidValues().Cast<int>().ToList();
 
         // Assert
-        Assert.True(isValid);
-        Assert.Null(error);
+        Assert.Equal(new[] { 0, 2, 4, 6, 8, 10 }, values);
+    }
+
+    [Fact]
+    public void ParameterDefinition_GetValidValueCount_ShouldCalculateCorrectly()
+    {
+        // Arrange
+        var definition = ParameterDefinition.CreateInteger("TestParam", 0, 10, 5, 2);
+
+        // Act
+        var count = definition.GetValidValueCount();
+
+        // Assert
+        Assert.Equal(6, count); // 0, 2, 4, 6, 8, 10
+    }
+
+    [Fact]
+    public void ParameterDefinition_WithRange_ShouldCreateNewInstance()
+    {
+        // Arrange
+        var original = ParameterDefinition.CreateInteger("TestParam", 0, 100);
+
+        // Act
+        var updated = original.WithRange(10, 50);
+
+        // Assert
+        Assert.Equal(0, original.MinValue);
+        Assert.Equal(100, original.MaxValue);
+        Assert.Equal(10, updated.MinValue);
+        Assert.Equal(50, updated.MaxValue);
+    }
+
+    [Fact]
+    public void ParameterDefinition_WithStep_ShouldCreateNewInstance()
+    {
+        // Arrange
+        var original = ParameterDefinition.CreateInteger("TestParam", 0, 100, step: 1);
+
+        // Act
+        var updated = original.WithStep(5);
+
+        // Assert
+        Assert.Equal(1, original.Step);
+        Assert.Equal(5, updated.Step);
     }
 }

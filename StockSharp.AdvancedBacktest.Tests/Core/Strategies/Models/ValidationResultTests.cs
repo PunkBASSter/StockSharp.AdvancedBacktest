@@ -1,4 +1,5 @@
-using StockSharp.AdvancedBacktest.Core.Strategies.Models;
+using StockSharp.AdvancedBacktest.Core.Configuration.Validation;
+using ValidationResult = StockSharp.AdvancedBacktest.Core.Configuration.Validation.ValidationResult;
 using System.Collections.Immutable;
 
 namespace StockSharp.AdvancedBacktest.Tests.Core.Strategies.Models;
@@ -293,8 +294,8 @@ public class ValidationResultTests
     public void ValidationResult_ImplicitConversion_FromBool_ShouldWorkCorrectly()
     {
         // Act
-        ValidationResult validResult = true;
-        ValidationResult invalidResult = false;
+        StockSharp.AdvancedBacktest.Core.Configuration.Validation.ValidationResult validResult = true;
+        StockSharp.AdvancedBacktest.Core.Configuration.Validation.ValidationResult invalidResult = false;
 
         // Assert
         Assert.True(validResult.IsValid);
@@ -306,8 +307,8 @@ public class ValidationResultTests
     public void ValidationResult_ImplicitConversion_ToBool_ShouldWorkCorrectly()
     {
         // Arrange
-        var validResult = ValidationResult.CreateSuccess();
-        var invalidResult = ValidationResult.Failure("Error");
+        var validResult = StockSharp.AdvancedBacktest.Core.Configuration.Validation.ValidationResult.CreateSuccess();
+        var invalidResult = StockSharp.AdvancedBacktest.Core.Configuration.Validation.ValidationResult.Failure("Error");
 
         // Act & Assert
         Assert.True(validResult);

@@ -9,8 +9,8 @@ public interface IParameterSet
     int Count { get; }
     ImmutableArray<ParameterDefinition> Definitions { get; }
 
-    T GetValue<T>(string name) where T : INumber<T>;
-    void SetValue<T>(string name, T value) where T : INumber<T>;
+    T GetValue<T>(string name) where T : struct, IComparable<T>, INumber<T>;
+    void SetValue<T>(string name, T value) where T : struct, IComparable<T>, INumber<T>;
     object? GetValue(string name);
     void SetValue(string name, object? value);
     bool HasParameter(string name);

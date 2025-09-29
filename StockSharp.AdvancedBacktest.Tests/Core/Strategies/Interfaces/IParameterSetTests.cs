@@ -78,14 +78,14 @@ public class IParameterSetTests
             }
         }
 
-        public T GetValue<T>(string name) where T : INumber<T>
+        public T GetValue<T>(string name) where T : struct, IComparable<T>, INumber<T>
         {
             if (_values.TryGetValue(name, out var value) && value is T typedValue)
                 return typedValue;
             throw new KeyNotFoundException($"Parameter '{name}' not found or wrong type");
         }
 
-        public void SetValue<T>(string name, T value) where T : INumber<T>
+        public void SetValue<T>(string name, T value) where T : struct, IComparable<T>, INumber<T>
         {
             _values[name] = value;
         }

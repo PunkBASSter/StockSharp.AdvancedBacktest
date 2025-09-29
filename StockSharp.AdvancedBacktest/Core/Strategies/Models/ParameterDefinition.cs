@@ -1,193 +1,85 @@
-using System.Text.Json.Serialization;
+// Backward compatibility alias for existing code
+// This file provides aliases to maintain compatibility while new code uses the enhanced implementation
+
+using StockSharp.AdvancedBacktest.Core.Configuration.Parameters;
+using StockSharp.AdvancedBacktest.Core.Configuration.Validation;
+using System.Collections.Immutable;
 using System.Numerics;
 
 namespace StockSharp.AdvancedBacktest.Core.Strategies.Models;
 
-public record ParameterDefinition(
-    [property: JsonPropertyName("name")] string Name,
-    [property: JsonPropertyName("type")] Type Type,
-    [property: JsonPropertyName("minValue")] object? MinValue = null,
-    [property: JsonPropertyName("maxValue")] object? MaxValue = null,
-    [property: JsonPropertyName("defaultValue")] object? DefaultValue = null,
-    [property: JsonPropertyName("description")] string? Description = null,
-    [property: JsonPropertyName("isRequired")] bool IsRequired = false,
-    [property: JsonPropertyName("validationPattern")] string? ValidationPattern = null
-)
+/// <summary>
+/// Backward compatibility alias for ParameterDefinitionBase.
+/// New code should use StockSharp.AdvancedBacktest.Core.Configuration.Parameters.ParameterDefinitionBase.
+/// </summary>
+[Obsolete("Use StockSharp.AdvancedBacktest.Core.Configuration.Parameters.ParameterDefinitionBase instead. This alias will be removed in v3.0.")]
+public abstract record ParameterDefinition : ParameterDefinitionBase
 {
-    [JsonPropertyName("typeName")]
-    public string TypeName => Type.Name;
-
-    [JsonPropertyName("fullTypeName")]
-    public string FullTypeName => Type.FullName ?? Type.Name;
-
-    [JsonPropertyName("isNumeric")]
-    public bool IsNumeric => IsNumericType(Type);
-
-    private static bool IsNumericType(Type type)
+    protected ParameterDefinition(string name, Type type, string? description = null, bool isRequired = false, string? validationPattern = null)
+        : base(name, type, description, isRequired, validationPattern)
     {
-        // Handle nullable types
-        var actualType = Nullable.GetUnderlyingType(type) ?? type;
-
-        // Check if the type implements INumber<T>
-        return actualType.GetInterfaces().Any(i =>
-            i.IsGenericType && i.GetGenericTypeDefinition() == typeof(INumber<>));
     }
 
-    [JsonPropertyName("isString")]
-    public bool IsString => Type == typeof(string);
-
-    [JsonPropertyName("isBoolean")]
-    public bool IsBoolean => Type == typeof(bool) || Type == typeof(bool?);
-
-    [JsonPropertyName("isEnum")]
-    public bool IsEnum => Type.IsEnum;
-
-    public static ParameterDefinition CreateNumeric<T>(
+    // Legacy factory methods for backward compatibility
+    public static ParameterDefinition<T> CreateNumeric<T>(
         string name,
         T? minValue = null,
         T? maxValue = null,
         T? defaultValue = null,
         string? description = null,
-        bool isRequired = false) where T : struct, INumber<T>
+        bool isRequired = false) where T : struct, IComparable<T>, INumber<T>
     {
-        return new ParameterDefinition(
-            Name: name,
-            Type: typeof(T),
-            MinValue: minValue,
-            MaxValue: maxValue,
-            DefaultValue: defaultValue,
-            Description: description,
-            IsRequired: isRequired
-        );
+        return StockSharp.AdvancedBacktest.Core.Configuration.Parameters.ParameterDefinition.CreateNumeric(
+            name, minValue, maxValue, defaultValue, null, description, isRequired);
     }
 
-    public static ParameterDefinition CreateString(
-        string name,
-        string? defaultValue = null,
-        string? description = null,
-        bool isRequired = false,
-        string? validationPattern = null)
-    {
-        return new ParameterDefinition(
-            Name: name,
-            Type: typeof(string),
-            DefaultValue: defaultValue,
-            Description: description,
-            IsRequired: isRequired,
-            ValidationPattern: validationPattern
-        );
-    }
-
-    public static ParameterDefinition CreateBoolean(
-        string name,
-        bool? defaultValue = null,
-        string? description = null,
-        bool isRequired = false)
-    {
-        return new ParameterDefinition(
-            Name: name,
-            Type: typeof(bool),
-            DefaultValue: defaultValue,
-            Description: description,
-            IsRequired: isRequired
-        );
-    }
-
-    public static ParameterDefinition CreateEnum<T>(
-        string name,
-        T? defaultValue = null,
-        string? description = null,
-        bool isRequired = false) where T : struct, Enum
-    {
-        return new ParameterDefinition(
-            Name: name,
-            Type: typeof(T),
-            DefaultValue: defaultValue,
-            Description: description,
-            IsRequired: isRequired
-        );
-    }
-
-    public ValidationResult ValidateValue(object? value)
-    {
-        var errors = new List<string>();
-
-        // Check required
-        if (IsRequired && value == null)
-        {
-            errors.Add($"Parameter '{Name}' is required but no value was provided");
-            return ValidationResult.Failure(errors);
-        }
-
-        // Allow null for non-required parameters
-        if (value == null)
-        {
-            return ValidationResult.CreateSuccess();
-        }
-
-        // Check type compatibility
-        if (!Type.IsAssignableFrom(value.GetType()))
-        {
-            errors.Add($"Parameter '{Name}' expects type {Type.Name} but got {value.GetType().Name}");
-            return ValidationResult.Failure(errors);
-        }
-
-        // Numeric range validation
-        if (IsNumeric && value is IComparable comparableValue)
-        {
-            if (MinValue is IComparable min && comparableValue.CompareTo(min) < 0)
-            {
-                errors.Add($"Parameter '{Name}' value {value} is below minimum {MinValue}");
-            }
-
-            if (MaxValue is IComparable max && comparableValue.CompareTo(max) > 0)
-            {
-                errors.Add($"Parameter '{Name}' value {value} is above maximum {MaxValue}");
-            }
-        }
-
-        // String pattern validation
-        if (IsString && !string.IsNullOrEmpty(ValidationPattern) && value is string stringValue)
-        {
-            if (!System.Text.RegularExpressions.Regex.IsMatch(stringValue, ValidationPattern))
-            {
-                errors.Add($"Parameter '{Name}' value '{stringValue}' does not match required pattern");
-            }
-        }
-
-        return errors.Count == 0 ? ValidationResult.CreateSuccess() : ValidationResult.Failure(errors);
-    }
+    // Note: Non-generic factory methods removed - they were problematic with the new generic math constraints
+    // Existing code using CreateString, CreateBoolean, CreateEnum should be updated to use the new typed approach
 }
 
-public class TypedParameter<T> where T : struct, INumber<T>
+/// <summary>
+/// Backward compatibility alias for ValidationResult.
+/// New code should use StockSharp.AdvancedBacktest.Core.Configuration.Validation.ValidationResult.
+/// </summary>
+[Obsolete("Use StockSharp.AdvancedBacktest.Core.Configuration.Validation.ValidationResult instead. This alias will be removed in v3.0.")]
+public sealed class ValidationResult
 {
-    public required string Name { get; init; }
+    private readonly StockSharp.AdvancedBacktest.Core.Configuration.Validation.ValidationResult _inner;
 
-    public required T Value { get; init; }
-
-    public T? MinValue { get; init; }
-
-    public T? MaxValue { get; init; }
-
-    public bool IsValid()
+    public ValidationResult(bool isValid, ImmutableArray<string> errors, ImmutableArray<string> warnings)
     {
-        if (MinValue is not null && Value < MinValue)
-            return false;
-
-        if (MaxValue is not null && Value > MaxValue)
-            return false;
-
-        return true;
+        _inner = new StockSharp.AdvancedBacktest.Core.Configuration.Validation.ValidationResult(isValid, errors, warnings);
     }
 
-    public string? GetValidationError()
+    public bool IsValid => _inner.IsValid;
+    public ImmutableArray<string> Errors => _inner.Errors;
+    public ImmutableArray<string> Warnings => _inner.Warnings;
+    public bool HasErrors => _inner.HasErrors;
+    public bool HasWarnings => _inner.HasWarnings;
+    public int TotalIssues => _inner.TotalIssues;
+
+    public static ValidationResult CreateSuccess() => new(true, ImmutableArray<string>.Empty, ImmutableArray<string>.Empty);
+    public static ValidationResult SuccessWithWarnings(params string[] warnings) => new(true, ImmutableArray<string>.Empty, warnings.ToImmutableArray());
+    public static ValidationResult Failure(params string[] errors) => new(false, errors.ToImmutableArray(), ImmutableArray<string>.Empty);
+    public static ValidationResult Failure(IEnumerable<string> errors) => new(false, errors.ToImmutableArray(), ImmutableArray<string>.Empty);
+    public static ValidationResult Failure(IEnumerable<string> errors, IEnumerable<string> warnings) => new(false, errors.ToImmutableArray(), warnings.ToImmutableArray());
+
+    public string GetFormattedIssues() => _inner.GetFormattedIssues();
+
+    // Conversion methods instead of implicit operators
+    public static ValidationResult FromEnhanced(StockSharp.AdvancedBacktest.Core.Configuration.Validation.ValidationResult result)
     {
-        if (MinValue is not null && Value < MinValue)
-            return $"Value {Value} is below minimum {MinValue}";
+        return new ValidationResult(result.IsValid, result.Errors, result.Warnings);
+    }
 
-        if (MaxValue is not null && Value > MaxValue)
-            return $"Value {Value} is above maximum {MaxValue}";
+    public StockSharp.AdvancedBacktest.Core.Configuration.Validation.ValidationResult ToEnhanced()
+    {
+        return _inner;
+    }
 
-        return null;
+    // Implicit conversion TO enhanced version only
+    public static implicit operator StockSharp.AdvancedBacktest.Core.Configuration.Validation.ValidationResult(ValidationResult result)
+    {
+        return result._inner;
     }
 }

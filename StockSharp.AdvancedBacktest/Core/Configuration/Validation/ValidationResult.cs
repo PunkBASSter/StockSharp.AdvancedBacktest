@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using System.Text.Json.Serialization;
 
-namespace StockSharp.AdvancedBacktest.Core.Strategies.Models;
+namespace StockSharp.AdvancedBacktest.Core.Configuration.Validation;
 
 public record ValidationResult(
     [property: JsonPropertyName("isValid")] bool IsValid,
