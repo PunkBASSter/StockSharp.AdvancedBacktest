@@ -144,8 +144,6 @@ public class ParameterValidator : IParameterValidator
         }
     }
 
-    #region Private Helper Methods
-
     private static bool IsTypeCompatible(object value, Type expectedType)
     {
         if (value == null)
@@ -323,6 +321,4 @@ public class ParameterValidator : IParameterValidator
             ? (warnings.Count == 0 ? ValidationResult.CreateSuccess() : ValidationResult.SuccessWithWarnings(warnings))
             : ValidationResult.Failure(errors, warnings);
     }
-
-    #endregion
 }
