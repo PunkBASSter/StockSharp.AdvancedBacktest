@@ -1,0 +1,88 @@
+﻿{
+  "OrdersKeepCount": 1000,
+  "UpdateSecurityLastQuotes": true,
+  "UpdateSecurityByLevel1": true,
+  "UpdateSecurityByDefinition": true,
+  "UpdatePortfolioByChange": true,
+  "OverrideSecurityData": false,
+  "CheckSteps": false,
+  "RiskManager": {
+    "type": "StockSharp.Algo.Risk.RiskManager, StockSharp.Algo",
+    "settings": {
+      "Rules": [],
+      "LogLevel": "Inherit",
+      "Name": "RiskManager"
+    }
+  },
+  "Adapter": {
+    "InnerAdapters": [
+      {
+        "AdapterType": "StockSharp.Binance.BinanceMessageAdapter, StockSharp.Binance",
+        "AdapterSettings": {
+          "Id": "cd840f3a-1120-43b8-9315-91f885e25fcd",
+          "HeartbeatInterval": "00:00:02",
+          "SupportedInMessages": [
+            "MarketData",
+            "SecurityLookup",
+            "OrderRegister",
+            "OrderCancel",
+            "OrderStatus",
+            "PortfolioLookup"
+          ],
+          "ReConnectionSettings": {
+            "WorkingTime": {
+              "IsEnabled": false,
+              "Periods": [],
+              "SpecialDays": []
+            },
+            "Interval": "00:00:10",
+            "AttemptCount": 0,
+            "ReAttemptCount": 100,
+            "TimeOutInterval": "00:00:30"
+          },
+          "EnqueueSubscriptions": false,
+          "IterationInterval": "00:00:02",
+          "LogLevel": "Inherit",
+          "Name": "Binance",
+          "MaxParallelMessages": 5,
+          "FaultDelay": "00:00:02",
+          "Key": "5tXe6r2EfUIjwq9+238q5zkLRbdkvVKxpcUpNaen7I5AV22mk1JsfCjcYjlf14rcOpSoRSv9L+bpeffFKLbCil1HFqRrOsce8zSsa2ng+WFkcpC5X8jA8Sjg+SvhF6KtyBT4KuG0JiSdbwDExhcxe0CD1s74/d7/dH0KYKdnChbL+hshW56yjVZ1A1awzLyA",
+          "Secret": "5zb2Hbq6ktcR166X9kEya8tGR2LWAnYBiGfr43FBL9gnfgo0lP8nGYLwTovZbqYU3O0MLxWtfbnIHOB51RON7KXSjCGAVRPXkHDEEtTdfLwAnA5/q9c8yxz1LQkjZIQ2hkQW+y9fxlJMBiO9JgxIB9gvMqCJmXrLFJfGNQRLA/w/BF85gny9tX6jXtQqIAoq",
+          "IsDemo": false,
+          "RemoveListenKeyOnDisconnect": true,
+          "Sections": "Spot,Margin,Futures,FuturesCoin",
+          "HostWebSocketSpot": "stream.binance.com",
+          "HostWebSocketFuture": "fstream.binance.com",
+          "HostWebSocketFutureCoin": "dstream.binance.com",
+          "HostRestSpot": "api.binance.com",
+          "HostRestFuture": "fapi.binance.com",
+          "HostRestFutureCoin": "dapi.binance.com"
+        },
+        "Priority": 0
+      }
+    ],
+    "LogLevel": "Inherit",
+    "Name": "Basket"
+  },
+  "MarketTimeChangedInterval": "00:00:00.0100000",
+  "SupportAssociatedSecurity": false,
+  "SubscriptionsOnConnect": [
+    {
+      "MessageType": "StockSharp.Messages.SecurityMessage, StockSharp.Messages"
+    },
+    {
+      "MessageType": "StockSharp.Messages.PositionChangeMessage, StockSharp.Messages"
+    },
+    {
+      "MessageType": "StockSharp.Messages.ExecutionMessage, StockSharp.Messages",
+      "Arg": {
+        "type": "StockSharp.Messages.ExecutionTypes, StockSharp.Messages",
+        "value": "Transaction"
+      }
+    }
+  ],
+  "IsRestoreSubscriptionOnNormalReconnect": true,
+  "IsAutoUnSubscribeOnDisconnect": true,
+  "LogLevel": "Inherit",
+  "Name": "Connector"
+}
