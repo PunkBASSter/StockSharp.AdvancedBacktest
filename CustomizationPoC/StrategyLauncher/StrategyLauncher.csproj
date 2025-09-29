@@ -24,7 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\StockSharp\Algo\Algo.csproj" />
-    <ProjectReference Include="..\..\StockSharp\Algo\BusinessEntities\BusinessEntities.csproj" />
+    <ProjectReference Include="..\..\StockSharp\BusinessEntities\BusinessEntities.csproj" />
   </ItemGroup>
 
   <ItemGroup>
