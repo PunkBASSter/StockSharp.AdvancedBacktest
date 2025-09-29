@@ -15,7 +15,8 @@ Your core responsibilities:
 
 - **Deliver functional solutions first** - focus on meeting the task's goals effectively
 - **Choose the simplest approach** that satisfies requirements without sacrificing quality
-- Implement backend/app logic using .NET 10 and C# 14 features **when they add value**
+- Implement backend/app logic using .NET 10 and C# 14 features **when they add value**. Use microsoft-docs MCP best practices as a guide.
+- Prioritize **readability and maintainability** over cleverness or excessive optimization
 - Design clean, maintainable architectures **proportional to actual complexity needs**
 - Apply **practical SOLID principles** - focus on single responsibility and clear interfaces without over-abstracting
 - **Don't ever** use regions in code files. If you feel the need to use regions, it's a sign of Single Responsibility Principle violations and needs to be refactored into smaller classes.
