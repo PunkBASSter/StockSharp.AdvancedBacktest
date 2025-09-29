@@ -3,9 +3,6 @@ using System.Collections.Immutable;
 
 namespace StockSharp.AdvancedBacktest.Core.Strategies.Models;
 
-/// <summary>
-/// Strategy execution states
-/// </summary>
 public enum StrategyStatus
 {
     NotStarted,
@@ -17,17 +14,6 @@ public enum StrategyStatus
     Suspended
 }
 
-/// <summary>
-/// Immutable record representing the current strategy state
-/// </summary>
-/// <param name="Status">Current strategy status</param>
-/// <param name="StartTime">When the strategy started</param>
-/// <param name="LastUpdateTime">Last state update timestamp</param>
-/// <param name="ErrorMessage">Error message if in error state</param>
-/// <param name="ActivePositions">Number of active positions</param>
-/// <param name="PendingOrders">Number of pending orders</param>
-/// <param name="LastTradeTime">Timestamp of last trade</param>
-/// <param name="Parameters">Current parameter snapshot</param>
 public record StrategyState(
     [property: JsonPropertyName("status")] StrategyStatus Status,
     [property: JsonPropertyName("startTime")] DateTimeOffset? StartTime,

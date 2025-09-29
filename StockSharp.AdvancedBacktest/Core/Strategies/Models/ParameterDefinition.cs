@@ -3,17 +3,6 @@ using System.Numerics;
 
 namespace StockSharp.AdvancedBacktest.Core.Strategies.Models;
 
-/// <summary>
-/// Immutable record for parameter definition with generic math support
-/// </summary>
-/// <param name="Name">Parameter name</param>
-/// <param name="Type">Parameter type</param>
-/// <param name="MinValue">Minimum allowed value</param>
-/// <param name="MaxValue">Maximum allowed value</param>
-/// <param name="DefaultValue">Default parameter value</param>
-/// <param name="Description">Parameter description</param>
-/// <param name="IsRequired">Whether the parameter is required</param>
-/// <param name="ValidationPattern">Regex pattern for string validation</param>
 public record ParameterDefinition(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("type")] Type Type,

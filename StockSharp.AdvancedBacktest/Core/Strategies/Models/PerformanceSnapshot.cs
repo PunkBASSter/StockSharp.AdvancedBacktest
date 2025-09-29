@@ -2,20 +2,6 @@ using System.Text.Json.Serialization;
 
 namespace StockSharp.AdvancedBacktest.Core.Strategies.Models;
 
-/// <summary>
-/// Immutable record for performance snapshot data
-/// </summary>
-/// <param name="Timestamp">Snapshot timestamp</param>
-/// <param name="PortfolioValue">Current portfolio value</param>
-/// <param name="TotalReturn">Total return percentage</param>
-/// <param name="SharpeRatio">Current Sharpe ratio</param>
-/// <param name="MaxDrawdown">Maximum drawdown percentage</param>
-/// <param name="CurrentDrawdown">Current drawdown percentage</param>
-/// <param name="WinRate">Win rate percentage</param>
-/// <param name="TotalTrades">Total number of trades</param>
-/// <param name="WinningTrades">Number of winning trades</param>
-/// <param name="Volatility">Portfolio volatility</param>
-/// <param name="DailyPnL">Daily profit/loss</param>
 public record PerformanceSnapshot(
     [property: JsonPropertyName("timestamp")] DateTimeOffset Timestamp,
     [property: JsonPropertyName("portfolioValue")] decimal PortfolioValue,

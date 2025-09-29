@@ -3,12 +3,6 @@ using System.Text.Json.Serialization;
 
 namespace StockSharp.AdvancedBacktest.Core.Strategies.Models;
 
-/// <summary>
-/// Immutable validation result record
-/// </summary>
-/// <param name="IsValid">Whether validation passed</param>
-/// <param name="Errors">Collection of validation errors</param>
-/// <param name="Warnings">Collection of validation warnings</param>
 public record ValidationResult(
     [property: JsonPropertyName("isValid")] bool IsValid,
     [property: JsonPropertyName("errors")] ImmutableArray<string> Errors,

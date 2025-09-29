@@ -2,9 +2,6 @@ using System.Collections.Immutable;
 
 namespace StockSharp.AdvancedBacktest.Core.Strategies.Models;
 
-/// <summary>
-/// JSON serialization model for ParameterSet
-/// </summary>
 public sealed class ParameterSetJson
 {
     /// <summary>

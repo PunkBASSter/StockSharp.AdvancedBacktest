@@ -3,9 +3,6 @@ using System.Text.Json.Serialization;
 
 namespace StockSharp.AdvancedBacktest.Core.Strategies.Models;
 
-/// <summary>
-/// Types of risk violations
-/// </summary>
 public enum RiskViolationType
 {
     MaxDrawdownExceeded,
@@ -16,9 +13,6 @@ public enum RiskViolationType
     CustomViolation
 }
 
-/// <summary>
-/// Severity level of risk violations
-/// </summary>
 public enum RiskSeverity
 {
     Info,
@@ -27,17 +21,6 @@ public enum RiskSeverity
     Emergency
 }
 
-/// <summary>
-/// Immutable record for risk violation events
-/// </summary>
-/// <param name="ViolationType">Type of violation</param>
-/// <param name="Severity">Severity level</param>
-/// <param name="Timestamp">When the violation occurred</param>
-/// <param name="Message">Human-readable violation description</param>
-/// <param name="CurrentValue">Current value that triggered the violation</param>
-/// <param name="Threshold">Threshold that was exceeded</param>
-/// <param name="SecurityCode">Security involved (if applicable)</param>
-/// <param name="OrderId">Order ID involved (if applicable)</param>
 public record RiskViolation(
     [property: JsonPropertyName("violationType")] RiskViolationType ViolationType,
     [property: JsonPropertyName("severity")] RiskSeverity Severity,
