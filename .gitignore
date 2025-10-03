@@ -60,3 +60,4 @@ StockSharp/
 *.duckdb
 .claude/settings.local.json
 .mcp.json
+.env
