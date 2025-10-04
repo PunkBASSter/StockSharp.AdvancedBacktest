@@ -61,3 +61,4 @@ StockSharp/
 .claude/settings.local.json
 .mcp.json
 .env
+.vscode/settings.json
