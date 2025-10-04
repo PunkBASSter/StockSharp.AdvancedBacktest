@@ -1,0 +1,56 @@
+{
+    "agents": {
+        "enabled": true,
+        "routing": {
+            "mode": "auto",
+            "router": "router"
+        },
+        "available": [
+            {
+                "name": "router",
+                "path": "agents/router.md",
+                "description": "Routes requests to the appropriate specialized agent"
+            },
+            {
+                "name": "qa-tester",
+                "path": "agents/qa-tester.md",
+                "description": "Creates comprehensive test suites, performs QA, identifies edge cases"
+            },
+            {
+                "name": "backend-implementer",
+                "path": "agents/backend-implementer.md",
+                "description": "Implements backend features console apps, APIs, and business logic"
+            },
+            {
+                "name": "system-architect",
+                "path": "agents/system-architect.md",
+                "description": "Designs system architecture, data models, and technical solutions"
+            },
+            {
+                "name": "requirements-analyst",
+                "path": "agents/requirements-analyst.md",
+                "description": "Analyzes requirements, clarifies ambiguity, defines specifications"
+            },
+            {
+                "name": "documentation-specialist",
+                "path": "agents/documentation-specialist.md",
+                "description": "Creates and maintains technical documentation"
+            },
+            {
+                "name": "devops-engineer",
+                "path": "agents/devops-engineer.md",
+                "description": "Handles CI/CD, deployment, infrastructure, and DevOps tasks"
+            },
+            {
+                "name": "frontend-implementer",
+                "path": "agents/frontend-implementer.md",
+                "description": "Implements frontend features and UI components"
+            },
+            {
+                "name": "human-clarifier",
+                "path": "agents/human-clarifier.md",
+                "description": "Helps clarify requirements and asks questions when needed"
+            }
+        ]
+    }
+}
