@@ -7,11 +7,11 @@ namespace StockSharp.AdvancedBacktest.Export;
 
 public class StrategySecurityChartModel
 {
-	public DateTimeOffset StartDate { get; set; }
-	public DateTimeOffset EndDate { get; set; }
-	public string HistoryPath { get; set; }
-	public Security Security { get; set; }
-	public CustomStrategyBase Strategy { get; set; }
-	public string OutputPath { get; set; }
-	public PerformanceMetrics Metrics { get; set; }
+    public DateTimeOffset StartDate { get; set; }
+    public DateTimeOffset EndDate { get; set; }
+    public required string HistoryPath { get; set; }
+    public required Security Security { get; set; }
+    public required CustomStrategyBase Strategy { get; set; }
+    public required string OutputPath { get; set; }
+    public required PerformanceMetrics Metrics { get; set; }
 }

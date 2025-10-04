@@ -17,186 +17,191 @@ using StockSharp.AdvancedBacktest.Export;
 namespace StockSharp.AdvancedBacktest.Optimization;
 
 public class OptimizationLauncher<TStrategy> : LauncherBase<TStrategy>
-	where TStrategy : CustomStrategyBase, new()
+    where TStrategy : CustomStrategyBase, new()
 {
-	private readonly OptimizationPeriodConfig _trainingPeriod;
-	private List<ICommissionRule> _commissionRules = new();
-	public decimal InitialCapital { get; set; } = 10000m;
-	private BaseOptimizer _stockSharpOptimizer;
-	private bool _bruteForce = true;
-	private readonly List<Func<PerformanceMetrics, bool>> _metricsFilters = new();
-	private int _optimizationThreads = Environment.ProcessorCount * 2;
-	private readonly OptimizerRunner<TStrategy> _optimizer;
-	public string HistoryPath { get; set; }
-		= Environment.GetEnvironmentVariable("StockSharp__HistoryPath") ?? @".\History";
-	public string OutputPath { get; set; }
-		= Environment.GetEnvironmentVariable("StockSharp__ResultsPath") ?? @".\Results";
+    private readonly OptimizationPeriodConfig _trainingPeriod;
+    private List<ICommissionRule> _commissionRules = new();
+    public decimal InitialCapital { get; set; } = 10000m;
+    private BaseOptimizer? _stockSharpOptimizer;
+    private bool _bruteForce = true;
+    private readonly List<Func<PerformanceMetrics, bool>> _metricsFilters = new();
+    private int _optimizationThreads = Environment.ProcessorCount * 2;
+    private readonly OptimizerRunner<TStrategy> _optimizer;
+    public string HistoryPath { get; set; }
+        = Environment.GetEnvironmentVariable("StockSharp__HistoryPath") ?? @".\History";
+    public string OutputPath { get; set; }
+        = Environment.GetEnvironmentVariable("StockSharp__ResultsPath") ?? @".\Results";
 
-	public new OptimizationLauncher<TStrategy> WithPortfolio(Portfolio portfolio)
-		=> base.WithPortfolio(portfolio) as OptimizationLauncher<TStrategy>;
+    public new OptimizationLauncher<TStrategy>? WithPortfolio(Portfolio portfolio)
+        => base.WithPortfolio(portfolio) as OptimizationLauncher<TStrategy>;
 
-	public new OptimizationLauncher<TStrategy> WithStrategyParams(params ICustomParam[] parameters)
-		=> base.WithStrategyParams(parameters) as OptimizationLauncher<TStrategy>;
+    public new OptimizationLauncher<TStrategy>? WithStrategyParams(params ICustomParam[] parameters)
+        => base.WithStrategyParams(parameters) as OptimizationLauncher<TStrategy>;
 
-	public new OptimizationLauncher<TStrategy> WithParamValidation(Func<IDictionary<string, ICustomParam>, bool> filter)
-		=> base.WithParamValidation(filter) as OptimizationLauncher<TStrategy>;
+    public new OptimizationLauncher<TStrategy>? WithParamValidation(Func<IDictionary<string, ICustomParam>, bool> filter)
+        => base.WithParamValidation(filter) as OptimizationLauncher<TStrategy>;
 
-	public OptimizationLauncher(OptimizationPeriodConfig trainingPeriod, OptimizerRunner<TStrategy> customOptimizer)
-		: base()
-	{
-		_optimizer = customOptimizer;
-		_trainingPeriod = trainingPeriod ?? throw new ArgumentNullException(nameof(trainingPeriod));
-		if (!_trainingPeriod.IsValid())
-			throw new ArgumentException("Invalid training period configuration.", nameof(trainingPeriod));
+    public OptimizationLauncher(OptimizationPeriodConfig trainingPeriod, OptimizerRunner<TStrategy> customOptimizer)
+        : base()
+    {
+        _optimizer = customOptimizer;
+        _trainingPeriod = trainingPeriod ?? throw new ArgumentNullException(nameof(trainingPeriod));
+        if (!_trainingPeriod.IsValid())
+            throw new ArgumentException("Invalid training period configuration.", nameof(trainingPeriod));
 
-		_commissionRules.AddRange([new CommissionTradeRule { Value = 0.01m }]);
-	}
+        _commissionRules.AddRange([new CommissionTradeRule { Value = 0.01m }]);
+    }
 
-	public OptimizationLauncher<TStrategy> WithCommissionRules(IEnumerable<ICommissionRule> commissionRules)
-	{
-		if (commissionRules == null || !commissionRules.Any())
-			throw new ArgumentException("Commission rules cannot be null or empty.", nameof(commissionRules));
+    public OptimizationLauncher<TStrategy> WithCommissionRules(IEnumerable<ICommissionRule> commissionRules)
+    {
+        if (commissionRules == null || !commissionRules.Any())
+            throw new ArgumentException("Commission rules cannot be null or empty.", nameof(commissionRules));
 
-		_commissionRules = commissionRules.ToList();
+        _commissionRules = commissionRules.ToList();
 
-		return this;
-	}
+        return this;
+    }
 
-	public OptimizationLauncher<TStrategy> WithOptimizationThreads(int threadCount)
-	{
-		if (threadCount <= 0)
-			throw new ArgumentException("Thread count must be positive.", nameof(threadCount));
+    public OptimizationLauncher<TStrategy> WithOptimizationThreads(int threadCount)
+    {
+        if (threadCount <= 0)
+            throw new ArgumentException("Thread count must be positive.", nameof(threadCount));
 
-		_optimizationThreads = threadCount;
-		return this;
-	}
+        _optimizationThreads = threadCount;
+        return this;
+    }
 
-	protected override void LaunchStrategy(CancellationToken cancellationToken)
-	{
-		_stockSharpOptimizer = _optimizer.CreateOptimizer(new OptimizationConfig
-		{
-			HistoryPath = HistoryPath,
-			ParamsContainer = ParamsContainer,
-			TrainingPeriod = _trainingPeriod,
-			InitialCapital = InitialCapital,
-			CommissionRules = _commissionRules,
-			IsBruteForce = _bruteForce,
-			ParallelWorkers = _optimizationThreads,
-		});
+    protected override void LaunchStrategy(CancellationToken cancellationToken)
+    {
+        _stockSharpOptimizer = _optimizer.CreateOptimizer(new OptimizationConfig
+        {
+            HistoryPath = HistoryPath,
+            ParamsContainer = ParamsContainer,
+            TrainingPeriod = _trainingPeriod,
+            InitialCapital = InitialCapital,
+            CommissionRules = _commissionRules,
+            IsBruteForce = _bruteForce,
+            ParallelWorkers = _optimizationThreads,
+        });
 
-		ConfigureDiagnostics(_stockSharpOptimizer);
-		var optimizationResults = _optimizer.Optimize(); //TODO handle possible cancellation
+        ConfigureDiagnostics(_stockSharpOptimizer);
+        var optimizationResults = _optimizer.Optimize(); //TODO handle possible cancellation
 
-		var bestSortino = optimizationResults
-			.OrderByDescending(r => r.Value.ValidationMetrics?.SortinoRatio ?? 0)
-			.FirstOrDefault();
+        var bestSortino = optimizationResults
+            .OrderByDescending(r => r.Value.ValidationMetrics?.SortinoRatio ?? 0)
+            .FirstOrDefault();
 
-		DisplayDetailedMetricsComparison(bestSortino.Value);
+        DisplayDetailedMetricsComparison(bestSortino.Value);
 
-		var resToChart = bestSortino.Value; //VALIDATED STRATEGY IS NULL HERE
-		var startDate = _trainingPeriod.TrainingStartDate.DateTime;
-		var endDate = _trainingPeriod.TrainingEndDate.DateTime;
-		var chartModel = new StrategySecurityChartModel
-		{
-			StartDate = startDate,
-			EndDate = endDate,
-			HistoryPath = HistoryPath,
-			Security = resToChart.ValidatedStrategy.Securities.Keys.FirstOrDefault(),
-			Strategy = resToChart.ValidatedStrategy,
-			OutputPath = Path.Combine(OutputPath, $"{resToChart.ValidatedStrategy.Hash}_{startDate:yyyyMMddTHHmm}_{endDate:yyyyMMddTHHmm}.html"),
-		};
+        var resToChart = bestSortino.Value; //VALIDATED STRATEGY IS NULL HERE
 
-		// TODO: choose smarter way to display results
-		new ReportBuilder<TStrategy>().GenerateInteractiveChart(chartModel, openInBrowser: true);
-	}
+        if (resToChart.ValidatedStrategy == null)
+            throw new InvalidOperationException("Validated strategy is null");
 
-	public OptimizationLauncher<TStrategy> WithMetricsFilter(Func<PerformanceMetrics, bool> filter)
-	{
-		if (filter == null)
-			throw new ArgumentNullException(nameof(filter));
+        var startDate = _trainingPeriod.TrainingStartDate.DateTime;
+        var endDate = _trainingPeriod.TrainingEndDate.DateTime;
+        var chartModel = new StrategySecurityChartModel
+        {
+            StartDate = startDate,
+            EndDate = endDate,
+            HistoryPath = HistoryPath,
+            Security = resToChart.ValidatedStrategy.Securities.Keys.FirstOrDefault()!,
+            Strategy = resToChart.ValidatedStrategy,
+            OutputPath = Path.Combine(OutputPath, $"{resToChart.ValidatedStrategy.Hash}_{startDate:yyyyMMddTHHmm}_{endDate:yyyyMMddTHHmm}.html"),
+            Metrics = resToChart.ValidationMetrics ?? resToChart.TrainingMetrics ?? new PerformanceMetrics()
+        };
 
-		_metricsFilters.Add(filter);
-		return this;
-	}
+        // TODO: choose smarter way to display results
+        new ReportBuilder<TStrategy>().GenerateInteractiveChart(chartModel, openInBrowser: true);
+    }
 
-	private void DisplayDetailedMetricsComparison(OptimizationResult<TStrategy> result)
-	{
-		var strategy = result.TrainedStrategy;
-		var trainMetrics = result.TrainingMetrics;
-		var valMetrics = result.ValidationMetrics;
+    public OptimizationLauncher<TStrategy> WithMetricsFilter(Func<PerformanceMetrics, bool> filter)
+    {
+        if (filter == null)
+            throw new ArgumentNullException(nameof(filter));
 
-		if (trainMetrics == null || valMetrics == null)
-			return;
+        _metricsFilters.Add(filter);
+        return this;
+    }
 
-		Console.WriteLine($"Strategy ID: {strategy.Id}");
-		Console.WriteLine("Parameters:");
-		foreach (var param in strategy.Parameters)
-		{
-			Console.WriteLine($"  {param.Key} = {param.Value}");
-		}
+    private void DisplayDetailedMetricsComparison(OptimizationResult<TStrategy> result)
+    {
+        var strategy = result.TrainedStrategy;
+        var trainMetrics = result.TrainingMetrics;
+        var valMetrics = result.ValidationMetrics;
 
-		Console.WriteLine("\nDetailed Metrics Comparison:");
-		Console.WriteLine($"{"Metric",-20}{"Training",-15}{"Validation",-15}{"Difference",-15}");
-		Console.WriteLine(new string('-', 65));
+        if (trainMetrics == null || valMetrics == null)
+            return;
 
-		CompareMetric("Total Return", trainMetrics.TotalReturn, valMetrics.TotalReturn);
-		CompareMetric("Annualized Return", trainMetrics.AnnualizedReturn, valMetrics.AnnualizedReturn);
-		CompareMetric("Sharpe Ratio", trainMetrics.SharpeRatio, valMetrics.SharpeRatio);
-		CompareMetric("Sortino Ratio", trainMetrics.SortinoRatio, valMetrics.SortinoRatio);
-		CompareMetric("Max Drawdown", trainMetrics.MaxDrawdown, valMetrics.MaxDrawdown);
-		CompareMetric("Win Rate", trainMetrics.WinRate, valMetrics.WinRate);
-		CompareMetric("Profit Factor", trainMetrics.ProfitFactor, valMetrics.ProfitFactor);
-		CompareMetric("Total Trades", trainMetrics.TotalTrades, valMetrics.TotalTrades);
-		CompareMetric("Win/Loss Ratio",
-			trainMetrics.WinningTrades / (double)(trainMetrics.LosingTrades == 0 ? 1 : trainMetrics.LosingTrades),
-			valMetrics.WinningTrades / (double)(valMetrics.LosingTrades == 0 ? 1 : valMetrics.LosingTrades));
-	}
+        Console.WriteLine($"Strategy ID: {strategy.Id}");
+        Console.WriteLine("Parameters:");
+        foreach (var param in strategy.Parameters)
+        {
+            Console.WriteLine($"  {param.Key} = {param.Value}");
+        }
 
-	private void CompareMetric(string metricName, double trainingValue, double validationValue)
-	{
-		double difference = validationValue - trainingValue;
-		string differenceStr = difference >= 0 ? $"+{difference:F2}" : $"{difference:F2}";
+        Console.WriteLine("\nDetailed Metrics Comparison:");
+        Console.WriteLine($"{"Metric",-20}{"Training",-15}{"Validation",-15}{"Difference",-15}");
+        Console.WriteLine(new string('-', 65));
 
-		Console.WriteLine($"{metricName,-20}{trainingValue,-15:F2}{validationValue,-15:F2}{differenceStr,-15}");
-	}
+        CompareMetric("Total Return", trainMetrics.TotalReturn, valMetrics.TotalReturn);
+        CompareMetric("Annualized Return", trainMetrics.AnnualizedReturn, valMetrics.AnnualizedReturn);
+        CompareMetric("Sharpe Ratio", trainMetrics.SharpeRatio, valMetrics.SharpeRatio);
+        CompareMetric("Sortino Ratio", trainMetrics.SortinoRatio, valMetrics.SortinoRatio);
+        CompareMetric("Max Drawdown", trainMetrics.MaxDrawdown, valMetrics.MaxDrawdown);
+        CompareMetric("Win Rate", trainMetrics.WinRate, valMetrics.WinRate);
+        CompareMetric("Profit Factor", trainMetrics.ProfitFactor, valMetrics.ProfitFactor);
+        CompareMetric("Total Trades", trainMetrics.TotalTrades, valMetrics.TotalTrades);
+        CompareMetric("Win/Loss Ratio",
+            trainMetrics.WinningTrades / (double)(trainMetrics.LosingTrades == 0 ? 1 : trainMetrics.LosingTrades),
+            valMetrics.WinningTrades / (double)(valMetrics.LosingTrades == 0 ? 1 : valMetrics.LosingTrades));
+    }
 
-	public OptimizationLauncher<TStrategy> WithOptimizerConfigure(Action<BaseOptimizer> configDelegate)
-	{
-		//NRE risk
-		configDelegate(_stockSharpOptimizer);
-		return this;
-	}
+    private void CompareMetric(string metricName, double trainingValue, double validationValue)
+    {
+        double difference = validationValue - trainingValue;
+        string differenceStr = difference >= 0 ? $"+{difference:F2}" : $"{difference:F2}";
 
-	protected void ConfigureDiagnostics(BaseOptimizer ssOptimizer)
-	{
-		ssOptimizer.ConnectorInitialized += (connector) =>
-		{
-			connector.LogLevel = LogLevels.Debug;
-			Console.WriteLine($"Subscription started for {connector.Securities.FirstOrDefault()?.Id}");
-		};
-		ssOptimizer.StrategyInitialized += (strategy, parameters) =>
-		{
-			Console.WriteLine($"Strategy initialized: {strategy.Security?.Id}, Parameters: {string.Join(", ", parameters.Select(p => $"{p.Id}={p.Value}"))}");
-		};
-		ssOptimizer.StateChanged += (oldState, newState) =>
-		{
-			Console.WriteLine($"Optimizer state changed from {oldState} to {newState}");
-		};
-		ssOptimizer.TotalProgressChanged += (percent, ts1, ts2) =>
-		{
-			Console.WriteLine($"Total progress: {percent}% ({ts1} - {ts2})");
-		};
-	}
+        Console.WriteLine($"{metricName,-20}{trainingValue,-15:F2}{validationValue,-15:F2}{differenceStr,-15}");
+    }
 
-	protected override void DisposeInherited()
-	{
-		_stockSharpOptimizer?.Dispose();
-		//_localMarketDataDrive.Dispose();
-		//_storageRegistry.Dispose();
-	}
+    public OptimizationLauncher<TStrategy> WithOptimizerConfigure(Action<BaseOptimizer> configDelegate)
+    {
+        if (_stockSharpOptimizer != null)
+            configDelegate(_stockSharpOptimizer);
+        return this;
+    }
 
-	protected override bool IsExitRequired()
-	{
-		return _stockSharpOptimizer != null && _stockSharpOptimizer.State == ChannelStates.Stopped;
-	}
+    protected void ConfigureDiagnostics(BaseOptimizer ssOptimizer)
+    {
+        ssOptimizer.ConnectorInitialized += (connector) =>
+        {
+            connector.LogLevel = LogLevels.Debug;
+            Console.WriteLine($"Subscription started for {connector.Securities.FirstOrDefault()?.Id}");
+        };
+        ssOptimizer.StrategyInitialized += (strategy, parameters) =>
+        {
+            Console.WriteLine($"Strategy initialized: {strategy.Security?.Id}, Parameters: {string.Join(", ", parameters.Select(p => $"{p.Id}={p.Value}"))}");
+        };
+        ssOptimizer.StateChanged += (oldState, newState) =>
+        {
+            Console.WriteLine($"Optimizer state changed from {oldState} to {newState}");
+        };
+        ssOptimizer.TotalProgressChanged += (percent, ts1, ts2) =>
+        {
+            Console.WriteLine($"Total progress: {percent}% ({ts1} - {ts2})");
+        };
+    }
+
+    protected override void DisposeInherited()
+    {
+        _stockSharpOptimizer?.Dispose();
+        //_localMarketDataDrive.Dispose();
+        //_storageRegistry.Dispose();
+    }
+
+    protected override bool IsExitRequired()
+    {
+        return _stockSharpOptimizer != null && _stockSharpOptimizer.State == ChannelStates.Stopped;
+    }
 }

@@ -7,10 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Text.Json" Version="9.0.*" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\StockSharp\Algo\Algo.csproj" />
     <ProjectReference Include="..\StockSharp\BusinessEntities\BusinessEntities.csproj" />
     <ProjectReference Include="..\StockSharp\Messages\Messages.csproj" />
