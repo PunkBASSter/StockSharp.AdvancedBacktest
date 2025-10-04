@@ -1,4 +1,8 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="StockSharp/StockSharp.sln" />
+  </Folder>
+  <Project Path="CustomizationPoC/StrategyLauncher/StrategyLauncher.csproj" />
   <Project Path="StockSharp.AdvancedBacktest.Tests/StockSharp.AdvancedBacktest.Tests.csproj" />
   <Project Path="StockSharp.AdvancedBacktest/StockSharp.AdvancedBacktest.csproj" />
 </Solution>
