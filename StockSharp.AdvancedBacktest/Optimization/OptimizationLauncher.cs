@@ -13,6 +13,7 @@ using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Statistics;
 using StockSharp.AdvancedBacktest.Export;
+using StockSharp.AdvancedBacktest.Validation;
 
 namespace StockSharp.AdvancedBacktest.Optimization;
 
@@ -21,6 +22,8 @@ public class OptimizationLauncher<TStrategy> : LauncherBase<TStrategy>
 {
     private readonly OptimizationPeriodConfig _trainingPeriod;
     private List<ICommissionRule> _commissionRules = new();
+    private WalkForwardConfig? _walkForwardConfig;
+    private WalkForwardResult? _walkForwardResult;
     public decimal InitialCapital { get; set; } = 10000m;
     private BaseOptimizer? _stockSharpOptimizer;
     private bool _bruteForce = true;
@@ -71,6 +74,12 @@ public class OptimizationLauncher<TStrategy> : LauncherBase<TStrategy>
         return this;
     }
 
+    public OptimizationLauncher<TStrategy> WithWalkForward(WalkForwardConfig config)
+    {
+        _walkForwardConfig = config ?? throw new ArgumentNullException(nameof(config));
+        return this;
+    }
+
     protected override void LaunchStrategy(CancellationToken cancellationToken)
     {
         _stockSharpOptimizer = _optimizer.CreateOptimizer(new OptimizationConfig
@@ -93,6 +102,36 @@ public class OptimizationLauncher<TStrategy> : LauncherBase<TStrategy>
 
         DisplayDetailedMetricsComparison(bestSortino.Value);
 
+        // Execute walk-forward validation if configured
+        if (_walkForwardConfig != null)
+        {
+            Console.WriteLine("\n=== Starting Walk-Forward Validation ===");
+            var baseConfig = new OptimizationConfig
+            {
+                ParamsContainer = ParamsContainer,
+                TrainingPeriod = _trainingPeriod,
+                HistoryPath = HistoryPath,
+                InitialCapital = InitialCapital,
+                CommissionRules = _commissionRules,
+                IsBruteForce = _bruteForce,
+                ParallelWorkers = _optimizationThreads,
+            };
+
+            var validator = new WalkForwardValidator<TStrategy>(_optimizer, baseConfig);
+            var wfStartDate = _trainingPeriod.TrainingStartDate;
+            var wfEndDate = _trainingPeriod.ValidationEndDate;
+
+            _walkForwardResult = validator.Validate(_walkForwardConfig, wfStartDate, wfEndDate);
+
+            Console.WriteLine($"\n=== Walk-Forward Results ===");
+            Console.WriteLine($"Total Windows: {_walkForwardResult.TotalWindows}");
+            Console.WriteLine($"WF Efficiency: {_walkForwardResult.WalkForwardEfficiency:F4}");
+            Console.WriteLine($"Consistency (Std Dev): {_walkForwardResult.Consistency:F4}");
+
+            // Attach WF result to the best optimization result
+            bestSortino.Value.WalkForwardResult = _walkForwardResult;
+        }
+
         var resToChart = bestSortino.Value; //VALIDATED STRATEGY IS NULL HERE
 
         if (resToChart.ValidatedStrategy == null)
@@ -108,7 +147,8 @@ public class OptimizationLauncher<TStrategy> : LauncherBase<TStrategy>
             Security = resToChart.ValidatedStrategy.Securities.Keys.FirstOrDefault()!,
             Strategy = resToChart.ValidatedStrategy,
             OutputPath = Path.Combine(OutputPath, $"{resToChart.ValidatedStrategy.Hash}_{startDate:yyyyMMddTHHmm}_{endDate:yyyyMMddTHHmm}.html"),
-            Metrics = resToChart.ValidationMetrics ?? resToChart.TrainingMetrics ?? new PerformanceMetrics()
+            Metrics = resToChart.ValidationMetrics ?? resToChart.TrainingMetrics ?? new PerformanceMetrics(),
+            WalkForwardResult = resToChart.WalkForwardResult
         };
 
         // TODO: choose smarter way to display results

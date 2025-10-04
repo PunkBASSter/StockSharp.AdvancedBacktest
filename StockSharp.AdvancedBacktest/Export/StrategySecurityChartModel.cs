@@ -2,6 +2,7 @@ using System;
 using StockSharp.BusinessEntities;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Statistics;
+using StockSharp.AdvancedBacktest.Validation;
 
 namespace StockSharp.AdvancedBacktest.Export;
 
@@ -14,4 +15,5 @@ public class StrategySecurityChartModel
     public required CustomStrategyBase Strategy { get; set; }
     public required string OutputPath { get; set; }
     public required PerformanceMetrics Metrics { get; set; }
+    public WalkForwardResult? WalkForwardResult { get; set; }
 }

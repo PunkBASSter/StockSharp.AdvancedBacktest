@@ -18,6 +18,7 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
         var chartData = new ChartDataModel();
         chartData.Candles = ExtractCandleData(model);
         chartData.Trades = ExtractTradeData(model.Strategy);
+        chartData.WalkForward = ExtractWalkForwardData(model.WalkForwardResult);
         var htmlContent = GenerateChartHtml(chartData);
         var outputDir = Path.GetDirectoryName(model.OutputPath);
         if (!string.IsNullOrEmpty(outputDir) && !Directory.Exists(outputDir))
@@ -104,6 +105,48 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
         }
 
         return trades.OrderBy(t => t.Time).ToList();
+    }
+
+    private WalkForwardDataModel? ExtractWalkForwardData(Validation.WalkForwardResult? wfResult)
+    {
+        if (wfResult == null)
+            return null;
+
+        return new WalkForwardDataModel
+        {
+            WalkForwardEfficiency = wfResult.WalkForwardEfficiency,
+            Consistency = wfResult.Consistency,
+            TotalWindows = wfResult.TotalWindows,
+            Windows = wfResult.Windows.Select(w => new WalkForwardWindowData
+            {
+                WindowNumber = w.WindowNumber,
+                TrainingStart = w.TrainingPeriod.start.ToUnixTimeSeconds(),
+                TrainingEnd = w.TrainingPeriod.end.ToUnixTimeSeconds(),
+                TestingStart = w.TestingPeriod.start.ToUnixTimeSeconds(),
+                TestingEnd = w.TestingPeriod.end.ToUnixTimeSeconds(),
+                TrainingMetrics = new WalkForwardMetricsData
+                {
+                    TotalReturn = w.TrainingMetrics.TotalReturn,
+                    SharpeRatio = w.TrainingMetrics.SharpeRatio,
+                    SortinoRatio = w.TrainingMetrics.SortinoRatio,
+                    MaxDrawdown = w.TrainingMetrics.MaxDrawdown,
+                    WinRate = w.TrainingMetrics.WinRate,
+                    ProfitFactor = w.TrainingMetrics.ProfitFactor,
+                    TotalTrades = w.TrainingMetrics.TotalTrades
+                },
+                TestingMetrics = new WalkForwardMetricsData
+                {
+                    TotalReturn = w.TestingMetrics.TotalReturn,
+                    SharpeRatio = w.TestingMetrics.SharpeRatio,
+                    SortinoRatio = w.TestingMetrics.SortinoRatio,
+                    MaxDrawdown = w.TestingMetrics.MaxDrawdown,
+                    WinRate = w.TestingMetrics.WinRate,
+                    ProfitFactor = w.TestingMetrics.ProfitFactor,
+                    TotalTrades = w.TestingMetrics.TotalTrades
+                },
+                PerformanceDegradation = w.PerformanceDegradation
+            }).ToList()
+        };
     }
 
     /// <summary>
