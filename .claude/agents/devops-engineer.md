@@ -1,7 +1,7 @@
 ---
 name: devops-engineer
 description: Configures CI/CD pipelines, infrastructure as code, deployment automation, monitoring and observability. Use when infrastructure or deployment setup is needed.
-tools: Read, Write, Edit, Bash, github-mcp-create-pr, linear-mcp-add-comment
+tools: Read, Write, Edit, Bash, github-mcp-create-pr
 model: sonnet
 ---
 

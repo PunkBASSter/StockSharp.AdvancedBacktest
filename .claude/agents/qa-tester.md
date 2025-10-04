@@ -1,7 +1,7 @@
 ---
 name: qa-tester
 description: Creates comprehensive test suites (unit, integration, E2E), performs quality assurance, identifies edge cases. Use when testing strategy or test implementation is needed.
-tools: Read, Write, Edit, Bash, playwright-mcp, github-mcp-create-pr, linear-mcp-add-comment
+tools: Read, Write, Edit, Bash, playwright-mcp, github-mcp-create-pr
 model: sonnet
 ---
 

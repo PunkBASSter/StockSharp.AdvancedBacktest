@@ -1,7 +1,7 @@
 ---
 name: frontend-implementer
 description: Implements frontend UI components in React, Vue, Angular, or other frameworks. Writes accessible, performant, tested user interfaces. Use after backend APIs are ready or can be mocked.
-tools: Read, Write, Edit, MultiEdit, Bash, playwright-mcp, github-mcp-create-pr, linear-mcp-add-comment, linear-mcp-update-issue
+tools: Read, Write, Edit, MultiEdit, Bash, playwright-mcp, github-mcp-create-pr
 model: sonnet
 ---
 
