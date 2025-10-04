@@ -25,16 +25,16 @@ The StockSharp Advanced Backtesting Library is a .NET library that extends Stock
 The library extends StockSharp's existing optimization framework with enhanced validation:
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+┌─────────────────┐    ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │    Optimize     │───▶│    Validate     │───▶│     Select      │───▶│     Deploy      │
-│                 │    │                 │    │                 │    │                 │
-│ • StockSharp    │    │ • Walk-Forward  │    │ • Metric-Based  │    │ • Strategy      │
-│   BruteForce    │    │   Analysis      │    │   Ranking       │    │   Deployment    │
-│   Optimizer     │    │ • Out-of-Sample │    │ • Top-N         │    │ • Live Trading  │
-│ • Strategy      │    │   Testing       │    │   Selection     │    │   Integration   │
-│   Classes       │    │ • Monte Carlo   │    │ • Overfitting   │    │ • Risk          │
-│ • Indicators    │    │   Validation    │    │   Detection     │    │   Monitoring    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
+│                 │    │                 │     │                 │     │                 │
+│ • StockSharp    │    │ • Walk-Forward  │     │ • Metric-Based  │     │ • Strategy      │
+│   BruteForce    │    │   Analysis      │     │   Ranking       │     │   Deployment    │
+│   Optimizer     │    │ • Out-of-Sample │     │ • Top-N         │     │ • Live Trading  │
+│ • Strategy      │    │   Testing       │     │   Selection     │     │   Integration   │
+│   Classes       │    │ • Monte Carlo   │     │ • Overfitting   │     │ • Risk          │
+│ • Indicators    │    │   Validation    │     │   Detection     │     │   Monitoring    │
+└─────────────────┘    └─────────────────┘     └─────────────────┘     └─────────────────┘
 ```
 
 ### Key Components
