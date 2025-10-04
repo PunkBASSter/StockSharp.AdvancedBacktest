@@ -1,6 +1,7 @@
 using System;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Statistics;
+using StockSharp.AdvancedBacktest.Validation;
 
 namespace StockSharp.AdvancedBacktest.Models;
 
@@ -12,4 +13,5 @@ public class OptimizationResult<TStrategy> where TStrategy : CustomStrategyBase,
     public TStrategy? ValidatedStrategy { get; set; }
     public PerformanceMetrics? TrainingMetrics { get; set; }
     public PerformanceMetrics? ValidationMetrics { get; set; }
+    public WalkForwardResult? WalkForwardResult { get; set; }
 }

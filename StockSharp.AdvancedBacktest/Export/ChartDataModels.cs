@@ -7,6 +7,7 @@ public class ChartDataModel
 	public List<CandleDataPoint> Candles { get; set; } = [];
 	public List<IndicatorDataSeries> Indicators { get; set; } = [];
 	public List<TradeDataPoint> Trades { get; set; } = [];
+	public WalkForwardDataModel? WalkForward { get; set; }
 }
 
 public class CandleDataPoint
@@ -39,4 +40,35 @@ public class TradeDataPoint
 	public double Volume { get; set; }
 	public string Side { get; set; } = string.Empty;
 	public double PnL { get; set; }
+}
+
+public class WalkForwardDataModel
+{
+	public double WalkForwardEfficiency { get; set; }
+	public double Consistency { get; set; }
+	public int TotalWindows { get; set; }
+	public List<WalkForwardWindowData> Windows { get; set; } = [];
+}
+
+public class WalkForwardWindowData
+{
+	public int WindowNumber { get; set; }
+	public long TrainingStart { get; set; }
+	public long TrainingEnd { get; set; }
+	public long TestingStart { get; set; }
+	public long TestingEnd { get; set; }
+	public WalkForwardMetricsData TrainingMetrics { get; set; } = new();
+	public WalkForwardMetricsData TestingMetrics { get; set; } = new();
+	public double PerformanceDegradation { get; set; }
+}
+
+public class WalkForwardMetricsData
+{
+	public double TotalReturn { get; set; }
+	public double SharpeRatio { get; set; }
+	public double SortinoRatio { get; set; }
+	public double MaxDrawdown { get; set; }
+	public double WinRate { get; set; }
+	public double ProfitFactor { get; set; }
+	public int TotalTrades { get; set; }
 }
