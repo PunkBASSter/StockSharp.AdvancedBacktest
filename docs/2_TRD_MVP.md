@@ -11,15 +11,20 @@
 
 ### Reality Check
 
-The CustomizationPoC/StrategyLauncher is **95% complete**. This TRD documents the actual work needed to:
+The CustomizationPoC/StrategyLauncher is **98% complete**. This TRD documents the actual work needed to:
 
 1. **Copy working PoC code** to library structure (mostly renames)
-2. **Add walk-forward validation** (the ONE new component)
-3. **Migrate to System.Text.Json** (replace Newtonsoft)
-4. **Polish and ship**
+2. **Add multi-window walk-forward validation** (extending existing train/validate split)
+3. **Polish and ship**
 
-**Timeline**: 3 weeks (not 7)
+**Timeline**: 1.5-2 weeks (10 working days)
 **Approach**: Pragmatic migration, not architectural perfection
+
+### Key Facts from Code Analysis
+
+- ✅ **System.Text.Json already implemented** - ReportBuilder uses it, no migration needed
+- ✅ **Train/validate split already works** - CustomOptimizer runs both training and validation periods
+- ⚠️ **Multi-window walk-forward needed** - Extend single-window to 3+ windows with efficiency metrics
 
 ### What We're NOT Doing
 
@@ -32,10 +37,11 @@ The CustomizationPoC/StrategyLauncher is **95% complete**. This TRD documents th
 ### What We ARE Doing
 
 - ✅ Copying PoC files to library with namespace updates
-- ✅ Adding WalkForwardValidator (the only new component)
-- ✅ Converting Newtonsoft.Json → System.Text.Json
+- ✅ Adding multi-window WalkForwardValidator (extending existing validation)
 - ✅ Writing tests for critical paths
 - ✅ Creating documentation and examples
+
+**Note**: System.Text.Json is already in use in the PoC, no migration needed.
 
 ---
 
@@ -57,6 +63,7 @@ OptimizationLauncher<TStrategy>
 ```
 
 **Key Files**:
+
 - `OptimizationLauncher.cs` - Fluent API entry point ✅
 - `CustomOptimizer.cs` - Wraps BruteForceOptimizer ✅
 - `PerformanceAnalyzer.cs` - Metrics calculation ✅
@@ -78,7 +85,7 @@ StockSharp.AdvancedBacktest/
 ├── Validation/
 │   └── WalkForwardValidator.cs (NEW - only new component)
 ├── Export/
-│   └── ReportBuilder.cs (add async, migrate to System.Text.Json)
+│   └── ReportBuilder.cs (already uses System.Text.Json, add async)
 └── Strategies/
     └── CustomStrategyBase.cs (copy as-is)
 ```
@@ -96,7 +103,7 @@ StockSharp.AdvancedBacktest/
 | `OptimizationResult.cs` | `Models/OptimizationResult.cs` | Copy as-is |
 | `CustomParams/*.cs` | `Parameters/*.cs` | Namespace only |
 | `CustomStrategyBase.cs` | `Strategies/CustomStrategyBase.cs` | Copy as-is |
-| `ReportBuilder.cs` | `Export/ReportBuilder.cs` | Add async + System.Text.Json |
+| `ReportBuilder.cs` | `Export/ReportBuilder.cs` | Add async (already uses System.Text.Json) |
 | `ChartDataModels.cs` | `Export/ChartDataModels.cs` | Copy as-is |
 | (none) | `Validation/WalkForwardValidator.cs` | NEW |
 
@@ -177,11 +184,13 @@ public OptimizationLauncher<TStrategy> WithWalkForward(WalkForwardValidator vali
 **File**: `Export/ReportBuilder.cs`
 
 **Changes**:
+
 - Replace `Newtonsoft.Json` → `System.Text.Json`
 - Add async methods (no functional changes)
 - Add decimal precision converter
 
 **Before (Newtonsoft)**:
+
 ```csharp
 using Newtonsoft.Json;
 
@@ -193,6 +202,7 @@ public void ExportToJson(object data, string path)
 ```
 
 **After (System.Text.Json)**:
+
 ```csharp
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -212,6 +222,7 @@ public async Task ExportToJsonAsync(object data, string path, CancellationToken 
 ```
 
 **Decimal Converter** (prevent precision loss):
+
 ```csharp
 public class DecimalStringConverter : JsonConverter<decimal>
 {
@@ -226,12 +237,14 @@ public class DecimalStringConverter : JsonConverter<decimal>
 #### 3. Namespace Reorganization
 
 **Old (PoC)**:
+
 ```csharp
 namespace StockSharp.StrategyLauncher;
 namespace StockSharp.Samples.MaCrossoverBacktester;
 ```
 
 **New (Library)**:
+
 ```csharp
 namespace StockSharp.AdvancedBacktest.Optimization;
 namespace StockSharp.AdvancedBacktest.Parameters;
@@ -243,85 +256,87 @@ namespace StockSharp.AdvancedBacktest.Strategies;
 
 ---
 
-## Implementation Timeline (3 Weeks)
+## Implementation Timeline (1.5-2 Weeks / 10 Days)
 
-### Week 1: Copy, Rename, Compile
+### Phase 1: Library Structure & Migration (Days 1-3)
 
 **Objective**: Get PoC code working in library structure
 
 **Day 1-2: Project Setup**
+
 - ✅ Create `StockSharp.AdvancedBacktest` .NET 10 class library
 - ✅ Copy all PoC files to appropriate library folders
 - ✅ Update all namespaces to `StockSharp.AdvancedBacktest.*`
+- ✅ Rename classes (CustomOptimizer → OptimizerRunner, etc.)
 - ✅ Fix references and ensure project compiles
 
-**Day 3: System.Text.Json Migration**
-- ✅ Replace Newtonsoft.Json with System.Text.Json in ReportBuilder
-- ✅ Add DecimalStringConverter for financial precision
-- ✅ Test JSON export/import roundtrip
+**Day 3: Testing & Validation**
 
-**Day 4-5: Basic Testing**
 - ✅ Port existing PoC tests to library test project
 - ✅ Add unit tests for MetricsCalculator
 - ✅ Add unit tests for parameter generation
+- ✅ Verify System.Text.Json export works correctly
 - ✅ Ensure all existing functionality works
 
 **Deliverable**: Library compiles, existing PoC features work, basic tests pass
 
 ---
 
-### Week 2: Walk-Forward Validation
+### Phase 2: Multi-Window Walk-Forward Validator (Days 4-7)
 
-**Objective**: Add the ONE new component
+**Objective**: Extend existing validation to multi-window walk-forward
 
-**Day 1-2: WalkForwardValidator Implementation**
+**Background**: CustomOptimizer already performs single train/validate split. Need to extend to multiple windows.
+
+**Day 4: Design & Models**
+
+- ✅ Create `WalkForwardConfig` model
+- ✅ Create `WalkForwardResult` and `WindowResult` models
+- ✅ Design window generation algorithm (anchored/rolling)
+
+**Day 5-6: WalkForwardValidator Implementation**
+
 - ✅ Create `WalkForwardValidator` class
 - ✅ Implement time window generation (anchored/rolling)
-- ✅ Add re-optimization logic for training windows
-- ✅ Add testing logic for validation windows
-
-**Day 3: Integration with OptimizationLauncher**
-- ✅ Add `.WithWalkForward()` method to OptimizationLauncher
-- ✅ Integrate validation results into OptimizationResult
-- ✅ Update result export to include WF metrics
-
-**Day 4: Walk-Forward Metrics**
+- ✅ Refactor OptimizerRunner to support multiple window execution
+- ✅ Add re-optimization logic for each training window
 - ✅ Calculate WF Efficiency: `avgOOS / avgIS`
 - ✅ Calculate consistency score across windows
-- ✅ Add performance degradation analysis
 
-**Day 5: Integration Testing**
+**Day 7: Integration & Testing**
+
+- ✅ Add `.WithWalkForward()` method to OptimizationLauncher
+- ✅ Integrate WF results into OptimizationResult
+- ✅ Update JSON export to include WF metrics
 - ✅ Test 3-fold walk-forward on sample data
 - ✅ Verify WF efficiency calculation
-- ✅ Test with MA crossover strategy
 
-**Deliverable**: Walk-forward validation works, integrated with launcher, tested
+**Deliverable**: Multi-window walk-forward validation works, integrated with launcher, tested
 
 ---
 
-### Week 3: Documentation & Ship
+### Phase 3: Documentation & Ship (Days 8-10)
 
 **Objective**: Polish, document, and prepare for release
 
-**Day 1-2: Documentation**
+**Day 8: Documentation**
+
 - ✅ README with quick start guide
-- ✅ API documentation (XML comments)
-- ✅ Usage examples (3+ scenarios)
+- ✅ API documentation (XML comments on all public APIs)
+- ✅ Walk-forward guide explaining concepts and metrics
 - ✅ Migration guide from PoC
 
-**Day 3: Examples & Samples**
+**Day 9: Examples & Web Integration**
+
 - ✅ Simple MA crossover example
 - ✅ Walk-forward validation example
-- ✅ Multi-symbol strategy example
+- ✅ Document Web template integration (static HTML copying)
+- ✅ JSON schema documentation
 
-**Day 4: Performance & Benchmarks**
-- ✅ Benchmark: 1000 param combinations < 5 min
-- ✅ Memory profiling for large optimizations
-- ✅ Optimization settings recommendations
+**Day 10: Final Polish & Ship**
 
-**Day 5: Final Polish**
+- ✅ Performance testing: 1000 param combinations < 5 min
 - ✅ NuGet package configuration
-- ✅ CI/CD pipeline setup
 - ✅ Final code review
 - ✅ Tag v1.0.0 release
 
@@ -331,26 +346,34 @@ namespace StockSharp.AdvancedBacktest.Strategies;
 
 ## Acceptance Criteria
 
-### Week 1 Complete ✓
+### Phase 1 Complete ✓ (Day 3)
 
 - [ ] All PoC files copied to library structure
 - [ ] Namespaces updated to `StockSharp.AdvancedBacktest.*`
-- [ ] ReportBuilder uses System.Text.Json with decimal converter
-- [ ] 10+ unit tests passing (parameter generation, metrics calculation)
+- [ ] Classes renamed (CustomOptimizer → OptimizerRunner, PerformanceAnalyzer → MetricsCalculator)
+- [ ] Verified ReportBuilder uses System.Text.Json (no migration needed)
+- [ ] 10+ unit tests passing (parameter generation, metrics calculation, JSON export)
 - [ ] Library project compiles without errors
+- [ ] Existing train/validate split functionality preserved
 
-### Week 2 Complete ✓
+### Phase 2 Complete ✓ (Day 7)
 
-- [ ] WalkForwardValidator runs 3-fold validation successfully
+- [ ] WalkForwardValidator class implemented
+- [ ] Window generation works (anchored & rolling modes)
+- [ ] Multi-window optimization executes successfully (3+ windows)
 - [ ] OptimizationLauncher has `.WithWalkForward(config)` method
+- [ ] WF efficiency calculation correct: `avgOOS / avgIS`
+- [ ] Consistency score calculation working
 - [ ] Validation results export to JSON with WF metrics
-- [ ] Integration test: full pipeline with walk-forward validation passes
+- [ ] Integration test: full pipeline with 3-fold walk-forward passes
 - [ ] WF efficiency calculation verified against manual calculation
 
-### Week 3 Complete ✓
+### Phase 3 Complete ✓ (Day 10)
 
 - [ ] README with quick start (< 5 min to first run)
+- [ ] Walk-forward guide complete (concepts, metrics, best practices)
 - [ ] 3+ usage examples documented
+- [ ] Web template integration documented
 - [ ] XML doc comments on all public APIs
 - [ ] NuGet package builds successfully
 - [ ] Performance: 1000 param combinations complete in < 5 min
@@ -375,11 +398,13 @@ namespace StockSharp.AdvancedBacktest.Strategies;
 ### Why These Cuts Make Sense
 
 **YAGNI Principle**: You Aren't Gonna Need It
+
 - Don't build abstractions until you have 2+ implementations
 - Don't create interfaces for mocking - use concrete classes in tests
 - Don't over-engineer for "future flexibility"
 
 **Ship Working Code**:
+
 - PoC works → Copy it → Ship it
 - Add walk-forward (the ONE missing piece)
 - Iterate based on real usage, not hypothetical scenarios
@@ -395,6 +420,7 @@ namespace StockSharp.AdvancedBacktest.Strategies;
 **Impact**: Week 1 bleeds into Week 2, delays everything
 
 **Mitigation**:
+
 - Strict rule: NO refactoring beyond renames and namespace updates
 - Code review checklist: "Is this a copy or a rewrite?"
 - If it's working in PoC, don't touch the logic
@@ -406,6 +432,7 @@ namespace StockSharp.AdvancedBacktest.Strategies;
 **Impact**: Week 2 turns into month-long validation framework project
 
 **Mitigation**:
+
 - Start with simple 2-fold split (train/test)
 - Hard-code anchored window strategy first
 - Add rolling windows only if time permits
@@ -418,22 +445,24 @@ namespace StockSharp.AdvancedBacktest.Strategies;
 **Impact**: Endless refactoring, never ship
 
 **Mitigation**:
+
 - Working code > clean code for MVP
 - Ship v1.0, refactor in v1.1 with real user feedback
 - Prefer duplication over wrong abstraction
 - Remember: PoC is 95% done, just need to package it
 
-### Risk 4: System.Text.Json Migration Issues
+### Risk 4: JSON Export Compatibility
 
 **Symptom**: "JSON output doesn't match PoC format..."
 
 **Impact**: Breaking changes for users importing JSON
 
 **Mitigation**:
-- Keep same JSON schema as PoC (property names, structure)
-- Use `[JsonPropertyName]` attributes for compatibility
+
+- PoC already uses System.Text.Json, so format is consistent
+- Keep same JSON schema (property names, structure)
+- Verify decimal converter is in place for financial precision
 - Test roundtrip: PoC JSON → Library → JSON (should match)
-- Decimal converter prevents precision loss
 
 ---
 
@@ -488,6 +517,7 @@ Console.WriteLine($"WF Efficiency: {best.Value.WalkForwardResult.WalkForwardEffi
 ### Unit Tests (Focused)
 
 **Parameter Generation**:
+
 ```csharp
 [Fact]
 public void CartesianProduct_ThreeParams_GeneratesCorrectCount()
@@ -506,6 +536,7 @@ public void CartesianProduct_ThreeParams_GeneratesCorrectCount()
 ```
 
 **Metrics Calculation**:
+
 ```csharp
 [Theory]
 [InlineData(10.0, 5.0, 2.0)] // 10% return, 5% stddev → 2.0 Sharpe
@@ -517,6 +548,7 @@ public void SharpeRatio_Calculation_MatchesExpected(double returns, double stdDe
 ```
 
 **JSON Serialization**:
+
 ```csharp
 [Fact]
 public void JsonRoundtrip_PreservesDecimalPrecision()
@@ -532,6 +564,7 @@ public void JsonRoundtrip_PreservesDecimalPrecision()
 ### Integration Tests (End-to-End)
 
 **Full Pipeline Test**:
+
 ```csharp
 [Fact]
 public void FullOptimization_MACrossover_CompletesSuccessfully()
@@ -549,6 +582,7 @@ public void FullOptimization_MACrossover_CompletesSuccessfully()
 ```
 
 **Walk-Forward Test**:
+
 ```csharp
 [Fact]
 public void WalkForward_ThreeWindows_CalculatesEfficiency()
@@ -611,6 +645,7 @@ var optimizer = new OptimizerRunner<MyStrategy>();
 **Step 4: Code Works As-Is**
 
 The API is **99% compatible**. Your existing code should work with minimal changes:
+
 - Same fluent API (`.WithStrategyParams()`, `.WithMetricsFilter()`, etc.)
 - Same parameter types (`NumberParam`, `SecurityParam`, etc.)
 - Same strategy base class (`CustomStrategyBase`)
@@ -655,22 +690,26 @@ The API is **99% compatible**. Your existing code should work with minimal chang
 ## Success Metrics
 
 ### Development Velocity
+
 - [ ] Week 1: Library compiles with all PoC features
 - [ ] Week 2: Walk-forward validation integrated
 - [ ] Week 3: NuGet package published
 
 ### Code Quality
+
 - [ ] 80%+ test coverage on critical paths
 - [ ] All public APIs have XML documentation
 - [ ] Zero P0 bugs in walk-forward logic
 
 ### Performance
+
 - [ ] 1000 parameter combinations: < 5 minutes
 - [ ] JSON export (10K strategies): < 5 seconds
 - [ ] HTML report generation: < 2 seconds
 - [ ] Memory: < 2GB for typical optimization
 
 ### User Experience
+
 - [ ] Developer can run first optimization in < 5 minutes
 - [ ] Migration from PoC requires < 10 lines of code changes
 - [ ] Walk-forward validation adds < 5 lines to launcher config
@@ -686,6 +725,7 @@ The API is **99% compatible**. Your existing code should work with minimal chang
 **Answer**: NO. CustomOptimizer already wraps BruteForceOptimizer. That's enough.
 
 **Rationale**:
+
 - PoC has: `CustomOptimizer` wraps `BruteForceOptimizer` ✅
 - TRD v1 proposed: `BruteForceOptimizerWrapper` wraps `CustomOptimizer` wraps `BruteForceOptimizer` ❌
 - This is wrapper inception - adds zero value, only complexity
@@ -694,12 +734,20 @@ The API is **99% compatible**. Your existing code should work with minimal chang
 
 **Question**: Should we create `IValidationStrategy` interface?
 
-**Answer**: NO. Not until we have 2+ implementations.
+**Answer**: NO. Not until we have 2+ implementations OR need DI.
 
 **Rationale**:
+
 - YAGNI: Interfaces are for polymorphism, we have one validator
-- Testability: Concrete `WalkForwardValidator` is easy to test
-- Flexibility: Can add interface later when we add Monte Carlo validator
+- DI Exception: Create interfaces if components will be injected via DI container
+- Testability: Concrete `WalkForwardValidator` is easy to test without interface
+- Flexibility: Can add interface later when we add Monte Carlo validator or need DI
+
+**Rule of Thumb**:
+
+- Single implementation + no DI → No interface (concrete class is fine)
+- Single implementation + DI → Interface needed (for container registration)
+- Multiple implementations → Interface needed (regardless of DI)
 
 ### Decision 3: System.Text.Json vs. Newtonsoft
 
@@ -708,6 +756,7 @@ The API is **99% compatible**. Your existing code should work with minimal chang
 **Answer**: YES. Modern .NET, better performance, no external deps.
 
 **Migration**:
+
 - Add `DecimalStringConverter` for precision
 - Use `[JsonPropertyName]` for compatibility
 - Async methods for better scalability
@@ -720,6 +769,7 @@ The API is **99% compatible**. Your existing code should work with minimal chang
 **Answer**: YES. PoC is 95% done, we're just packaging it.
 
 **Breakdown**:
+
 - Week 1: Copy & paste (not rocket science)
 - Week 2: One new component (WalkForwardValidator)
 - Week 3: Docs & polish
