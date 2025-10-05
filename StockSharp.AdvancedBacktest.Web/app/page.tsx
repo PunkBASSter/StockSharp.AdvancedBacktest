@@ -4,11 +4,27 @@ import EquityCurveChart from '@/components/charts/EquityCurveChart';
 import Container from '@/components/layout/Container';
 import Header from '@/components/layout/Header';
 import LoadingState from '@/components/LoadingState';
-import WFComparisonChart from '@/components/walk-forward/WFComparisonChart';
-import WFTimeline from '@/components/walk-forward/WFTimeline';
 import { loadChartData } from '@/lib/data-loader';
 import { ChartDataModel, WalkForwardWindowData } from '@/types/chart-data';
+import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
+
+// Lazy load Walk-Forward components for better performance
+const WFComparisonChart = dynamic(
+    () => import('@/components/walk-forward/WFComparisonChart'),
+    {
+        loading: () => <LoadingState />,
+        ssr: false,
+    }
+);
+
+const WFTimeline = dynamic(
+    () => import('@/components/walk-forward/WFTimeline'),
+    {
+        loading: () => <LoadingState />,
+        ssr: false,
+    }
+);
 
 export default function Home() {
     const [chartData, setChartData] = useState<ChartDataModel | null>(null);
