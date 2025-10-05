@@ -4,6 +4,7 @@ import EquityCurveChart from '@/components/charts/EquityCurveChart';
 import Container from '@/components/layout/Container';
 import Header from '@/components/layout/Header';
 import WFComparisonChart from '@/components/walk-forward/WFComparisonChart';
+import WFTimeline from '@/components/walk-forward/WFTimeline';
 import { loadChartData } from '@/lib/data-loader';
 import { ChartDataModel, WalkForwardWindowData } from '@/types/chart-data';
 import { useEffect, useState } from 'react';
@@ -178,6 +179,13 @@ export default function Home() {
                                             Walk-Forward Analysis
                                         </h3>
                                         <WFComparisonChart windows={sampleWalkForwardData} />
+                                    </div>
+
+                                    <div>
+                                        <h3 className="mb-2 text-lg font-medium text-gray-800 dark:text-gray-200">
+                                            Walk-Forward Timeline
+                                        </h3>
+                                        <WFTimeline windows={sampleWalkForwardData} />
                                     </div>
                                 </div>
                             )}
