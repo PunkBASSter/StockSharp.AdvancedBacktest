@@ -1,4 +1,4 @@
-name: E2E Integration Test
+name: Tests
 
 on:
   pull_request:
@@ -7,9 +7,9 @@ on:
     branches: [ main ]
 
 jobs:
-  e2e-test:
+  test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
@@ -29,7 +29,7 @@ jobs:
           cache: 'npm'
           cache-dependency-path: StockSharp.AdvancedBacktest.Web/package-lock.json
 
-      - name: Install dependencies
+      - name: Install npm dependencies
         working-directory: StockSharp.AdvancedBacktest.Web
         run: npm ci
 
@@ -41,22 +41,22 @@ jobs:
         run: dotnet restore StockSharp.AdvancedBacktest.slnx
 
       - name: Build .NET solution
-        run: dotnet build StockSharp.AdvancedBacktest.slnx --no-restore
+        run: dotnet build StockSharp.AdvancedBacktest.slnx --no-restore --configuration Release
 
-      - name: Run E2E Tests
-        run: dotnet test StockSharp.AdvancedBacktest.Tests/StockSharp.AdvancedBacktest.Tests.csproj --filter "Category=E2E" --no-build --verbosity normal
+      - name: Run all tests
+        run: dotnet test StockSharp.AdvancedBacktest.Tests/StockSharp.AdvancedBacktest.Tests.csproj --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test-results.trx"
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-test-results
+          name: test-results
           path: |
-            StockSharp.AdvancedBacktest.Tests/TestResults/**/*
+            StockSharp.AdvancedBacktest.Tests/TestResults/**/*.trx
           retention-days: 7
 
-      - name: Check test execution time
-        if: success()
+      - name: Test summary
+        if: always()
         run: |
-          echo "E2E tests completed successfully"
-          echo "Tests should complete in less than 2 minutes"
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "All unit tests, integration tests, and E2E tests completed" >> $GITHUB_STEP_SUMMARY
