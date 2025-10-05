@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import Container from '@/components/layout/Container';
 import CandlestickChart from '@/components/charts/CandlestickChart';
+import EquityCurveChart from '@/components/charts/EquityCurveChart';
 import { loadChartData } from '@/lib/data-loader';
 import { ChartDataModel } from '@/types/chart-data';
 
@@ -64,8 +65,20 @@ export default function Home() {
               )}
 
               {!loading && !error && chartData && (
-                <div className="mt-4">
-                  <CandlestickChart data={chartData} />
+                <div className="mt-4 space-y-6">
+                  <div>
+                    <h3 className="mb-2 text-lg font-medium text-gray-800 dark:text-gray-200">
+                      Price Chart
+                    </h3>
+                    <CandlestickChart data={chartData} />
+                  </div>
+
+                  <div>
+                    <h3 className="mb-2 text-lg font-medium text-gray-800 dark:text-gray-200">
+                      Equity Curve
+                    </h3>
+                    <EquityCurveChart trades={chartData.trades} />
+                  </div>
                 </div>
               )}
             </div>
