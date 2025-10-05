@@ -4,15 +4,20 @@ Cross-platform customization of StockSharp allowing to optimize combinations of 
 
 ## Setup
 
-1. After cloning the current repo, clone the StockSharp repository.
-2. Create a symlink to the cloned StockSharp repository:
+1. Clone the repository with submodules:
 
-```powershell
-New-Item -ItemType Junction -Path ".\StockSharp" -Target "..\StockSharpFork"
+```bash
+git clone --recurse-submodules https://github.com/PunkBASSter/StockSharp.AdvancedBacktest.git
 ```
 
-3. Build the solution in the root directory.
+Or if you've already cloned it, initialize the submodules:
 
-```powershell
-dotnet build StockSharp.AdvancedBacktest.sln
+```bash
+git submodule update --init --recursive
+```
+
+2. Build the solution in the root directory:
+
+```bash
+dotnet build StockSharp.AdvancedBacktest.slnx
 ```

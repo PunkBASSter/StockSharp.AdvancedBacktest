@@ -33,10 +33,11 @@ This is a .NET 10 solution that extends StockSharp for advanced backtesting capa
 
 ### StockSharp Integration
 
-The project depends on StockSharp through a symbolic link:
+The project depends on StockSharp through a git submodule:
 
-- StockSharp repository should be cloned separately
-- Create symlink: `New-Item -ItemType Junction -Path ".\StockSharp" -Target "..\StockSharpFork"`
+- StockSharp is included as a submodule at `./StockSharp`
+- Initialize submodules: `git submodule update --init --recursive`
+- When cloning fresh: `git clone --recurse-submodules <repo-url>`
 - Strategy Launcher imports StockSharp build configurations and references StockSharp projects
 
 ### Key Features
