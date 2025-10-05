@@ -55,6 +55,23 @@ export default function CandlestickChart({ data }: Props) {
 
     candlestickSeries.setData(candleData);
 
+    // Add trade markers to candlestick series
+    if (data.trades && data.trades.length > 0) {
+      const markers = data.trades.map(trade => {
+        const isBuy = trade.side === 'buy';
+        return {
+          time: trade.time as UTCTimestamp,
+          position: isBuy ? ('belowBar' as const) : ('aboveBar' as const),
+          color: isBuy ? '#2196F3' : '#F44336',
+          shape: isBuy ? ('square' as const) : ('circle' as const),
+          text: '',
+        };
+      });
+      // TypeScript types don't expose setMarkers on candlestick series, but it exists at runtime
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (candlestickSeries as any).setMarkers(markers);
+    }
+
     // Add volume series if volume data exists
     if (data.candles.length > 0 && data.candles[0].volume !== undefined) {
       const volumeSeries = chart.addSeries(HistogramSeries, {
@@ -104,5 +121,21 @@ export default function CandlestickChart({ data }: Props) {
     };
   }, [data]);
 
-  return <div ref={chartContainerRef} className="w-full h-[600px]" />;
+  return (
+    <div className="relative w-full">
+      <div ref={chartContainerRef} className="w-full h-[600px]" />
+
+      {/* Trade Markers Legend */}
+      <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg shadow-md p-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <div className="marker marker-buy" />
+          <span className="text-sm font-medium text-gray-700">Buy Orders</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="marker marker-sell" />
+          <span className="text-sm font-medium text-gray-700">Sell Orders</span>
+        </div>
+      </div>
+    </div>
+  );
 }
