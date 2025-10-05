@@ -4,8 +4,6 @@ import {
   createChart,
   ColorType,
   IChartApi,
-  LineSeries,
-  AreaSeries,
   LineStyle,
   UTCTimestamp,
 } from 'lightweight-charts';
@@ -67,7 +65,9 @@ export default function EquityCurveChart({ trades }: Props) {
     });
 
     // Add line series for equity curve
-    const lineSeries = chart.addSeries(LineSeries, {
+    // TypeScript types are incomplete for v5 API, using type assertion
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lineSeries = (chart as any).addLineSeries({
       color: '#2196F3',
       lineWidth: 2,
       title: 'Equity',
@@ -107,7 +107,9 @@ export default function EquityCurveChart({ trades }: Props) {
 
     // Add area series for drawdown visualization
     if (drawdownData.length > 0) {
-      const areaSeries = chart.addSeries(AreaSeries, {
+      // TypeScript types are incomplete for v5 API, using type assertion
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const areaSeries = (chart as any).addAreaSeries({
         topColor: 'rgba(244, 67, 54, 0.3)',
         bottomColor: 'rgba(244, 67, 54, 0.1)',
         lineColor: 'rgba(244, 67, 54, 0.8)',
