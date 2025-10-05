@@ -171,7 +171,7 @@ export default function EquityCurveChart({ trades }: Props) {
 
   return (
     <div className="relative w-full">
-      <div ref={chartContainerRef} className="w-full h-[300px]" />
+      <div ref={chartContainerRef} className="w-full h-[250px] md:h-[300px]" />
 
       {/* Chart Legend */}
       <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg shadow-md p-3 space-y-2">

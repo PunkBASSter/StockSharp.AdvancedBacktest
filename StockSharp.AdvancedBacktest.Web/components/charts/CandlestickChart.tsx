@@ -143,7 +143,7 @@ export default function CandlestickChart({ data }: Props) {
 
   return (
     <div className="relative w-full">
-      <div ref={chartContainerRef} className="w-full h-[600px]" />
+      <div ref={chartContainerRef} className="w-full h-[400px] md:h-[600px]" />
 
       {/* Trade Markers Legend */}
       <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg shadow-md p-3 space-y-2">
