@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef } from 'react';
-import { createChart, ColorType, CandlestickSeries, HistogramSeries, UTCTimestamp } from 'lightweight-charts';
+import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, UTCTimestamp } from 'lightweight-charts';
 import { ChartDataModel } from '@/types/chart-data';
 
 interface Props {
@@ -100,6 +100,26 @@ export default function CandlestickChart({ data }: Props) {
       });
     }
 
+    // Add indicator line series if indicators exist
+    if (data.indicators && data.indicators.length > 0) {
+      data.indicators.forEach(indicator => {
+        const lineSeries = chart.addSeries(LineSeries, {
+          color: indicator.color || '#2196F3',
+          lineWidth: 2,
+          title: indicator.name,
+          priceLineVisible: false,
+          crosshairMarkerVisible: true,
+        });
+
+        const indicatorData = indicator.values.map(point => ({
+          time: point.time as UTCTimestamp,
+          value: point.value,
+        }));
+
+        lineSeries.setData(indicatorData);
+      });
+    }
+
     // Fit content to show all data
     chart.timeScale().fitContent();
 
@@ -136,6 +156,24 @@ export default function CandlestickChart({ data }: Props) {
           <span className="text-sm font-medium text-gray-700">Sell Orders</span>
         </div>
       </div>
+
+      {/* Indicator Legend */}
+      {data.indicators && data.indicators.length > 0 && (
+        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg shadow-md p-3">
+          <h3 className="text-sm font-semibold text-gray-800 mb-2">Indicators</h3>
+          <div className="space-y-2">
+            {data.indicators.map((indicator) => (
+              <div key={indicator.name} className="flex items-center gap-2">
+                <div
+                  className="w-4 h-0.5 rounded-full"
+                  style={{ backgroundColor: indicator.color }}
+                />
+                <span className="text-sm font-medium text-gray-700">{indicator.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
