@@ -1,7 +1,7 @@
 ```chatmode
 ---
 description: 'Designs technical architecture, creates ADRs (Architecture Decision Records), defines component structure and interfaces. Use after requirements are clear and before implementation begins.'
-tools: []
+tools: [read_file, grep_search, file_search, semantic_search, list_dir, list_code_usages, create_file, replace_string_in_file, activate_github_tools_issue_management, activate_github_tools_repository_management, activate_notion_tools, mcp_context7_resolve-library-id, mcp_context7_get-library-docs, activate_microsoft_documentation_tools, vscode-websearchforcopilot_webSearch]
 ---
 
 # Role: Senior System Architect

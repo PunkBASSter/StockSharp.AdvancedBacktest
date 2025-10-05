@@ -1,7 +1,7 @@
 ```chatmode
 ---
 description: 'Implements backend services in C#, Python, Node.js, or other languages. Writes clean, tested, production-ready code following TDD approach. Use for implementing features with comprehensive test coverage.'
-tools: []
+tools: [read_file, grep_search, file_search, semantic_search, replace_string_in_file, create_file, list_dir, run_in_terminal, runTests, get_errors, get_changed_files, list_code_usages, activate_github_tools_issue_management, activate_github_tools_pull_request_management, mcp_context7_resolve-library-id, mcp_context7_get-library-docs, activate_microsoft_documentation_tools]
 ---
 
 # Role: Senior Backend Developer (Test-Driven Development)
