@@ -3,6 +3,7 @@ import CandlestickChart from '@/components/charts/CandlestickChart';
 import EquityCurveChart from '@/components/charts/EquityCurveChart';
 import Container from '@/components/layout/Container';
 import Header from '@/components/layout/Header';
+import LoadingState from '@/components/LoadingState';
 import WFComparisonChart from '@/components/walk-forward/WFComparisonChart';
 import WFTimeline from '@/components/walk-forward/WFTimeline';
 import { loadChartData } from '@/lib/data-loader';
@@ -14,21 +15,21 @@ export default function Home() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        async function fetchData() {
-            try {
-                setLoading(true);
-                const data = await loadChartData('/mock-data.json');
-                setChartData(data);
-                setError(null);
-            } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to load chart data');
-                console.error('Failed to load chart data:', err);
-            } finally {
-                setLoading(false);
-            }
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const data = await loadChartData('/mock-data.json');
+            setChartData(data);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to load chart data');
+            console.error('Failed to load chart data:', err);
+        } finally {
+            setLoading(false);
         }
+    };
 
+    useEffect(() => {
         fetchData();
     }, []);
 
@@ -135,17 +136,11 @@ export default function Home() {
                                 Backtest Results
                             </h2>
 
-                            {loading && (
-                                <div className="flex items-center justify-center py-12">
-                                    <div className="text-gray-600 dark:text-gray-400">
-                                        Loading chart data...
-                                    </div>
-                                </div>
-                            )}
+                            {loading && <LoadingState />}
 
                             {error && (
                                 <div className="rounded-md bg-red-50 p-4 dark:bg-red-900/20">
-                                    <div className="flex">
+                                    <div className="flex flex-col">
                                         <div className="ml-3">
                                             <h3 className="text-sm font-medium text-red-800 dark:text-red-400">
                                                 Error loading chart data
@@ -154,6 +149,12 @@ export default function Home() {
                                                 {error}
                                             </div>
                                         </div>
+                                        <button
+                                            onClick={fetchData}
+                                            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors self-start ml-3"
+                                        >
+                                            Retry
+                                        </button>
                                     </div>
                                 </div>
                             )}
