@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using StockSharp.Algo.Indicators;
 using StockSharp.Algo.Storages;
 using StockSharp.Algo.Strategies;
@@ -13,6 +15,84 @@ namespace StockSharp.AdvancedBacktest.Export;
 
 public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new()
 {
+    private readonly ILogger<ReportBuilder<TStrategy>>? _logger;
+    private readonly string _webTemplatePath;
+
+    public ReportBuilder(ILogger<ReportBuilder<TStrategy>>? logger = null, string? webTemplatePath = null)
+    {
+        _logger = logger;
+        _webTemplatePath = webTemplatePath ?? Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory,
+            "..", "..", "..", "..",
+            "StockSharp.AdvancedBacktest.Web", "out");
+    }
+
+    /// <summary>
+    /// Generates a static HTML report by copying the Next.js template and writing chartData.json
+    /// </summary>
+    /// <param name="model">Strategy and chart configuration</param>
+    /// <param name="outputPath">Directory where the report should be generated</param>
+    /// <exception cref="InvalidOperationException">Thrown when web template is not found or report generation fails</exception>
+    public async Task GenerateReportAsync(StrategySecurityChartModel model, string outputPath)
+    {
+        try
+        {
+            _logger?.LogInformation("Starting report generation for {OutputPath}", outputPath);
+
+            // 1. Create output directory if it doesn't exist
+            if (!Directory.Exists(outputPath))
+            {
+                Directory.CreateDirectory(outputPath);
+                _logger?.LogDebug("Created output directory: {OutputPath}", outputPath);
+            }
+
+            // 2. Export chartData.json
+            var chartData = new ChartDataModel
+            {
+                Candles = ExtractCandleData(model),
+                Trades = ExtractTradeData(model.Strategy),
+                WalkForward = ExtractWalkForwardData(model.WalkForwardResult)
+            };
+
+            var chartDataPath = Path.Combine(outputPath, "chartData.json");
+            var jsonOptions = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = true
+            };
+
+            await File.WriteAllTextAsync(chartDataPath, JsonSerializer.Serialize(chartData, jsonOptions));
+            _logger?.LogDebug("Chart data written to {ChartDataPath}", chartDataPath);
+
+            // 3. Verify web template exists
+            if (!Directory.Exists(_webTemplatePath))
+            {
+                throw new InvalidOperationException(
+                    $"Web template not found at {_webTemplatePath}. " +
+                    "Please run 'npm run build' in StockSharp.AdvancedBacktest.Web directory.");
+            }
+
+            // 4. Copy pre-built template
+            CopyDirectory(_webTemplatePath, outputPath, overwrite: true);
+            _logger?.LogDebug("Copied web template from {TemplatePath} to {OutputPath}", _webTemplatePath, outputPath);
+
+            // 5. Verify index.html exists
+            var indexPath = Path.Combine(outputPath, "index.html");
+            if (!File.Exists(indexPath))
+            {
+                throw new InvalidOperationException(
+                    $"Web report generation failed: index.html not found at {indexPath}");
+            }
+
+            _logger?.LogInformation("Report generated successfully at {OutputPath}", outputPath);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to generate report at {OutputPath}", outputPath);
+            throw;
+        }
+    }
+
     public void GenerateInteractiveChart(StrategySecurityChartModel model, bool openInBrowser = false)
     {
         var chartData = new ChartDataModel();
@@ -189,5 +269,47 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
         return File.Exists("chart-template.html")
             ? File.ReadAllText("chart-template.html")
             : throw new FileNotFoundException("chart-template.html not found");
+    }
+
+    /// <summary>
+    /// Recursively copies all files and subdirectories from source to destination
+    /// </summary>
+    /// <param name="sourceDir">Source directory path</param>
+    /// <param name="destinationDir">Destination directory path</param>
+    /// <param name="overwrite">Whether to overwrite existing files</param>
+    private void CopyDirectory(string sourceDir, string destinationDir, bool overwrite = false)
+    {
+        var dir = new DirectoryInfo(sourceDir);
+
+        if (!dir.Exists)
+        {
+            throw new DirectoryNotFoundException($"Source directory not found: {sourceDir}");
+        }
+
+        // Create destination directory if it doesn't exist
+        Directory.CreateDirectory(destinationDir);
+
+        // Copy all files
+        foreach (var file in dir.GetFiles())
+        {
+            var targetFilePath = Path.Combine(destinationDir, file.Name);
+
+            // Skip chartData.json to avoid overwriting it
+            if (file.Name.Equals("chartData.json", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger?.LogDebug("Skipping {FileName} from template copy", file.Name);
+                continue;
+            }
+
+            file.CopyTo(targetFilePath, overwrite);
+            _logger?.LogTrace("Copied file {FileName} to {TargetPath}", file.Name, targetFilePath);
+        }
+
+        // Recursively copy all subdirectories
+        foreach (var subDir in dir.GetDirectories())
+        {
+            var targetSubDir = Path.Combine(destinationDir, subDir.Name);
+            CopyDirectory(subDir.FullName, targetSubDir, overwrite);
+        }
     }
 }
