@@ -31,3 +31,20 @@ body {
     text-wrap: balance;
   }
 }
+
+/* Trade marker legend styles */
+.marker {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.marker-buy {
+  background-color: var(--color-buy);
+  border-radius: 2px;
+}
+
+.marker-sell {
+  background-color: var(--color-loss);
+  border-radius: 50%;
+}
