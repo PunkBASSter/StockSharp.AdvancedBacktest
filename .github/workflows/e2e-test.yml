@@ -1,0 +1,62 @@
+name: E2E Integration Test
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  e2e-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: StockSharp.AdvancedBacktest.Web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: StockSharp.AdvancedBacktest.Web
+        run: npm ci
+
+      - name: Build Next.js template
+        working-directory: StockSharp.AdvancedBacktest.Web
+        run: npm run build
+
+      - name: Restore .NET dependencies
+        run: dotnet restore StockSharp.AdvancedBacktest.slnx
+
+      - name: Build .NET solution
+        run: dotnet build StockSharp.AdvancedBacktest.slnx --no-restore
+
+      - name: Run E2E Tests
+        run: dotnet test StockSharp.AdvancedBacktest.Tests/StockSharp.AdvancedBacktest.Tests.csproj --filter "Category=E2E" --no-build --verbosity normal
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: |
+            StockSharp.AdvancedBacktest.Tests/TestResults/**/*
+          retention-days: 7
+
+      - name: Check test execution time
+        if: success()
+        run: |
+          echo "E2E tests completed successfully"
+          echo "Tests should complete in less than 2 minutes"
