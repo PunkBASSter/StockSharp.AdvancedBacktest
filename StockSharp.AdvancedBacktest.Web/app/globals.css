@@ -5,6 +5,12 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Trading-specific color variables */
+  --color-profit: #4CAF50;
+  --color-loss: #F44336;
+  --color-buy: #2196F3;
+  --color-sell: #FF9800;
 }
 
 @media (prefers-color-scheme: dark) {
