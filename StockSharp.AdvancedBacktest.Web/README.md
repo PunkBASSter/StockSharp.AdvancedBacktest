@@ -35,6 +35,46 @@ results/
 - ✅ **Offline-capable**: Works without internet
 
 ## Technologies
-- **Framework**: Next.js with static export
+- **Framework**: Next.js 15.x with App Router and static export
+- **Language**: TypeScript with strict mode
+- **Styling**: Tailwind CSS
+- **Code Quality**: ESLint and Prettier
 - **Charting**: TradingView Lightweight Charts for candlestick charts and equity curves
 - **Data Source**: Local JSON files via relative fetch calls
+
+## Development Setup
+
+### Prerequisites
+- Node.js 18.x or later
+- npm or yarn package manager
+
+### Installation
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+2. Run the development server:
+   ```bash
+   npm run dev
+   ```
+
+3. Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+### Available Scripts
+
+- **`npm run dev`** - Starts the development server on port 3000
+- **`npm run build`** - Creates an optimized static export in the `out/` directory
+- **`npm start`** - Starts a production server (note: static export doesn't require this)
+- **`npm run lint`** - Runs ESLint to check for code quality issues
+- **`npm run format`** - Formats all files with Prettier
+- **`npm run format:check`** - Checks if files are formatted correctly
+
+### Static Export Configuration
+
+This project is configured for static export (`output: 'export'` in `next.config.mjs`):
+- Builds to `out/` directory as pure HTML/CSS/JS
+- No server-side rendering or API routes
+- Images are unoptimized for static hosting
+- Perfect for copying to backtest result directories
