@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Central export point for all TypeScript type definitions
  */
 
@@ -11,4 +11,10 @@ export type {
   WalkForwardDataModel,
   WalkForwardWindowData,
   WalkForwardMetricsData,
+} from './chart-data';
+
+export {
+  isWalkForwardData,
+  isWalkForwardWindowData,
+  isWalkForwardMetricsData,
 } from './chart-data';
