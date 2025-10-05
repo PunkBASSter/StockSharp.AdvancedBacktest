@@ -11,7 +11,9 @@
     "format:check": "prettier --check .",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "analyze": "cross-env ANALYZE=true next build",
+    "size": "size-limit"
   },
   "dependencies": {
     "chart.js": "^4.5.0",
@@ -23,6 +25,8 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@next/bundle-analyzer": "^15.5.4",
+    "@size-limit/preset-app": "^11.1.6",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "@types/jest": "^30.0.0",
@@ -30,6 +34,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.20",
+    "cross-env": "^7.0.3",
     "eslint": "^9",
     "eslint-config-next": "^15.5.4",
     "eslint-config-prettier": "^9.1.0",
@@ -38,7 +43,14 @@
     "postcss": "^8",
     "prettier": "^3.4.2",
     "prettier-plugin-tailwindcss": "^0.6.11",
+    "size-limit": "^11.1.6",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
-  }
+  },
+  "size-limit": [
+    {
+      "path": "out/**/*.js",
+      "limit": "500 KB"
+    }
+  ]
 }
