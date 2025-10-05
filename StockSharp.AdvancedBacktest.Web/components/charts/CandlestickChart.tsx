@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef } from 'react';
-import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, UTCTimestamp } from 'lightweight-charts';
+import { createChart, ColorType, UTCTimestamp } from 'lightweight-charts';
 import { ChartDataModel } from '@/types/chart-data';
 
 interface Props {
@@ -36,7 +36,9 @@ export default function CandlestickChart({ data }: Props) {
     });
 
     // Add candlestick series
-    const candlestickSeries = chart.addSeries(CandlestickSeries, {
+    // TypeScript types are incomplete for v5 API, using type assertion
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const candlestickSeries = (chart as any).addCandlestickSeries({
       upColor: '#26a69a',
       downColor: '#ef5350',
       borderVisible: false,
@@ -63,18 +65,18 @@ export default function CandlestickChart({ data }: Props) {
           time: trade.time as UTCTimestamp,
           position: isBuy ? ('belowBar' as const) : ('aboveBar' as const),
           color: isBuy ? '#2196F3' : '#F44336',
-          shape: isBuy ? ('square' as const) : ('circle' as const),
+          shape: isBuy ? ('arrowUp' as const) : ('arrowDown' as const),
           text: '',
         };
       });
-      // TypeScript types don't expose setMarkers on candlestick series, but it exists at runtime
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (candlestickSeries as any).setMarkers(markers);
+      candlestickSeries.setMarkers(markers);
     }
 
     // Add volume series if volume data exists
     if (data.candles.length > 0 && data.candles[0].volume !== undefined) {
-      const volumeSeries = chart.addSeries(HistogramSeries, {
+      // TypeScript types are incomplete for v5 API, using type assertion
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const volumeSeries = (chart as any).addHistogramSeries({
         color: '#26a69a',
         priceFormat: {
           type: 'volume',
@@ -103,7 +105,9 @@ export default function CandlestickChart({ data }: Props) {
     // Add indicator line series if indicators exist
     if (data.indicators && data.indicators.length > 0) {
       data.indicators.forEach(indicator => {
-        const lineSeries = chart.addSeries(LineSeries, {
+        // TypeScript types are incomplete for v5 API, using type assertion
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const lineSeries = (chart as any).addLineSeries({
           color: indicator.color || '#2196F3',
           lineWidth: 2,
           title: indicator.name,
