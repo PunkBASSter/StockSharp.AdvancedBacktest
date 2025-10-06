@@ -1,0 +1,33 @@
+{
+  "StrategyName": "MaCrossover",
+  "StrategyVersion": "1.0.0",
+  "StrategyDescription": "Moving average crossover strategy",
+  "TrainingStartDate": "2023-01-01T00:00:00Z",
+  "TrainingEndDate": "2023-06-30T23:59:59Z",
+  "ValidationStartDate": "2023-07-01T00:00:00Z",
+  "ValidationEndDate": "2023-12-31T23:59:59Z",
+  "Securities": ["AAPL", "MSFT"],
+  "OptimizableParameters": {
+    "FastPeriod": {
+      "Name": "FastPeriod",
+      "Type": "int",
+      "MinValue": 10,
+      "MaxValue": 30,
+      "StepValue": 5
+    },
+    "SlowPeriod": {
+      "Name": "SlowPeriod",
+      "Type": "int",
+      "MinValue": 30,
+      "MaxValue": 100,
+      "StepValue": 10
+    }
+  },
+  "HistoryPath": "C:\\Data\\historical",
+  "InitialCapital": 100000,
+  "WalkForwardConfig": {
+    "WindowSize": "90.00:00:00",
+    "StepSize": "30.00:00:00",
+    "ValidationSize": "30.00:00:00"
+  }
+}

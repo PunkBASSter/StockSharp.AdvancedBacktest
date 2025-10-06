@@ -1,11 +1,30 @@
+using System.IO;
+using System.Reflection;
 using System.Text.Json;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Configuration.Models;
 using StockSharp.AdvancedBacktest.Validation;
+using Xunit;
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate.Tests.Configuration;
 
 public class ConfigurationSerializationTests
 {
+    private static string LoadEmbeddedResource(string fileName)
+    {
+        var assembly = Assembly.GetExecutingAssembly();
+        // Embedded resources use dots as separators: namespace.folder.file
+        var resourceName = $"StockSharp.AdvancedBacktest.LauncherTemplate.Tests.Configuration.TestData.{fileName}";
+        
+        using var stream = assembly.GetManifestResourceStream(resourceName);
+        if (stream == null)
+        {
+            throw new FileNotFoundException($"Embedded resource '{resourceName}' not found.");
+        }
+        
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+
     [Fact]
     public void RiskLimitsConfig_SerializesAndDeserializes()
     {
@@ -133,5 +152,54 @@ public class ConfigurationSerializationTests
         Assert.NotNull(deserialized.RiskLimits);
         Assert.Single(deserialized.TradingSessions);
         Assert.Equal("US Market Hours", deserialized.TradingSessions[0].Name);
+    }
+
+    [Fact]
+    public void BacktestConfiguration_DeserializesFromExampleJson()
+    {
+        var json = LoadEmbeddedResource("BacktestConfiguration.example.json");
+        var config = JsonSerializer.Deserialize<BacktestConfiguration>(json);
+
+        Assert.NotNull(config);
+        Assert.NotNull(config.WalkForwardConfig);
+    }
+
+    [Fact]
+    public void LiveTradingConfiguration_DeserializesFromExampleJson()
+    {
+        var json = LoadEmbeddedResource("LiveTradingConfiguration.example.json");
+        var config = JsonSerializer.Deserialize<LiveTradingConfiguration>(json);
+
+        Assert.NotNull(config);
+        Assert.NotNull(config.RiskLimits);
+        Assert.Equal("C:\\Config\\strategy.json", config.StrategyConfigPath);
+    }
+
+    [Fact]
+    public void BacktestConfiguration_RoundTripSerializationPreservesData()
+    {
+        var json = LoadEmbeddedResource("BacktestConfiguration.example.json");
+        var original = JsonSerializer.Deserialize<BacktestConfiguration>(json);
+        
+        Assert.NotNull(original);
+        var serialized = JsonSerializer.Serialize(original, new JsonSerializerOptions { WriteIndented = true });
+        var deserialized = JsonSerializer.Deserialize<BacktestConfiguration>(serialized);
+
+        Assert.NotNull(deserialized);
+        Assert.Equal(original.StrategyName, deserialized.StrategyName);
+    }
+
+    [Fact]
+    public void LiveTradingConfiguration_RoundTripSerializationPreservesData()
+    {
+        var json = LoadEmbeddedResource("LiveTradingConfiguration.example.json");
+        var original = JsonSerializer.Deserialize<LiveTradingConfiguration>(json);
+        
+        Assert.NotNull(original);
+        var serialized = JsonSerializer.Serialize(original, new JsonSerializerOptions { WriteIndented = true });
+        var deserialized = JsonSerializer.Deserialize<LiveTradingConfiguration>(serialized);
+
+        Assert.NotNull(deserialized);
+        Assert.Equal(original.StrategyConfigPath, deserialized.StrategyConfigPath);
     }
 }
