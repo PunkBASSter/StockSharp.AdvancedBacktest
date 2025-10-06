@@ -100,24 +100,9 @@ What did we choose and why?
 
 ### 3. Component Design
 
-**Layered Architecture Example:**
-```
-┌─────────────────────────────────────┐
-│         API Layer                    │
-│  (Controllers, Middleware)          │
-├─────────────────────────────────────┤
-│      Service Layer                   │
-│  (Business Logic, Validation)       │
-├─────────────────────────────────────┤
-│    Repository Layer                  │
-│  (Data Access, ORM)                 │
-├─────────────────────────────────────┤
-│      Database Layer                  │
-│  (PostgreSQL, Redis)                │
-└─────────────────────────────────────┘
-```
+**NOT RECOMMENDED: Layered Architecture Example:**
 
-**Microservices Boundaries:**
+**Service Boundaries:**
 ```csharp
 // User Service
 public interface IUserService

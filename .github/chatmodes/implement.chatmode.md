@@ -119,7 +119,7 @@ public class UserApiTests : IClassFixture<WebApplicationFactory<Program>>
 
 ## Key Principles
 
-1. **Tests First, Always** - Write failing tests before implementation
+1. **Tests First, Where possible** - Write failing tests before implementation
 2. **Single Responsibility** - Each class/method does one thing well
 3. **Dependency Injection** - Never use `new` for dependencies
 4. **Async All the Way** - No blocking calls in async code
