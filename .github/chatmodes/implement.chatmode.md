@@ -63,6 +63,59 @@ public void CalculatePositionSize_WhenRiskExceedsLimit_ThrowsException()
 
 ### 3. Implementation Patterns
 
+**Validation Pattern** - Choose the right validation approach:
+
+Use **FluentValidation** when:
+- 3+ models require validation AND average property count is 5 or more
+- Complex validation rules with cross-property dependencies
+- Reusable validation rules across multiple models
+- Need for conditional validation based on business rules
+
+```csharp
+// Install: FluentValidation.DependencyInjectionExtensions
+public class CreateOrderRequestValidator : AbstractValidator<CreateOrderRequest>
+{
+    public CreateOrderRequestValidator()
+    {
+        RuleFor(x => x.Symbol)
+            .NotEmpty().WithMessage("Symbol is required")
+            .MaximumLength(10);
+
+        RuleFor(x => x.Quantity)
+            .GreaterThan(0).WithMessage("Quantity must be positive");
+
+        RuleFor(x => x.Price)
+            .GreaterThan(0).When(x => x.OrderType == OrderType.Limit)
+            .WithMessage("Limit orders require a price");
+    }
+}
+
+// Register in DI:
+services.AddValidatorsFromAssemblyContaining<CreateOrderRequestValidator>();
+```
+
+Use **simple validation** for:
+- 1-2 simple models
+- Basic null/range checks
+- Simple guard clauses in constructors
+
+```csharp
+public class Order
+{
+    public Order(string symbol, decimal quantity)
+    {
+        if (string.IsNullOrWhiteSpace(symbol))
+            throw new ArgumentException("Symbol cannot be empty", nameof(symbol));
+
+        if (quantity <= 0)
+            throw new ArgumentException("Quantity must be positive", nameof(quantity));
+
+        Symbol = symbol;
+        Quantity = quantity;
+    }
+}
+```
+
 **Repository Pattern** (for data access):
 ```csharp
 public interface IUserRepository
