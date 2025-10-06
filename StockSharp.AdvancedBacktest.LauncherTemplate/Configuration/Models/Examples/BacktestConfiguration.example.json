@@ -1,0 +1,52 @@
+{
+  "strategyName": "MaCrossover",
+  "strategyVersion": "1.0.0",
+  "strategyDescription": "Moving Average Crossover Strategy",
+  "trainingStartDate": "2024-01-01T00:00:00Z",
+  "trainingEndDate": "2024-06-30T00:00:00Z",
+  "validationStartDate": "2024-07-01T00:00:00Z",
+  "validationEndDate": "2024-12-31T00:00:00Z",
+  "securities": ["AAPL", "MSFT"],
+  "optimizableParameters": {
+    "FastPeriod": {
+      "name": "FastPeriod",
+      "type": "int",
+      "minValue": 5,
+      "maxValue": 20,
+      "stepValue": 1,
+      "description": "Fast moving average period"
+    },
+    "SlowPeriod": {
+      "name": "SlowPeriod",
+      "type": "int",
+      "minValue": 20,
+      "maxValue": 50,
+      "stepValue": 5,
+      "description": "Slow moving average period"
+    }
+  },
+  "fixedParameters": {
+    "StopLoss": 2.0,
+    "TakeProfit": 4.0
+  },
+  "metricFilterExpressions": [
+    "SharpeRatio > 1.5",
+    "MaxDrawdown < 15"
+  ],
+  "walkForwardConfig": {
+    "windowSize": "90.00:00:00",
+    "stepSize": "30.00:00:00",
+    "validationSize": "30.00:00:00",
+    "mode": 0
+  },
+  "historyPath": "C:\\Data\\History",
+  "initialCapital": 10000,
+  "tradeVolume": 0.01,
+  "commissionPercentage": 0.1,
+  "paralallelWorkers": 8,
+  "useBruteForceOptimization": true,
+  "exportPath": "C:\\Results\\backtest_results.csv",
+  "exportFormat": 0,
+  "exportDetailedMetrics": true,
+  "exportTradeLog": true
+}

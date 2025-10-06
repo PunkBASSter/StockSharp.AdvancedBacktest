@@ -1,0 +1,43 @@
+{
+  "strategyConfigPath": "C:\\Config\\strategy.json",
+  "brokerConfigPath": "C:\\Config\\broker.json",
+  "riskLimits": {
+    "maxPositionSize": 10000,
+    "maxDailyLoss": 2000,
+    "maxDailyLossIsPercentage": false,
+    "maxDrawdownPercentage": 15,
+    "maxTradesPerDay": 50,
+    "circuitBreakerEnabled": true,
+    "circuitBreakerThresholdPercentage": 5,
+    "circuitBreakerCooldownMinutes": 30,
+    "maxLeverageRatio": 1.0,
+    "maxPositionConcentrationPercentage": 20
+  },
+  "safetyCheckIntervalSeconds": 10,
+  "positionSyncIntervalSeconds": 30,
+  "healthCheckIntervalSeconds": 60,
+  "minimumLogLevel": "Information",
+  "enableConsoleLogging": true,
+  "enableFileLogging": true,
+  "logFilePath": "C:\\Logs\\trading.log",
+  "enableAlerts": true,
+  "alertEmail": "trader@example.com",
+  "enableAutoRecovery": true,
+  "maxRecoveryAttempts": 3,
+  "recoveryDelaySeconds": 30,
+  "enableDryRun": false,
+  "requireManualApproval": false,
+  "sessionTimeoutHours": 12,
+  "tradingSessions": [
+    {
+      "name": "US Market Hours",
+      "startTime": "09:30:00",
+      "endTime": "16:00:00",
+      "daysOfWeek": [1, 2, 3, 4, 5],
+      "enabled": true,
+      "description": "Regular US stock market trading hours"
+    }
+  ],
+  "enablePerformanceMonitoring": true,
+  "enableTradeJournal": true
+}
