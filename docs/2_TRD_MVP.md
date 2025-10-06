@@ -122,7 +122,7 @@ StockSharp.AdvancedBacktest/
 **Implementation**:
 
 ```csharp
-namespace StockSharp.AdvancedBacktest.Validation;
+namespace StockSharp.AdvancedBacktest.PerformanceValidation;
 
 public class WalkForwardValidator
 {
@@ -249,7 +249,7 @@ namespace StockSharp.Samples.MaCrossoverBacktester;
 namespace StockSharp.AdvancedBacktest.Optimization;
 namespace StockSharp.AdvancedBacktest.Parameters;
 namespace StockSharp.AdvancedBacktest.Statistics;
-namespace StockSharp.AdvancedBacktest.Validation;
+namespace StockSharp.AdvancedBacktest.PerformanceValidation;
 namespace StockSharp.AdvancedBacktest.Export;
 namespace StockSharp.AdvancedBacktest.Strategies;
 ```
