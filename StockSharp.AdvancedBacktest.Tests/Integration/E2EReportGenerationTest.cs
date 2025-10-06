@@ -8,7 +8,7 @@ using Xunit;
 using StockSharp.AdvancedBacktest.Export;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Statistics;
-using StockSharp.AdvancedBacktest.Validation;
+using StockSharp.AdvancedBacktest.PerformanceValidation;
 using StockSharp.BusinessEntities;
 using StockSharp.Messages;
 

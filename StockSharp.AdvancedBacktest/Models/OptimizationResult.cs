@@ -1,7 +1,7 @@
 using System;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Statistics;
-using StockSharp.AdvancedBacktest.Validation;
+using StockSharp.AdvancedBacktest.PerformanceValidation;
 
 namespace StockSharp.AdvancedBacktest.Models;
 

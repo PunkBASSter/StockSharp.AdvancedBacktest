@@ -2,7 +2,7 @@ using System.IO;
 using System.Reflection;
 using System.Text.Json;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Configuration.Models;
-using StockSharp.AdvancedBacktest.Validation;
+using StockSharp.AdvancedBacktest.PerformanceValidation;
 using Xunit;
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate.Tests.Configuration;
@@ -14,13 +14,13 @@ public class ConfigurationSerializationTests
         var assembly = Assembly.GetExecutingAssembly();
         // Embedded resources use dots as separators: namespace.folder.file
         var resourceName = $"StockSharp.AdvancedBacktest.LauncherTemplate.Tests.Configuration.TestData.{fileName}";
-        
+
         using var stream = assembly.GetManifestResourceStream(resourceName);
         if (stream == null)
         {
             throw new FileNotFoundException($"Embedded resource '{resourceName}' not found.");
         }
-        
+
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();
     }
@@ -180,7 +180,7 @@ public class ConfigurationSerializationTests
     {
         var json = LoadEmbeddedResource("BacktestConfiguration.example.json");
         var original = JsonSerializer.Deserialize<BacktestConfiguration>(json);
-        
+
         Assert.NotNull(original);
         var serialized = JsonSerializer.Serialize(original, new JsonSerializerOptions { WriteIndented = true });
         var deserialized = JsonSerializer.Deserialize<BacktestConfiguration>(serialized);
@@ -194,7 +194,7 @@ public class ConfigurationSerializationTests
     {
         var json = LoadEmbeddedResource("LiveTradingConfiguration.example.json");
         var original = JsonSerializer.Deserialize<LiveTradingConfiguration>(json);
-        
+
         Assert.NotNull(original);
         var serialized = JsonSerializer.Serialize(original, new JsonSerializerOptions { WriteIndented = true });
         var deserialized = JsonSerializer.Deserialize<LiveTradingConfiguration>(serialized);

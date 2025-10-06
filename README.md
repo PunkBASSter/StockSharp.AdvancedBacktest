@@ -203,7 +203,7 @@ var topByValidation = results
 Walk-forward analysis provides robust out-of-sample testing by optimizing on training windows and testing on following periods:
 
 ```csharp
-using StockSharp.AdvancedBacktest.Validation;
+using StockSharp.AdvancedBacktest.PerformanceValidation;
 
 // 1. Create walk-forward configuration
 var wfConfig = new WalkForwardConfig

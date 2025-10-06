@@ -291,15 +291,47 @@ gh issue create --title "[Docs] Clear, descriptive title" --body "## Overview
 [Developers/Users/DevOps/etc.]
 
 ## Priority
-- [ ] P0 - Blocking (users cannot use feature without docs)
-- [ ] P1 - High (significantly impacts user experience)
-- [ ] P2 - Medium (nice to have, improves clarity)
-- [ ] P3 - Low (minor improvement)
+
+**Business-Driven Priority Framework:**
+
+### P0 - Core Domain (Critical Business Value)
+- Domain entities and business logic
+- Service contracts (interfaces) defining business operations
+- Core business workflows and use cases
+- Entry points exposing core functionality
+- **Documentation focus**: Domain model, business rules, API contracts
+
+### P1 - Walking Skeleton (End-to-End Proof)
+- Integration of core components
+- Basic working scenarios covering critical user paths
+- Simple/mocked infrastructure for proof of concept
+- **Documentation focus**: Quick start, core integration examples, basic architecture
+
+### P2 - Production Readiness (Non-Breaking)
+- Logging, monitoring, observability
+- Input validation and error handling
+- Caching strategies
+- Performance optimizations (that don't affect API design)
+- **Documentation focus**: Operational guides, troubleshooting, performance tuning
+
+### P3 - Infrastructure & Cross-Cutting (Supporting Concerns)
+- Advanced infrastructure integrations
+- Edge case handling
+- Nice-to-have optimizations
+- Developer experience improvements
+- **Documentation focus**: Advanced configuration, infrastructure setup, DevOps guides
+
+**Priority Selection Checklist:**
+- [ ] P0 - Blocks core business capability
+- [ ] P1 - Needed for basic working system
+- [ ] P2 - Required for production but doesn't change design
+- [ ] P3 - Supporting infrastructure or optimizations
 
 ## Related Resources
 - Existing docs: [Links]
 - Code references: [File paths]
 - Related issues: [#123, #456]
+- Questions to stakeholder (Copilot User) in case of ambiguities and uncertainties
 
 ## Definition of Done
 - [ ] Content written and peer-reviewed
@@ -422,7 +454,7 @@ linear issue create \
 - Related docs: [link]" \
   --team "TEAM_ID" \
   --label "documentation" \
-  --priority 2 # 0=No priority, 1=Urgent, 2=High, 3=Medium, 4=Low
+  --priority 2 # Based on business-driven framework: 0=P0-Core, 1=P1-Skeleton, 2=P2-Production, 3=P3-Infrastructure
 ```
 
 ### Work Item Quality Gates
@@ -431,11 +463,17 @@ Before creating a work item, ensure:
 
 - [ ] **Clear scope** - Specific about what needs documenting
 - [ ] **Audience defined** - Know who will use this documentation
+- [ ] **Business priority** - Apply P0-P3 framework based on domain importance
 - [ ] **Acceptance criteria** - Measurable completion criteria
 - [ ] **Examples specified** - What examples/diagrams are needed
-- [ ] **Priority set** - Appropriate urgency level
 - [ ] **Context linked** - References to code/existing docs
 - [ ] **Owner assigned** - Someone responsible for completion
+
+**Priority Order (Business-Driven):**
+1. **P0 - Core Domain**: Document entities, business logic, service contracts
+2. **P1 - Walking Skeleton**: Integration guides, basic end-to-end scenarios
+3. **P2 - Production Readiness**: Logging, validation, performance guides
+4. **P3 - Infrastructure**: Advanced config, infrastructure setup, DevOps
 
 ### Documentation User Stories Format
 
@@ -445,6 +483,8 @@ When creating documentation work items, use this format:
 As a [ROLE]
 I want [DOCUMENTATION TYPE] for [FEATURE/COMPONENT]
 So that I can [ACCOMPLISH TASK]
+
+Business Priority: [P0/P1/P2/P3 - See business-driven framework]
 
 Acceptance Criteria:
 GIVEN I am trying to [TASK]
@@ -456,11 +496,19 @@ As a backend developer
 I want API documentation for the authentication endpoints
 So that I can integrate authentication without trial-and-error
 
+Business Priority: P0 - Core Domain (authentication is a core business capability)
+
 Acceptance Criteria:
 GIVEN I am implementing OAuth login
 WHEN I read the API documentation
 THEN I can successfully authenticate users without asking the team for help
 ```
+
+**Priority Examples:**
+- **P0**: Domain model docs, core business rule documentation, service contract specs
+- **P1**: Quick start guide, basic integration tutorial, simple working example
+- **P2**: Logging configuration guide, validation rules documentation, performance tuning
+- **P3**: Advanced infrastructure setup, optional optimization guides, DevOps runbooks
 
 ### Documentation Gap Analysis
 
@@ -469,8 +517,11 @@ When identifying documentation needs:
 1. **Search existing docs** - Use Grep/Glob to find related content
 2. **Review code** - Check for undocumented features (Bash: `rg "TODO.*doc"`)
 3. **Check issues** - Use `gh issue list --label documentation` to avoid duplicates
-4. **Assess impact** - Who is blocked by missing docs?
-5. **Prioritize** - P0 (blocking) → P3 (nice-to-have)
+4. **Assess business impact** - Apply business-driven priority framework:
+   - **P0**: Core domain entities, business rules, service contracts
+   - **P1**: Integration guides, basic working scenarios
+   - **P2**: Logging, validation, performance tuning
+   - **P3**: Infrastructure setup, advanced configurations
 
 ### Handoff After Work Item Creation
 
@@ -484,14 +535,14 @@ After creating a documentation work item:
 - Notion Page: [Link](url) OR
 - Linear Issue: [TEAM-123](url)
 
-📊 Priority: [P0/P1/P2/P3]
+📊 Priority: [P0/P1/P2/P3] - [Core Domain/Walking Skeleton/Production Readiness/Infrastructure]
 👤 Assigned: [@username or unassigned]
 
 📝 Next Steps:
 1. Review and refine scope
 2. Assign to technical writer or developer
 3. Link to related code/features
-4. Set due date based on priority
+4. Set due date based on business priority (P0/P1 first)
 ```
 
 ## When to Use This Mode
