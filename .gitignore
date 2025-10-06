@@ -61,3 +61,10 @@ nunit-*.xml
 .mcp.json
 .env
 .vscode/settings.json
+
+# Sensitive configuration files for LauncherTemplate
+ConnectorFile.json
+**/ConfigFiles/ConnectorFile.json
+**/ConfigFiles/*apikey*
+**/ConfigFiles/*secret*
+**/ConfigFiles/*.key
