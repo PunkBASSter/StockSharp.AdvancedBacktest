@@ -13,7 +13,7 @@ using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Statistics;
 using StockSharp.AdvancedBacktest.Export;
-using StockSharp.AdvancedBacktest.Validation;
+using StockSharp.AdvancedBacktest.PerformanceValidation;
 
 namespace StockSharp.AdvancedBacktest.Optimization;
 

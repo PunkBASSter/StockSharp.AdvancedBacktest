@@ -2,7 +2,7 @@ using System;
 using StockSharp.BusinessEntities;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Statistics;
-using StockSharp.AdvancedBacktest.Validation;
+using StockSharp.AdvancedBacktest.PerformanceValidation;
 
 namespace StockSharp.AdvancedBacktest.Export;
 

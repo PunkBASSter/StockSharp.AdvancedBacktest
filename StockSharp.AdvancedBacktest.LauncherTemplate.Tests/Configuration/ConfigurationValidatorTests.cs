@@ -1,7 +1,7 @@
 using System.Text.Json;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Configuration.Models;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Configuration.Validation;
-using StockSharp.AdvancedBacktest.Validation;
+using StockSharp.AdvancedBacktest.PerformanceValidation;
 using Xunit;
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate.Tests.Configuration;

@@ -7,7 +7,7 @@ using StockSharp.AdvancedBacktest.Optimization;
 using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.AdvancedBacktest.Statistics;
 using StockSharp.AdvancedBacktest.Strategies;
-using StockSharp.AdvancedBacktest.Validation;
+using StockSharp.AdvancedBacktest.PerformanceValidation;
 using StockSharp.Messages;
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate.BacktestMode;
