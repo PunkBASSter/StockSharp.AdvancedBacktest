@@ -125,6 +125,9 @@ public class ConfigurationValidatorTests
         var config = CreateValidBacktestConfiguration();
         config.TrainingStartDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
         config.TrainingEndDate = new DateTimeOffset(2024, 1, 5, 0, 0, 0, TimeSpan.Zero); // 4 days
+        // Update validation dates to be after training dates
+        config.ValidationStartDate = new DateTimeOffset(2024, 1, 5, 0, 0, 0, TimeSpan.Zero);
+        config.ValidationEndDate = new DateTimeOffset(2024, 2, 5, 0, 0, 0, TimeSpan.Zero);
 
         var result = _validator.ValidateBacktestConfiguration(config);
 
