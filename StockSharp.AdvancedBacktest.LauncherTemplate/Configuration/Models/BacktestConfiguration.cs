@@ -32,6 +32,9 @@ public class BacktestConfiguration
     [Required(ErrorMessage = "At least one security must be specified")]
     public required List<string> Securities { get; set; }
 
+    [Required(ErrorMessage = "At least one timeframe must be specified")]
+    public List<string> TimeFrames { get; set; } = ["1d"];
+
     [Required(ErrorMessage = "Optimizable parameters are required")]
     public required Dictionary<string, ParameterDefinition> OptimizableParameters { get; set; }
 
@@ -77,14 +80,13 @@ public class ParameterDefinition
     [Required(ErrorMessage = "Parameter type is required")]
     public required string Type { get; set; }
 
-    [Required(ErrorMessage = "Minimum value is required")]
-    public required JsonElement MinValue { get; set; }
+    public JsonElement? MinValue { get; set; }
 
-    [Required(ErrorMessage = "Maximum value is required")]
-    public required JsonElement MaxValue { get; set; }
+    public JsonElement? MaxValue { get; set; }
 
-    [Required(ErrorMessage = "Step value is required")]
-    public required JsonElement StepValue { get; set; }
+    public JsonElement? StepValue { get; set; }
+
+    public List<string>? Values { get; set; }
 
     public JsonElement? DefaultValue { get; set; }
 

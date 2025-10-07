@@ -8,6 +8,7 @@ using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.AdvancedBacktest.Statistics;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.PerformanceValidation;
+using StockSharp.BusinessEntities;
 using StockSharp.Messages;
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate.BacktestMode;
@@ -153,16 +154,21 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
     {
         var customParams = new List<ICustomParam>();
 
+        // Add security parameters
+        AddSecurityParameters(customParams);
+
+        // Add optimizable parameters (numeric and enum)
         foreach (var (key, paramDef) in _config.OptimizableParameters)
         {
             try
             {
+                ValidateParameterDefinition(key, paramDef);
                 var param = CreateParameterFromDefinition(key, paramDef);
                 customParams.Add(param);
 
                 if (VerboseLogging)
                 {
-                    ConsoleLogger.LogInfo($"  - {key} ({paramDef.Type}): {paramDef.MinValue} to {paramDef.MaxValue} step {paramDef.StepValue}");
+                    LogParameterInfo(key, paramDef);
                 }
             }
             catch (Exception ex)
@@ -171,7 +177,130 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
             }
         }
 
-        return new CustomParamsContainer { CustomParams = customParams };
+        var container = new CustomParamsContainer { CustomParams = customParams };
+
+        // Add validation rules if any are defined in the config
+        // TODO: Parse validation rules from config when that feature is added
+
+        return container;
+    }
+
+    private void AddSecurityParameters(List<ICustomParam> customParams)
+    {
+        if (_config.Securities.Count == 0)
+        {
+            throw new InvalidOperationException("At least one security must be specified");
+        }
+
+        if (_config.TimeFrames.Count == 0)
+        {
+            throw new InvalidOperationException("At least one timeframe must be specified");
+        }
+
+        var securityTimeframes = new List<SecurityTimeframes>();
+
+        foreach (var securityId in _config.Securities)
+        {
+            var security = new Security { Id = securityId };
+            var timeFrames = _config.TimeFrames.Select(ParseTimeFrame).ToList();
+            securityTimeframes.Add(new SecurityTimeframes(security, timeFrames));
+
+            if (VerboseLogging)
+            {
+                var timeFrameStr = string.Join(", ", _config.TimeFrames);
+                ConsoleLogger.LogInfo($"  - Security: {securityId} with timeframes: {timeFrameStr}");
+            }
+        }
+
+        var securityParam = new SecurityParam("Security", securityTimeframes)
+        {
+            CanOptimize = true
+        };
+
+        customParams.Add(securityParam);
+    }
+
+    private TimeSpan ParseTimeFrame(string timeFrameStr)
+    {
+        if (string.IsNullOrWhiteSpace(timeFrameStr))
+        {
+            throw new ArgumentException("Timeframe string cannot be empty");
+        }
+
+        var timeFrameLower = timeFrameStr.ToLowerInvariant().Trim();
+
+        // Parse formats like "1m", "5m", "1h", "1d", "1w"
+        if (timeFrameLower.Length < 2)
+        {
+            throw new ArgumentException($"Invalid timeframe format: {timeFrameStr}");
+        }
+
+        var unitChar = timeFrameLower[^1];
+        var valueStr = timeFrameLower[..^1];
+
+        if (!int.TryParse(valueStr, out var value) || value <= 0)
+        {
+            throw new ArgumentException($"Invalid timeframe value: {timeFrameStr}");
+        }
+
+        return unitChar switch
+        {
+            's' => TimeSpan.FromSeconds(value),
+            'm' => TimeSpan.FromMinutes(value),
+            'h' => TimeSpan.FromHours(value),
+            'd' => TimeSpan.FromDays(value),
+            'w' => TimeSpan.FromDays(value * 7),
+            _ => throw new ArgumentException($"Invalid timeframe unit '{unitChar}' in: {timeFrameStr}. Valid units: s, m, h, d, w")
+        };
+    }
+
+    private void ValidateParameterDefinition(string name, ParameterDefinition def)
+    {
+        var typeLower = def.Type.ToLowerInvariant();
+
+        if (typeLower is "int" or "decimal" or "double")
+        {
+            // Numeric parameters require min, max, step
+            if (!def.MinValue.HasValue)
+            {
+                throw new InvalidOperationException($"Parameter '{name}': MinValue is required for numeric type '{def.Type}'");
+            }
+            if (!def.MaxValue.HasValue)
+            {
+                throw new InvalidOperationException($"Parameter '{name}': MaxValue is required for numeric type '{def.Type}'");
+            }
+            if (!def.StepValue.HasValue)
+            {
+                throw new InvalidOperationException($"Parameter '{name}': StepValue is required for numeric type '{def.Type}'");
+            }
+        }
+        else if (typeLower is "string" or "enum")
+        {
+            // Enum/string parameters require values list
+            if (def.Values == null || def.Values.Count == 0)
+            {
+                throw new InvalidOperationException($"Parameter '{name}': Values list is required for type '{def.Type}'");
+            }
+        }
+        else
+        {
+            throw new NotSupportedException($"Parameter type '{def.Type}' is not supported. Supported types: int, decimal, double, string, enum");
+        }
+    }
+
+    private void LogParameterInfo(string name, ParameterDefinition def)
+    {
+        var typeLower = def.Type.ToLowerInvariant();
+
+        if (typeLower is "int" or "decimal" or "double")
+        {
+            ConsoleLogger.LogInfo($"  - {name} ({def.Type}): {def.MinValue} to {def.MaxValue} step {def.StepValue}");
+        }
+        else if (typeLower is "string" or "enum")
+        {
+            var valuesStr = string.Join(", ", def.Values!);
+            ConsoleLogger.LogInfo($"  - {name} ({def.Type}): [{valuesStr}]");
+        }
     }
 
     private ICustomParam CreateParameterFromDefinition(string name, ParameterDefinition def)
@@ -180,35 +309,42 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         {
             "int" => new NumberParam<int>(
                 name,
-                def.DefaultValue?.Deserialize<int>() ?? def.MinValue.Deserialize<int>(),
-                def.MinValue.Deserialize<int>(),
-                def.MaxValue.Deserialize<int>(),
-                def.StepValue.Deserialize<int>())
+                def.DefaultValue?.Deserialize<int>() ?? def.MinValue!.Value.Deserialize<int>(),
+                def.MinValue!.Value.Deserialize<int>(),
+                def.MaxValue!.Value.Deserialize<int>(),
+                def.StepValue!.Value.Deserialize<int>())
             {
                 CanOptimize = true
             },
 
             "decimal" => new NumberParam<decimal>(
                 name,
-                def.DefaultValue?.Deserialize<decimal>() ?? def.MinValue.Deserialize<decimal>(),
-                def.MinValue.Deserialize<decimal>(),
-                def.MaxValue.Deserialize<decimal>(),
-                def.StepValue.Deserialize<decimal>())
+                def.DefaultValue?.Deserialize<decimal>() ?? def.MinValue!.Value.Deserialize<decimal>(),
+                def.MinValue!.Value.Deserialize<decimal>(),
+                def.MaxValue!.Value.Deserialize<decimal>(),
+                def.StepValue!.Value.Deserialize<decimal>())
             {
                 CanOptimize = true
             },
 
             "double" => new NumberParam<double>(
                 name,
-                def.DefaultValue?.Deserialize<double>() ?? def.MinValue.Deserialize<double>(),
-                def.MinValue.Deserialize<double>(),
-                def.MaxValue.Deserialize<double>(),
-                def.StepValue.Deserialize<double>())
+                def.DefaultValue?.Deserialize<double>() ?? def.MinValue!.Value.Deserialize<double>(),
+                def.MinValue!.Value.Deserialize<double>(),
+                def.MaxValue!.Value.Deserialize<double>(),
+                def.StepValue!.Value.Deserialize<double>())
             {
                 CanOptimize = true
             },
 
-            _ => throw new NotSupportedException($"Parameter type '{def.Type}' is not supported. Supported types: int, decimal, double")
+            "string" or "enum" => new ClassParam<string>(
+                name,
+                def.Values!)
+            {
+                CanOptimize = true
+            },
+
+            _ => throw new NotSupportedException($"Parameter type '{def.Type}' is not supported. Supported types: int, decimal, double, string, enum")
         };
     }
 
