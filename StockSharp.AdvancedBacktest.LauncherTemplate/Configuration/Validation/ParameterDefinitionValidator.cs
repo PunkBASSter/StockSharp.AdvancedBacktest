@@ -41,19 +41,19 @@ public class ParameterDefinitionValidator : AbstractValidator<ParameterDefinitio
     {
         try
         {
-            if (!param.MinValue.TryGetInt32(out var min))
+            if (!param.MinValue.HasValue || !param.MinValue.Value.TryGetInt32(out var min))
             {
                 context.AddFailure("MinValue", "MinValue must be a valid integer.");
                 return;
             }
 
-            if (!param.MaxValue.TryGetInt32(out var max))
+            if (!param.MaxValue.HasValue || !param.MaxValue.Value.TryGetInt32(out var max))
             {
                 context.AddFailure("MaxValue", "MaxValue must be a valid integer.");
                 return;
             }
 
-            if (!param.StepValue.TryGetInt32(out var step))
+            if (!param.StepValue.HasValue || !param.StepValue.Value.TryGetInt32(out var step))
             {
                 context.AddFailure("StepValue", "StepValue must be a valid integer.");
                 return;
@@ -90,19 +90,19 @@ public class ParameterDefinitionValidator : AbstractValidator<ParameterDefinitio
     {
         try
         {
-            if (!param.MinValue.TryGetDecimal(out var min))
+            if (!param.MinValue.HasValue || !param.MinValue.Value.TryGetDecimal(out var min))
             {
                 context.AddFailure("MinValue", "MinValue must be a valid decimal number.");
                 return;
             }
 
-            if (!param.MaxValue.TryGetDecimal(out var max))
+            if (!param.MaxValue.HasValue || !param.MaxValue.Value.TryGetDecimal(out var max))
             {
                 context.AddFailure("MaxValue", "MaxValue must be a valid decimal number.");
                 return;
             }
 
-            if (!param.StepValue.TryGetDecimal(out var step))
+            if (!param.StepValue.HasValue || !param.StepValue.Value.TryGetDecimal(out var step))
             {
                 context.AddFailure("StepValue", "StepValue must be a valid decimal number.");
                 return;

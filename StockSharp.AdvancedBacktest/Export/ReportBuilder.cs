@@ -9,6 +9,7 @@ using StockSharp.Algo.Indicators;
 using StockSharp.Algo.Storages;
 using StockSharp.Algo.Strategies;
 using StockSharp.Messages;
+using StockSharp.AdvancedBacktest.PerformanceValidation;
 using StockSharp.AdvancedBacktest.Strategies;
 
 namespace StockSharp.AdvancedBacktest.Export;
@@ -187,7 +188,7 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
         return trades.OrderBy(t => t.Time).ToList();
     }
 
-    private WalkForwardDataModel? ExtractWalkForwardData(Validation.WalkForwardResult? wfResult)
+    private WalkForwardDataModel? ExtractWalkForwardData(WalkForwardResult? wfResult)
     {
         if (wfResult == null)
             return null;
