@@ -1,7 +1,9 @@
 using System;
-using StockSharp.Algo.Strategies;
 using StockSharp.Algo.Indicators;
+using StockSharp.Algo.Strategies;
 using StockSharp.AdvancedBacktest.Strategies;
+using StockSharp.BusinessEntities;
+using StockSharp.Messages;
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate.Strategies;
 
@@ -149,5 +151,85 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
 		_sizingMethod = Param(nameof(SizingMethod), PositionSizingMethod.Fixed);
 		_fixedPositionSize = Param(nameof(FixedPositionSize), 0.01m);
 		_equityPercentage = Param(nameof(EquityPercentage), 2.0m);
+	}
+
+	protected override void OnReseted()
+	{
+		base.OnReseted();
+		
+		_currentWeekStartTime = null;
+		_previousWeekHigh = null;
+		_previousWeekLow = null;
+		_weekHigh = 0;
+		_weekLow = 0;
+		_hasBreakoutOccurred = false;
+	}
+
+	protected override void OnStarted(DateTimeOffset time)
+	{
+		base.OnStarted(time);
+
+		_trendFilter = TrendFilterType == IndicatorType.SMA
+			? new SimpleMovingAverage { Length = TrendFilterPeriod }
+			: new ExponentialMovingAverage { Length = TrendFilterPeriod };
+
+		_atr = new AverageTrueRange { Length = ATRPeriod };
+
+		var subscription = new Subscription(TimeSpan.FromDays(1).TimeFrame(), Security)
+		{
+			MarketData =
+			{
+				IsFinishedOnly = true,
+				BuildMode = MarketDataBuildModes.LoadAndBuild,
+			}
+		};
+
+		SubscribeCandles(subscription)
+			.Bind(_trendFilter, _atr, OnProcess)
+			.Start();
+	}
+
+	private void OnProcess(ICandleMessage candle, decimal trendValue, decimal atrValue)
+	{
+		if (candle.State != CandleStates.Finished)
+			return;
+
+		if (IsNewWeek(candle.OpenTime))
+		{
+			if (_currentWeekStartTime != null)
+			{
+				_previousWeekHigh = _weekHigh;
+				_previousWeekLow = _weekLow;
+			}
+
+			_currentWeekStartTime = GetWeekStart(candle.OpenTime);
+			_weekHigh = candle.HighPrice;
+			_weekLow = candle.LowPrice;
+			_hasBreakoutOccurred = false;
+		}
+		else
+		{
+			_weekHigh = Math.Max(_weekHigh, candle.HighPrice);
+			
+			if (_weekLow == 0 || candle.LowPrice < _weekLow)
+				_weekLow = candle.LowPrice;
+		}
+	}
+
+	private bool IsNewWeek(DateTimeOffset candleTime)
+	{
+		if (_currentWeekStartTime == null)
+			return true;
+
+		var currentWeekStart = GetWeekStart(candleTime);
+		var trackedWeekStart = GetWeekStart(_currentWeekStartTime.Value);
+
+		return currentWeekStart != trackedWeekStart;
+	}
+
+	private DateTimeOffset GetWeekStart(DateTimeOffset time)
+	{
+		var daysFromMonday = ((int)time.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+		return new DateTimeOffset(time.Date.AddDays(-daysFromMonday), time.Offset);
 	}
 }
