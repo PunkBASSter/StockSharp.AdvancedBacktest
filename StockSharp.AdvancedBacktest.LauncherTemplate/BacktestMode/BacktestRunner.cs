@@ -81,6 +81,7 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
                 walkForwardResult = await RunWalkForwardValidationAsync(optimizer, optimizationConfig);
                 ConsoleLogger.LogSuccess($"Walk-forward validation completed: {walkForwardResult.TotalWindows} windows processed");
                 ConsoleLogger.LogInfo($"Walk-Forward Efficiency: {walkForwardResult.WalkForwardEfficiency:F4}");
+                ConsoleLogger.LogInfo($"Consistency (Std Dev): {walkForwardResult.Consistency:F4}");
             }
             else
             {
@@ -431,15 +432,23 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         var startDate = _config.TrainingStartDate;
         var endDate = _config.ValidationEndDate;
 
+        ConsoleLogger.LogInfo($"Mode: {wfConfig.Mode}");
+        ConsoleLogger.LogInfo($"Window Size: {wfConfig.WindowSize.TotalDays} days");
+        ConsoleLogger.LogInfo($"Step Size: {wfConfig.StepSize.TotalDays} days");
+        ConsoleLogger.LogInfo($"Validation Size: {wfConfig.ValidationSize.TotalDays} days");
+
         var result = validator.Validate(wfConfig, startDate, endDate);
 
         if (VerboseLogging)
         {
-            ConsoleLogger.LogInfo($"Walk-forward windows processed:");
+            ConsoleLogger.LogInfo($"\nWalk-forward windows processed:");
             for (int i = 0; i < result.Windows.Count; i++)
             {
                 var window = result.Windows[i];
-                ConsoleLogger.LogInfo($"  Window {i + 1}: Training Return = {window.TrainingMetrics.TotalReturn:F4}, Testing Return = {window.TestingMetrics.TotalReturn:F4}");
+                ConsoleLogger.LogInfo($"  Window {i + 1}:");
+                ConsoleLogger.LogInfo($"    Training: {window.TrainingMetrics.TotalReturn:F4} return, {window.TrainingMetrics.TotalTrades} trades");
+                ConsoleLogger.LogInfo($"    Testing:  {window.TestingMetrics.TotalReturn:F4} return, {window.TestingMetrics.TotalTrades} trades");
+                ConsoleLogger.LogInfo($"    Testing Sortino: {window.TestingMetrics.SortinoRatio:F4}");
             }
         }
 
@@ -483,8 +492,10 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         if (walkForwardResult != null)
         {
             await writer.WriteLineAsync($"\n=== Walk-Forward Analysis ===");
+            await writer.WriteLineAsync($"Mode: {_config.WalkForwardConfig!.Mode}");
             await writer.WriteLineAsync($"Total Windows: {walkForwardResult.TotalWindows}");
             await writer.WriteLineAsync($"WF Efficiency: {walkForwardResult.WalkForwardEfficiency:F4}");
+            await writer.WriteLineAsync($"Consistency (Std Dev): {walkForwardResult.Consistency:F4}");
         }
 
         ConsoleLogger.LogInfo($"Report saved to: {reportPath}");
@@ -561,6 +572,7 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         if (walkForwardResult != null)
         {
             ConsoleLogger.LogInfo($"  WF Efficiency: {walkForwardResult.WalkForwardEfficiency:F4}");
+            ConsoleLogger.LogInfo($"  Consistency (Std Dev): {walkForwardResult.Consistency:F4}");
         }
 
         ConsoleLogger.LogInfo($"\nResults saved to: {OutputDirectory}");
