@@ -509,45 +509,15 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
             return;
         }
 
-        Directory.CreateDirectory(_config.ExportPath);
+        var exporter = new StrategyExporter<TStrategy>();
+        var exportedPaths = await exporter.ExportTopStrategiesAsync(
+            results.Values,
+            _config,
+            _config.ExportPath,
+            topCount: 5,
+            verboseLogging: VerboseLogging);
 
-        var topStrategies = results
-            .Where(r => r.Value.ValidationMetrics != null)
-            .OrderByDescending(r => r.Value.ValidationMetrics!.SortinoRatio)
-            .Take(5)
-            .ToList();
-
-        for (int i = 0; i < topStrategies.Count; i++)
-        {
-            var result = topStrategies[i];
-            var exportPath = Path.Combine(_config.ExportPath, $"strategy_{i + 1}.json");
-
-            var strategyConfig = new StrategyParametersConfig
-            {
-                StrategyName = _config.StrategyName,
-                StrategyVersion = _config.StrategyVersion,
-                StrategyHash = GenerateConfigHash(result.Key),
-                OptimizationDate = DateTimeOffset.UtcNow,
-                Parameters = new Dictionary<string, JsonElement>(),
-                InitialCapital = _config.InitialCapital,
-                TradeVolume = _config.TradeVolume,
-                Securities = _config.Securities
-            };
-
-            // TODO: Extract actual parameter values from result.Key
-            // For MVP, we save the configuration key as a reference
-            strategyConfig.Parameters["ConfigurationKey"] = JsonSerializer.SerializeToElement(result.Key);
-
-            var json = JsonSerializer.Serialize(strategyConfig, new JsonSerializerOptions { WriteIndented = true });
-            await File.WriteAllTextAsync(exportPath, json);
-
-            if (VerboseLogging)
-            {
-                ConsoleLogger.LogInfo($"Exported strategy #{i + 1} to: {exportPath}");
-            }
-        }
-
-        ConsoleLogger.LogInfo($"Exported {topStrategies.Count} top strategies to: {_config.ExportPath}");
+        ConsoleLogger.LogInfo($"Exported {exportedPaths.Count} top strategies to: {_config.ExportPath}");
     }
 
     private void LogSummary(
@@ -576,12 +546,5 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         }
 
         ConsoleLogger.LogInfo($"\nResults saved to: {OutputDirectory}");
-    }
-
-    private string GenerateConfigHash(string configKey)
-    {
-        using var sha256 = System.Security.Cryptography.SHA256.Create();
-        var hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(configKey));
-        return Convert.ToHexString(hashBytes)[..32];
     }
 }
