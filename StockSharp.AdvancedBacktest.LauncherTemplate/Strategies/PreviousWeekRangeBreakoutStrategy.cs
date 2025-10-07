@@ -214,6 +214,13 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
             if (_weekLow == 0 || candle.LowPrice < _weekLow)
                 _weekLow = candle.LowPrice;
         }
+
+        var signal = CheckForBreakoutSignal(candle, trendValue);
+        if (signal != null)
+        {
+            LogSignal(signal.Value, candle, trendValue);
+            _hasBreakoutOccurred = true;
+        }
     }
 
     private bool IsNewWeek(DateTimeOffset candleTime)
@@ -231,5 +238,39 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
     {
         var daysFromMonday = ((int)time.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
         return new DateTimeOffset(time.Date.AddDays(-daysFromMonday), time.Offset);
+    }
+
+    private Sides? CheckForBreakoutSignal(ICandleMessage candle, decimal trendValue)
+    {
+        if (_previousWeekHigh == null || _previousWeekLow == null)
+            return null;
+
+        if (_hasBreakoutOccurred)
+            return null;
+
+        if (Position != 0)
+            return null;
+
+        var closePrice = candle.ClosePrice;
+
+        if (closePrice > _previousWeekHigh.Value && closePrice > trendValue)
+            return Sides.Buy;
+
+        if (closePrice < _previousWeekLow.Value && closePrice < trendValue)
+            return Sides.Sell;
+
+        return null;
+    }
+
+    private void LogSignal(Sides signal, ICandleMessage candle, decimal trendValue)
+    {
+        var breakoutLevel = signal == Sides.Buy ? _previousWeekHigh : _previousWeekLow;
+        var direction = signal == Sides.Buy ? "LONG" : "SHORT";
+        
+        this.LogInfo($"Breakout signal detected: {direction} at {candle.CloseTime:yyyy-MM-dd HH:mm:ss}");
+        this.LogInfo($"  Close Price: {candle.ClosePrice:F2}");
+        this.LogInfo($"  Breakout Level: {breakoutLevel:F2}");
+        this.LogInfo($"  Trend Filter ({TrendFilterType}): {trendValue:F2}");
+        this.LogInfo($"  Position: {Position}");
     }
 }
