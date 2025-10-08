@@ -1,54 +1,43 @@
 namespace StockSharp.AdvancedBacktest.Parameters;
 
 /// <summary>
-/// Container for managing strategy parameters with efficient lookup and validation.
-/// Centralizes all parameter-related operations including access, modification, and hashing.
+/// Immutable container for managing strategy parameters with efficient lookup and validation.
+/// All parameters must be provided at construction time.
 /// </summary>
 public class CustomParamsContainer
 {
-    private readonly Dictionary<string, ICustomParam> _paramsLookup = new();
+    private readonly IReadOnlyDictionary<string, ICustomParam> _params;
 
-    public List<ICustomParam> CustomParams { get; private set; } = [];
-    public List<Func<IDictionary<string, ICustomParam>, bool>> ValidationRules { get; set; } = [];
+    public IReadOnlyList<ICustomParam> CustomParams { get; }
+    public List<Func<IDictionary<string, ICustomParam>, bool>> ValidationRules { get; init; } = [];
 
-    public void Add(ICustomParam param)
+    /// <summary>
+    /// Creates an immutable parameter container.
+    /// </summary>
+    public CustomParamsContainer(IEnumerable<ICustomParam> parameters)
     {
-        CustomParams.Add(param);
-        _paramsLookup[param.Id] = param;
-    }
-
-    public void AddRange(IEnumerable<ICustomParam> parameters)
-    {
-        foreach (var param in parameters)
-        {
-            Add(param);
-        }
-    }
-
-    public void Initialize()
-    {
-        _paramsLookup.Clear();
-        foreach (var param in CustomParams)
-        {
-            _paramsLookup[param.Id] = param;
-        }
+        ArgumentNullException.ThrowIfNull(parameters);
+        
+        var paramList = parameters.ToList();
+        CustomParams = paramList.AsReadOnly();
+        _params = paramList.ToDictionary(p => p.Id, p => p);
     }
 
     public T Get<T>(string id)
     {
-        if (_paramsLookup.TryGetValue(id, out var param))
+        if (_params.TryGetValue(id, out var param))
         {
             return (T)param.Value;
         }
 
         throw new InvalidOperationException(
             $"Parameter '{id}' not found in CustomParams. " +
-            $"Available parameters: {string.Join(", ", _paramsLookup.Keys)}");
+            $"Available parameters: {string.Join(", ", _params.Keys)}");
     }
 
     public bool TryGet<T>(string id, out T value)
     {
-        if (_paramsLookup.TryGetValue(id, out var param))
+        if (_params.TryGetValue(id, out var param))
         {
             value = (T)param.Value;
             return true;
@@ -58,9 +47,9 @@ public class CustomParamsContainer
         return false;
     }
 
-    public bool Contains(string id) => _paramsLookup.ContainsKey(id);
+    public bool Contains(string id) => _params.ContainsKey(id);
 
-    public int Count => CustomParams.Count;
+    public int Count => _params.Count;
 
     public string GenerateHash()
     {
@@ -70,7 +59,7 @@ public class CustomParamsContainer
 
     public bool Validate()
     {
-        var paramsDict = _paramsLookup.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        var paramsDict = _params.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
         return ValidationRules.All(rule => rule(paramsDict));
     }
 }

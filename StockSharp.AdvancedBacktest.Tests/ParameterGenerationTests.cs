@@ -90,16 +90,20 @@ public class ParameterGenerationTests
 	[Fact]
 	public void ValidationRules_FilterParameters()
 	{
-		var container = new CustomParamsContainer();
-		container.CustomParams.Add(new NumberParam<int>("fast", 10, 5, 15, 5));
-		container.CustomParams.Add(new NumberParam<int>("slow", 50, 40, 60, 10));
-
-		container.ValidationRules.Add(dict =>
+		var params1 = new NumberParam<int>("fast", 10, 5, 15, 5);
+		var params2 = new NumberParam<int>("slow", 50, 40, 60, 10);
+		var container = new CustomParamsContainer(new[] { params1, params2 })
 		{
-			var fast = (NumberParam<int>)dict["fast"];
-			var slow = (NumberParam<int>)dict["slow"];
-			return fast.Value < slow.Value;
-		});
+			ValidationRules =
+			{
+				dict =>
+				{
+					var fast = (NumberParam<int>)dict["fast"];
+					var slow = (NumberParam<int>)dict["slow"];
+					return fast.Value < slow.Value;
+				}
+			}
+		};
 
 		Assert.Single(container.ValidationRules);
 

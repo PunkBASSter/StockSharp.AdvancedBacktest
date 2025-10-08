@@ -1,5 +1,6 @@
 using System.Text.Json;
 using StockSharp.Algo.Commissions;
+using StockSharp.AdvancedBacktest.LauncherTemplate.Configuration;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Configuration.Models;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Utilities;
 using StockSharp.AdvancedBacktest.Models;
@@ -153,39 +154,22 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
 
     private CustomParamsContainer BuildParameterContainer()
     {
-        var customParams = new List<ICustomParam>();
+        var parameters = new List<ICustomParam>();
 
         // Add security parameters
-        AddSecurityParameters(customParams);
+        AddSecurityParameters(parameters);
 
-        // Add optimizable parameters (numeric and enum)
-        foreach (var (key, paramDef) in _config.OptimizableParameters)
+        // Add optimizable parameters using factory
+        parameters.AddRange(
+            ParameterFactory.CreateFromDictionary(_config.OptimizableParameters));
+
+        if (VerboseLogging)
         {
-            try
-            {
-                ValidateParameterDefinition(key, paramDef);
-                var param = CreateParameterFromDefinition(key, paramDef);
-                customParams.Add(param);
-
-                if (VerboseLogging)
-                {
-                    LogParameterInfo(key, paramDef);
-                }
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"Failed to create parameter '{key}': {ex.Message}", ex);
-            }
+            ConsoleLogger.LogInfo($"Created {parameters.Count} parameters total");
         }
 
-        var container = new CustomParamsContainer();
-        container.AddRange(customParams);
-        container.Initialize();
-
-        // Add validation rules if any are defined in the config
-        // TODO: Parse validation rules from config when that feature is added
-
-        return container;
+        // Immutable container - no initialization needed!
+        return new CustomParamsContainer(parameters);
     }
 
     private void AddSecurityParameters(List<ICustomParam> customParams)
@@ -254,100 +238,6 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
             'd' => TimeSpan.FromDays(value),
             'w' => TimeSpan.FromDays(value * 7),
             _ => throw new ArgumentException($"Invalid timeframe unit '{unitChar}' in: {timeFrameStr}. Valid units: s, m, h, d, w")
-        };
-    }
-
-    private void ValidateParameterDefinition(string name, ParameterDefinition def)
-    {
-        var typeLower = def.Type.ToLowerInvariant();
-
-        if (typeLower is "int" or "decimal" or "double")
-        {
-            // Numeric parameters require min, max, step
-            if (!def.MinValue.HasValue)
-            {
-                throw new InvalidOperationException($"Parameter '{name}': MinValue is required for numeric type '{def.Type}'");
-            }
-            if (!def.MaxValue.HasValue)
-            {
-                throw new InvalidOperationException($"Parameter '{name}': MaxValue is required for numeric type '{def.Type}'");
-            }
-            if (!def.StepValue.HasValue)
-            {
-                throw new InvalidOperationException($"Parameter '{name}': StepValue is required for numeric type '{def.Type}'");
-            }
-        }
-        else if (typeLower is "string" or "enum")
-        {
-            // Enum/string parameters require values list
-            if (def.Values == null || def.Values.Count == 0)
-            {
-                throw new InvalidOperationException($"Parameter '{name}': Values list is required for type '{def.Type}'");
-            }
-        }
-        else
-        {
-            throw new NotSupportedException($"Parameter type '{def.Type}' is not supported. Supported types: int, decimal, double, string, enum");
-        }
-    }
-
-    private void LogParameterInfo(string name, ParameterDefinition def)
-    {
-        var typeLower = def.Type.ToLowerInvariant();
-
-        if (typeLower is "int" or "decimal" or "double")
-        {
-            ConsoleLogger.LogInfo($"  - {name} ({def.Type}): {def.MinValue} to {def.MaxValue} step {def.StepValue}");
-        }
-        else if (typeLower is "string" or "enum")
-        {
-            var valuesStr = string.Join(", ", def.Values!);
-            ConsoleLogger.LogInfo($"  - {name} ({def.Type}): [{valuesStr}]");
-        }
-    }
-
-    private ICustomParam CreateParameterFromDefinition(string name, ParameterDefinition def)
-    {
-        return def.Type.ToLowerInvariant() switch
-        {
-            "int" => new NumberParam<int>(
-                name,
-                def.DefaultValue?.Deserialize<int>() ?? def.MinValue!.Value.Deserialize<int>(),
-                def.MinValue!.Value.Deserialize<int>(),
-                def.MaxValue!.Value.Deserialize<int>(),
-                def.StepValue!.Value.Deserialize<int>())
-            {
-                CanOptimize = true
-            },
-
-            "decimal" => new NumberParam<decimal>(
-                name,
-                def.DefaultValue?.Deserialize<decimal>() ?? def.MinValue!.Value.Deserialize<decimal>(),
-                def.MinValue!.Value.Deserialize<decimal>(),
-                def.MaxValue!.Value.Deserialize<decimal>(),
-                def.StepValue!.Value.Deserialize<decimal>())
-            {
-                CanOptimize = true
-            },
-
-            "double" => new NumberParam<double>(
-                name,
-                def.DefaultValue?.Deserialize<double>() ?? def.MinValue!.Value.Deserialize<double>(),
-                def.MinValue!.Value.Deserialize<double>(),
-                def.MaxValue!.Value.Deserialize<double>(),
-                def.StepValue!.Value.Deserialize<double>())
-            {
-                CanOptimize = true
-            },
-
-            "string" or "enum" => new ClassParam<string>(
-                name,
-                def.Values!)
-            {
-                CanOptimize = true
-            },
-
-            _ => throw new NotSupportedException($"Parameter type '{def.Type}' is not supported. Supported types: int, decimal, double, string, enum")
         };
     }
 

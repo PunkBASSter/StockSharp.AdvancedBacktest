@@ -105,7 +105,7 @@ public class OptimizationLauncherWalkForwardTests
         // Arrange
         var config = new OptimizationConfig
         {
-            ParamsContainer = new CustomParamsContainer(),
+            ParamsContainer = new CustomParamsContainer(Enumerable.Empty<ICustomParam>()),
             TrainingPeriod = new OptimizationPeriodConfig
             {
                 TrainingStartDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
@@ -153,7 +153,7 @@ public class OptimizationLauncherWalkForwardTests
         // Arrange
         var config = new OptimizationConfig
         {
-            ParamsContainer = new CustomParamsContainer(),
+            ParamsContainer = new CustomParamsContainer(Enumerable.Empty<ICustomParam>()),
             TrainingPeriod = new OptimizationPeriodConfig
             {
                 TrainingStartDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),

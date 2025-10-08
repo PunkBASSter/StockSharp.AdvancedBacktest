@@ -18,7 +18,7 @@ public class WalkForwardValidatorTests
 
     private OptimizationConfig CreateMockConfig()
     {
-        var paramsContainer = new CustomParamsContainer();
+        var paramsContainer = new CustomParamsContainer(Enumerable.Empty<ICustomParam>());
 
         var periodConfig = new OptimizationPeriodConfig
         {

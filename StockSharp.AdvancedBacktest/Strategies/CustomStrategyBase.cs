@@ -29,7 +29,7 @@ public abstract class CustomStrategyBase : Strategy
 
     public virtual Dictionary<Security, IEnumerable<TimeSpan>> Securities { get; set; } = new(new SecurityIdComparer());
 
-    public CustomParamsContainer ParamsContainer { get; set; } = new();
+    public CustomParamsContainer ParamsContainer { get; set; } = new(Enumerable.Empty<ICustomParam>());
 
     protected T GetParam<T>(string id) => ParamsContainer.Get<T>(id);
 
@@ -45,8 +45,7 @@ public abstract class CustomStrategyBase : Strategy
         strategy.Securities.AddRange(secparams);
 
         var nonsecparams = paramSet.Where(p => p is not SecurityParam).ToList();
-        strategy.ParamsContainer.AddRange(nonsecparams);
-        strategy.ParamsContainer.Initialize();
+        strategy.ParamsContainer = new CustomParamsContainer(nonsecparams);
 
         return strategy;
     }

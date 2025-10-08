@@ -17,7 +17,7 @@ namespace StockSharp.AdvancedBacktest.Optimization;
 public abstract class LauncherBase<TStrategy> : IDisposable
 	where TStrategy : CustomStrategyBase, new()
 {
-	protected virtual CustomParamsContainer ParamsContainer { get; set; } = new();
+	protected virtual CustomParamsContainer ParamsContainer { get; set; } = new(Enumerable.Empty<ICustomParam>());
 	protected virtual Portfolio Portfolio { get; set; }
 	protected virtual LogManager LogManager { get; set; } = new();
 	public virtual CancellationTokenSource CancellationTokenSrc { get; set; } = new();
@@ -52,7 +52,9 @@ public abstract class LauncherBase<TStrategy> : IDisposable
 		if (parameters == null || !parameters.Any())
 			throw new ArgumentException("Parameters cannot be null or empty.", nameof(parameters));
 
-		ParamsContainer.CustomParams.AddRange(parameters);
+		// Create new immutable container with combined parameters
+		var allParams = ParamsContainer.CustomParams.Concat(parameters);
+		ParamsContainer = new CustomParamsContainer(allParams);
 		return this;
 	}
 
