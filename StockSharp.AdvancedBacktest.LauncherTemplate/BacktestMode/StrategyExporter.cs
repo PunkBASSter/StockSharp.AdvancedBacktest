@@ -123,10 +123,10 @@ public class StrategyExporter<TStrategy> where TStrategy : CustomStrategyBase, n
     {
         var parameters = new Dictionary<string, JsonElement>();
 
-        foreach (var param in strategy.CustomParams)
+        foreach (var param in strategy.ParamsContainer.CustomParams)
         {
-            var value = param.Value.Value;
-            parameters[param.Key] = JsonSerializer.SerializeToElement(value);
+            var value = param.Value;
+            parameters[param.Id] = JsonSerializer.SerializeToElement(value);
         }
 
         return parameters;
@@ -142,7 +142,7 @@ public class StrategyExporter<TStrategy> where TStrategy : CustomStrategyBase, n
     private string GenerateConfigHash(CustomStrategyBase strategy)
     {
         var hashInput = $"{strategy.GetType().Name}_{strategy.Version}_{strategy.ParamsHash}_{strategy.SecuritiesHash}";
-        
+
         using var sha256 = System.Security.Cryptography.SHA256.Create();
         var hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(hashInput));
         return Convert.ToHexString(hashBytes)[..32];

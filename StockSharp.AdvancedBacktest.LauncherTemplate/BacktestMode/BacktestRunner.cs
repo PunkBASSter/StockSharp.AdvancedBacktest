@@ -178,7 +178,9 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
             }
         }
 
-        var container = new CustomParamsContainer { CustomParams = customParams };
+        var container = new CustomParamsContainer();
+        container.AddRange(customParams);
+        container.Initialize();
 
         // Add validation rules if any are defined in the config
         // TODO: Parse validation rules from config when that feature is added

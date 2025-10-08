@@ -1,0 +1,164 @@
+{
+  "StrategyName": "PreviousWeekRangeBreakout",
+  "StrategyVersion": "1.0.0",
+  "StrategyDescription": "Breakout strategy that trades when price breaks the previous week's high or low, with trend filter confirmation",
+  "TrainingStartDate": "2020-01-01T00:00:00Z",
+  "TrainingEndDate": "2022-12-31T23:59:59Z",
+  "ValidationStartDate": "2023-01-01T00:00:00Z",
+  "ValidationEndDate": "2023-12-31T23:59:59Z",
+  "Securities": [
+    "AAPL@NASDAQ"
+  ],
+  "TimeFrames": [
+    "1d"
+  ],
+  "OptimizableParameters": {
+    "TrendFilterPeriod": {
+      "Name": "TrendFilterPeriod",
+      "Type": "int",
+      "MinValue": 20,
+      "MaxValue": 100,
+      "StepValue": 10,
+      "DefaultValue": 50,
+      "Description": "Period for the trend filter indicator (SMA or EMA)"
+    },
+    "TrendFilterType": {
+      "Name": "TrendFilterType",
+      "Type": "enum",
+      "Values": [
+        "SMA",
+        "EMA"
+      ],
+      "DefaultValue": "SMA",
+      "Description": "Type of moving average to use for trend filtering"
+    },
+    "StopLossMethodValue": {
+      "Name": "StopLossMethodValue",
+      "Type": "enum",
+      "Values": [
+        "Percentage",
+        "ATR"
+      ],
+      "DefaultValue": "Percentage",
+      "Description": "Method for calculating stop-loss (Percentage or ATR-based)"
+    },
+    "StopLossPercentage": {
+      "Name": "StopLossPercentage",
+      "Type": "decimal",
+      "MinValue": 0.5,
+      "MaxValue": 5.0,
+      "StepValue": 0.5,
+      "DefaultValue": 2.0,
+      "Description": "Stop-loss percentage when using Percentage method"
+    },
+    "StopLossATRMultiplier": {
+      "Name": "StopLossATRMultiplier",
+      "Type": "decimal",
+      "MinValue": 1.0,
+      "MaxValue": 4.0,
+      "StepValue": 0.5,
+      "DefaultValue": 2.0,
+      "Description": "ATR multiplier for stop-loss when using ATR method"
+    },
+    "ATRPeriod": {
+      "Name": "ATRPeriod",
+      "Type": "int",
+      "MinValue": 7,
+      "MaxValue": 28,
+      "StepValue": 7,
+      "DefaultValue": 14,
+      "Description": "Period for Average True Range (ATR) indicator"
+    },
+    "TakeProfitMethodValue": {
+      "Name": "TakeProfitMethodValue",
+      "Type": "enum",
+      "Values": [
+        "Percentage",
+        "ATR",
+        "RiskReward"
+      ],
+      "DefaultValue": "Percentage",
+      "Description": "Method for calculating take-profit target"
+    },
+    "TakeProfitPercentage": {
+      "Name": "TakeProfitPercentage",
+      "Type": "decimal",
+      "MinValue": 2.0,
+      "MaxValue": 10.0,
+      "StepValue": 1.0,
+      "DefaultValue": 4.0,
+      "Description": "Take-profit percentage when using Percentage method"
+    },
+    "TakeProfitATRMultiplier": {
+      "Name": "TakeProfitATRMultiplier",
+      "Type": "decimal",
+      "MinValue": 1.5,
+      "MaxValue": 5.0,
+      "StepValue": 0.5,
+      "DefaultValue": 3.0,
+      "Description": "ATR multiplier for take-profit when using ATR method"
+    },
+    "RiskRewardRatio": {
+      "Name": "RiskRewardRatio",
+      "Type": "decimal",
+      "MinValue": 1.0,
+      "MaxValue": 5.0,
+      "StepValue": 0.5,
+      "DefaultValue": 2.0,
+      "Description": "Risk-to-reward ratio when using RiskReward method for take-profit"
+    },
+    "SizingMethod": {
+      "Name": "SizingMethod",
+      "Type": "enum",
+      "Values": [
+        "Fixed",
+        "PercentOfEquity",
+        "ATRBased"
+      ],
+      "DefaultValue": "Fixed",
+      "Description": "Method for calculating position size"
+    },
+    "FixedPositionSize": {
+      "Name": "FixedPositionSize",
+      "Type": "decimal",
+      "MinValue": 0.01,
+      "MaxValue": 1.0,
+      "StepValue": 0.01,
+      "DefaultValue": 0.01,
+      "Description": "Fixed position size when using Fixed sizing method"
+    },
+    "EquityPercentage": {
+      "Name": "EquityPercentage",
+      "Type": "decimal",
+      "MinValue": 0.5,
+      "MaxValue": 10.0,
+      "StepValue": 0.5,
+      "DefaultValue": 2.0,
+      "Description": "Percentage of equity to risk per trade (used by PercentOfEquity and ATRBased methods)"
+    }
+  },
+  "FixedParameters": {},
+  "MetricFilterExpressions": [
+    "TotalTrades >= 10",
+    "WinRate >= 0.40",
+    "ProfitFactor >= 1.2",
+    "SharpeRatio >= 0.5"
+  ],
+  "WalkForwardConfig": {
+    "InSampleMonths": 12,
+    "OutOfSampleMonths": 3,
+    "StepMonths": 3,
+    "MinimumTrades": 5,
+    "ReoptimizationMode": "Rolling"
+  },
+  "HistoryPath": "C:/StockSharpData/",
+  "InitialCapital": 100000,
+  "TradeVolume": 0.01,
+  "CommissionPercentage": 0.1,
+  "ParallelWorkers": 8,
+  "UseBruteForceOptimization": true,
+  "ExportPath": "./output/previousweek-breakout",
+  "ExportFormat": "Csv",
+  "ExportDetailedMetrics": true,
+  "ExportTradeLog": false
+}
