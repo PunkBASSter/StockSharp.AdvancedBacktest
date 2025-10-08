@@ -17,7 +17,7 @@ public class CustomParamsContainer
     public CustomParamsContainer(IEnumerable<ICustomParam> parameters)
     {
         ArgumentNullException.ThrowIfNull(parameters);
-        
+
         var paramList = parameters.ToList();
         CustomParams = paramList.AsReadOnly();
         _params = paramList.ToDictionary(p => p.Id, p => p);
