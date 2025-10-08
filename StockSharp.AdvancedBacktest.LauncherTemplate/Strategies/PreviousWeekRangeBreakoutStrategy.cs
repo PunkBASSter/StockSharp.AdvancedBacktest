@@ -273,4 +273,182 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
         this.LogInfo($"  Trend Filter ({TrendFilterType}): {trendValue:F2}");
         this.LogInfo($"  Position: {Position}");
     }
+
+    private decimal CalculatePositionSize(decimal price)
+    {
+        if (price <= 0)
+            throw new ArgumentException("Price must be greater than zero", nameof(price));
+
+        var positionSize = SizingMethod switch
+        {
+            PositionSizingMethod.Fixed => FixedPositionSize,
+            
+            PositionSizingMethod.PercentOfEquity => CalculatePercentOfEquitySize(price),
+            
+            PositionSizingMethod.ATRBased => CalculateATRBasedSize(price),
+            
+            _ => throw new InvalidOperationException($"Unknown position sizing method: {SizingMethod}")
+        };
+
+        const decimal minimumPositionSize = 0.01m;
+        if (positionSize < minimumPositionSize)
+            throw new InvalidOperationException(
+                $"Calculated position size {positionSize} is below minimum {minimumPositionSize}");
+
+        return positionSize;
+    }
+
+    private decimal CalculatePercentOfEquitySize(decimal price)
+    {
+        var equity = Portfolio?.CurrentValue ?? Portfolio?.BeginValue ?? 0;
+        
+        if (equity <= 0)
+            throw new InvalidOperationException("Portfolio equity must be greater than zero for PercentOfEquity sizing");
+
+        var riskAmount = equity * (EquityPercentage / 100m);
+        return riskAmount / price;
+    }
+
+    private decimal CalculateATRBasedSize(decimal price)
+    {
+        var atrValue = GetCurrentATRValue();
+        var equity = Portfolio?.CurrentValue ?? Portfolio?.BeginValue ?? 0;
+        
+        if (equity <= 0)
+            throw new InvalidOperationException("Portfolio equity must be greater than zero for ATRBased sizing");
+
+        var riskAmount = equity * (EquityPercentage / 100m);
+        var riskPerShare = atrValue * StopLossATRMultiplier;
+        
+        if (riskPerShare <= 0)
+            throw new InvalidOperationException("Risk per share must be greater than zero");
+
+        return riskAmount / riskPerShare;
+    }
+
+    private decimal CalculateStopLoss(Sides side, decimal entryPrice)
+    {
+        if (entryPrice <= 0)
+            throw new ArgumentException("Entry price must be greater than zero", nameof(entryPrice));
+
+        var stopLoss = StopLossMethodValue switch
+        {
+            StopLossMethod.Percentage => CalculatePercentageStopLoss(side, entryPrice),
+            
+            StopLossMethod.ATR => CalculateATRStopLoss(side, entryPrice),
+            
+            _ => throw new InvalidOperationException($"Unknown stop-loss method: {StopLossMethodValue}")
+        };
+
+        ValidateStopLoss(side, entryPrice, stopLoss);
+        return stopLoss;
+    }
+
+    private decimal CalculatePercentageStopLoss(Sides side, decimal entryPrice)
+    {
+        return side == Sides.Buy
+            ? entryPrice * (1 - StopLossPercentage / 100m)
+            : entryPrice * (1 + StopLossPercentage / 100m);
+    }
+
+    private decimal CalculateATRStopLoss(Sides side, decimal entryPrice)
+    {
+        var atrValue = GetCurrentATRValue();
+        
+        return side == Sides.Buy
+            ? entryPrice - (atrValue * StopLossATRMultiplier)
+            : entryPrice + (atrValue * StopLossATRMultiplier);
+    }
+
+    private decimal CalculateTakeProfit(Sides side, decimal entryPrice, decimal stopLoss)
+    {
+        if (entryPrice <= 0)
+            throw new ArgumentException("Entry price must be greater than zero", nameof(entryPrice));
+
+        if (stopLoss <= 0)
+            throw new ArgumentException("Stop-loss must be greater than zero", nameof(stopLoss));
+
+        var takeProfit = TakeProfitMethodValue switch
+        {
+            TakeProfitMethod.Percentage => CalculatePercentageTakeProfit(side, entryPrice),
+            
+            TakeProfitMethod.ATR => CalculateATRTakeProfit(side, entryPrice),
+            
+            TakeProfitMethod.RiskReward => CalculateRiskRewardTakeProfit(side, entryPrice, stopLoss),
+            
+            _ => throw new InvalidOperationException($"Unknown take-profit method: {TakeProfitMethodValue}")
+        };
+
+        ValidateTakeProfit(side, entryPrice, takeProfit);
+        return takeProfit;
+    }
+
+    private decimal CalculatePercentageTakeProfit(Sides side, decimal entryPrice)
+    {
+        return side == Sides.Buy
+            ? entryPrice * (1 + TakeProfitPercentage / 100m)
+            : entryPrice * (1 - TakeProfitPercentage / 100m);
+    }
+
+    private decimal CalculateATRTakeProfit(Sides side, decimal entryPrice)
+    {
+        var atrValue = GetCurrentATRValue();
+        
+        return side == Sides.Buy
+            ? entryPrice + (atrValue * TakeProfitATRMultiplier)
+            : entryPrice - (atrValue * TakeProfitATRMultiplier);
+    }
+
+    private decimal CalculateRiskRewardTakeProfit(Sides side, decimal entryPrice, decimal stopLoss)
+    {
+        var risk = Math.Abs(entryPrice - stopLoss);
+        
+        return side == Sides.Buy
+            ? entryPrice + (risk * RiskRewardRatio)
+            : entryPrice - (risk * RiskRewardRatio);
+    }
+
+    private decimal GetCurrentATRValue()
+    {
+        if (_atr == null)
+            throw new InvalidOperationException("ATR indicator is not initialized");
+
+        if (!_atr.IsFormed)
+            throw new InvalidOperationException("ATR indicator is not yet formed - insufficient data");
+
+        var atrValue = _atr.GetCurrentValue();
+        
+        if (atrValue <= 0)
+            throw new InvalidOperationException($"ATR value must be greater than zero, got {atrValue}");
+
+        return atrValue;
+    }
+
+    private void ValidateStopLoss(Sides side, decimal entryPrice, decimal stopLoss)
+    {
+        if (stopLoss <= 0)
+            throw new InvalidOperationException("Stop-loss must be greater than zero");
+
+        if (side == Sides.Buy && stopLoss >= entryPrice)
+            throw new InvalidOperationException(
+                $"For long position, stop-loss ({stopLoss}) must be below entry price ({entryPrice})");
+
+        if (side == Sides.Sell && stopLoss <= entryPrice)
+            throw new InvalidOperationException(
+                $"For short position, stop-loss ({stopLoss}) must be above entry price ({entryPrice})");
+    }
+
+    private void ValidateTakeProfit(Sides side, decimal entryPrice, decimal takeProfit)
+    {
+        if (takeProfit <= 0)
+            throw new InvalidOperationException("Take-profit must be greater than zero");
+
+        if (side == Sides.Buy && takeProfit <= entryPrice)
+            throw new InvalidOperationException(
+                $"For long position, take-profit ({takeProfit}) must be above entry price ({entryPrice})");
+
+        if (side == Sides.Sell && takeProfit >= entryPrice)
+            throw new InvalidOperationException(
+                $"For short position, take-profit ({takeProfit}) must be below entry price ({entryPrice})");
+    }
 }
