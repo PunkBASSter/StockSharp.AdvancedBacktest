@@ -61,7 +61,87 @@ public void CalculatePositionSize_WhenRiskExceedsLimit_ThrowsException()
 - **Logging**: Structured logging with correlation IDs
 - **Self-Documenting Code**: Avoid XML comments - use clear, descriptive names instead
 
-### 3. Implementation Patterns
+### 3. Object-Oriented Design with Composition
+
+**Design classes using composition of focused modules** with single, well-defined responsibilities:
+
+```csharp
+// ❌ AVOID: Monolithic class doing everything
+public class TradingStrategy
+{
+    public Dictionary<string, Parameter> Parameters { get; set; }
+    public List<Security> Securities { get; set; }
+    public PerformanceMetrics Metrics { get; set; }
+
+    public void ValidateParameters() { /* complex logic */ }
+    public void ManageRisk() { /* complex logic */ }
+    public void TrackPerformance() { /* complex logic */ }
+    public void ManageIndicators() { /* complex logic */ }
+}
+
+// ✅ PREFER: Composition of focused modules
+public class TradingStrategy
+{
+    public IParameterManager ParameterManager { get; }
+    public ISecurityManager SecurityManager { get; }
+    public IPerformanceTracker PerformanceTracker { get; }
+    public IRiskController RiskController { get; }
+    public IIndicatorRegistry IndicatorRegistry { get; }
+
+    public TradingStrategy(
+        IParameterManager parameterManager,
+        ISecurityManager securityManager,
+        IPerformanceTracker performanceTracker,
+        IRiskController riskController,
+        IIndicatorRegistry indicatorRegistry)
+    {
+        ParameterManager = parameterManager ?? throw new ArgumentNullException(nameof(parameterManager));
+        SecurityManager = securityManager ?? throw new ArgumentNullException(nameof(securityManager));
+        PerformanceTracker = performanceTracker ?? throw new ArgumentNullException(nameof(performanceTracker));
+        RiskController = riskController ?? throw new ArgumentNullException(nameof(riskController));
+        IndicatorRegistry = indicatorRegistry ?? throw new ArgumentNullException(nameof(indicatorRegistry));
+    }
+
+    // Delegate to appropriate modules
+    protected T GetParameter<T>(string id) => ParameterManager.Get<T>(id);
+}
+```
+
+**Module Responsibilities - Each module should have ONE clear purpose:**
+
+1. **IParameterManager / ParameterManager**
+   - Parameter storage and retrieval
+   - Parameter validation
+   - Hash generation for parameter sets
+
+2. **ISecurityManager / SecurityManager**
+   - Security and timeframe management
+   - Security configuration
+   - Security-specific data access
+
+3. **IPerformanceTracker / PerformanceTracker**
+   - Metrics calculation and tracking
+   - Performance window management
+   - Historical performance data
+
+4. **IRiskController / RiskController**
+   - Risk limit validation
+   - Position sizing based on risk
+   - Risk event handling
+
+5. **IIndicatorRegistry / IndicatorRegistry**
+   - Indicator lifecycle management
+   - Indicator value access
+   - Indicator state tracking
+
+**Benefits of this approach:**
+- ✅ Each module is independently testable
+- ✅ Easy to mock dependencies in tests
+- ✅ Clear separation of concerns
+- ✅ Easy to extend without modifying existing code
+- ✅ Modules can be reused across strategies
+
+### 4. Implementation Patterns
 
 **Validation Pattern** - Choose the right validation approach:
 
@@ -140,9 +220,10 @@ public class UserService : IUserService
 }
 ```
 
-### 4. Testing Patterns
+### 5. Testing Patterns
 
-**Unit Tests** - Test business logic with real value:
+**Unit Tests** (✅ MANDATORY for business logic) - Test individual classes/methods in isolation:
+
 ```csharp
 public class OrderValidatorTests
 {
@@ -164,23 +245,69 @@ public class OrderValidatorTests
 }
 ```
 
-**Integration Tests** - Test with real dependencies:
+**Integration Tests** (Optional) - Test multiple units working together or with real infrastructure:
+
 ```csharp
-public class TradingApiTests : IClassFixture<WebApplicationFactory<Program>>
+public class TradingStrategyIntegrationTests
 {
     [Fact]
-    public async Task PlaceOrder_WithValidRequest_Returns201AndOrderId()
+    public void Strategy_WithMultipleModules_WorksTogether()
+    {
+        // Arrange - Real dependencies, not mocks
+        var paramManager = new ParameterManager(GetTestParams());
+        var securityManager = new SecurityManager();
+        var perfTracker = new PerformanceTracker();
+
+        // Act
+        var strategy = new TestStrategy(
+            paramManager, securityManager, perfTracker);
+        strategy.Initialize();
+
+        // Assert
+        Assert.NotNull(strategy.ParameterManager);
+        Assert.NotNull(strategy.SecurityManager);
+        Assert.NotNull(strategy.PerformanceTracker);
+    }
+
+    [Fact]
+    public async Task Repository_SavesAndRetrievesFromDatabase()
+    {
+        // Arrange - Real database (test instance)
+        using var context = new TestDbContext();
+        var repository = new OrderRepository(context);
+        var order = new Order { Symbol = "AAPL", Quantity = 100 };
+
+        // Act
+        await repository.SaveAsync(order);
+        var retrieved = await repository.GetByIdAsync(order.Id);
+
+        // Assert
+        Assert.Equal(order.Symbol, retrieved.Symbol);
+    }
+}
+```
+
+**E2E Tests** (Optional) - Test complete user workflows:
+
+```csharp
+public class TradingApiE2ETests : IClassFixture<WebApplicationFactory<Program>>
+{
+    [Fact]
+    public async Task CompleteTradeWorkflow_FromLoginToOrderExecution()
     {
         // Arrange
         var client = _factory.CreateClient();
-        var request = new PlaceOrderRequest { Symbol = "AAPL", Quantity = 10 };
 
-        // Act
-        var response = await client.PostAsJsonAsync("/api/orders", request);
+        // Act - Complete workflow
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", credentials);
+        var token = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>();
+
+        client.DefaultRequestHeaders.Authorization = new("Bearer", token.AccessToken);
+        var orderResponse = await client.PostAsJsonAsync("/api/orders", orderRequest);
 
         // Assert
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var order = await response.Content.ReadFromJsonAsync<Order>();
+        Assert.Equal(HttpStatusCode.Created, orderResponse.StatusCode);
+        var order = await orderResponse.Content.ReadFromJsonAsync<Order>();
         Assert.NotNull(order?.OrderId);
     }
 }
@@ -190,13 +317,14 @@ public class TradingApiTests : IClassFixture<WebApplicationFactory<Program>>
 
 1. **Test What Matters** - Write tests for business logic, algorithms, and complex operations (not property assignments)
 2. **Single Responsibility** - Each class/method does one thing well
-3. **Dependency Injection** - Never use `new` for dependencies
-4. **Async All the Way** - No blocking calls in async code
-5. **Input Validation** - Validate at API boundaries
-6. **Error Context** - Exceptions should include helpful context
-7. **Self-Documenting Code** - Clear, descriptive names > XML comments
-8. **Consistent Style** - Follow language-specific style guides (use microsoft_documentation_tools for C#)
-9. **Avoid Noise** - No trivial tests, no redundant comments
+3. **Composition Over Inheritance** - Use composition of focused modules with exact responsibilities
+4. **Dependency Injection** - Never use `new` for dependencies
+5. **Async All the Way** - No blocking calls in async code
+6. **Input Validation** - Validate at API boundaries
+7. **Error Context** - Exceptions should include helpful context
+8. **Self-Documenting Code** - Clear, descriptive names > XML comments
+9. **Consistent Style** - Follow language-specific style guides (use microsoft_documentation_tools for C#)
+10. **Avoid Noise** - No trivial tests, no redundant comments
 
 ## When to Use This Mode
 
