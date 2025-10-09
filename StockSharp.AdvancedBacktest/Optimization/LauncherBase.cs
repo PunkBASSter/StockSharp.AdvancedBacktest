@@ -15,141 +15,143 @@ using StockSharp.AdvancedBacktest.Strategies;
 namespace StockSharp.AdvancedBacktest.Optimization;
 
 public abstract class LauncherBase<TStrategy> : IDisposable
-	where TStrategy : CustomStrategyBase, new()
+    where TStrategy : CustomStrategyBase, new()
 {
-	protected virtual CustomParamsContainer ParamsContainer { get; set; } = new();
-	protected virtual Portfolio Portfolio { get; set; }
-	protected virtual LogManager LogManager { get; set; } = new();
-	public virtual CancellationTokenSource CancellationTokenSrc { get; set; } = new();
-	protected List<Func<IDictionary<string, ICustomParam>, bool>> ParamValidationRules = new();
+    protected virtual CustomParamsContainer ParamsContainer { get; set; } = new(Enumerable.Empty<ICustomParam>());
+    protected virtual Portfolio Portfolio { get; set; }
+    protected virtual LogManager LogManager { get; set; } = new();
+    public virtual CancellationTokenSource CancellationTokenSrc { get; set; } = new();
+    protected List<Func<IDictionary<string, ICustomParam>, bool>> ParamValidationRules = new();
 
-	public Task? StrategyTask { get; private set; } = null!;
+    public Task? StrategyTask { get; private set; } = null!;
 
-	public LauncherBase()
-	{
-		//Strategy = Activator.CreateInstance<TStrategy>();
-		ConfigManager.RegisterService<IExchangeInfoProvider>(new InMemoryExchangeInfoProvider());
-		Portfolio = new Portfolio { Name = "Default", BeginValue = 5000 };
-		//InitSecurities(securities);
-	}
+    public LauncherBase()
+    {
+        //Strategy = Activator.CreateInstance<TStrategy>();
+        ConfigManager.RegisterService<IExchangeInfoProvider>(new InMemoryExchangeInfoProvider());
+        Portfolio = new Portfolio { Name = "Default", BeginValue = 5000 };
+        //InitSecurities(securities);
+    }
 
-	/// <summary>
-	/// Launches the strategy in a separate task.
-	/// </summary>
-	/// <returns></returns>
-	public virtual LauncherBase<TStrategy> Launch()
-	{
-		StrategyTask = Task.Factory.StartNew(
-			() => LaunchStrategy(CancellationTokenSrc.Token),
-			CancellationTokenSrc.Token,
-			TaskCreationOptions.LongRunning,
-			TaskScheduler.Default);
-		return this;
-	}
+    /// <summary>
+    /// Launches the strategy in a separate task.
+    /// </summary>
+    /// <returns></returns>
+    public virtual LauncherBase<TStrategy> Launch()
+    {
+        StrategyTask = Task.Factory.StartNew(
+            () => LaunchStrategy(CancellationTokenSrc.Token),
+            CancellationTokenSrc.Token,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
+        return this;
+    }
 
-	public virtual LauncherBase<TStrategy> WithStrategyParams(params ICustomParam[] parameters)
-	{
-		if (parameters == null || !parameters.Any())
-			throw new ArgumentException("Parameters cannot be null or empty.", nameof(parameters));
+    public virtual LauncherBase<TStrategy> WithStrategyParams(params ICustomParam[] parameters)
+    {
+        if (parameters == null || !parameters.Any())
+            throw new ArgumentException("Parameters cannot be null or empty.", nameof(parameters));
 
-		ParamsContainer.CustomParams.AddRange(parameters);
-		return this;
-	}
+        // Create new immutable container with combined parameters
+        var allParams = ParamsContainer.CustomParams.Concat(parameters);
+        ParamsContainer = new CustomParamsContainer(allParams);
+        return this;
+    }
 
-	public virtual LauncherBase<TStrategy> WithParamValidation(Func<IDictionary<string, ICustomParam>, bool> filter)
-	{
-		if (filter == null)
-			throw new ArgumentNullException(nameof(filter));
+    public virtual LauncherBase<TStrategy> WithParamValidation(Func<IDictionary<string, ICustomParam>, bool> filter)
+    {
+        if (filter == null)
+            throw new ArgumentNullException(nameof(filter));
 
-		ParamValidationRules.Add(filter);
-		return this;
-	}
+        ParamValidationRules.Add(filter);
+        return this;
+    }
 
-	public virtual LauncherBase<TStrategy> WithPortfolio(Portfolio portfolio)
-	{
-		if (portfolio == null)
-			throw new ArgumentNullException(nameof(portfolio));
+    public virtual LauncherBase<TStrategy> WithPortfolio(Portfolio portfolio)
+    {
+        if (portfolio == null)
+            throw new ArgumentNullException(nameof(portfolio));
 
-		Portfolio = portfolio;
-		return this;
-	}
+        Portfolio = portfolio;
+        return this;
+    }
 
-	protected virtual void LaunchStrategy(CancellationToken ct)
-	{
-		//The init code below is relevant for backtesting and maybe live trading, not optimization.
-		//DataConnector.Connect();
-		//DataConnector.Start(); // was used for backtests
-		//ConnectorSubscribeToSecurities();
-		//Strategy.Start();
+    protected virtual void LaunchStrategy(CancellationToken ct)
+    {
+        //The init code below is relevant for backtesting and maybe live trading, not optimization.
+        //DataConnector.Connect();
+        //DataConnector.Start(); // was used for backtests
+        //ConnectorSubscribeToSecurities();
+        //Strategy.Start();
 
-		while (!ct.IsCancellationRequested && !IsExitRequired())
-		{
-			Thread.Sleep(100);
-		}
-	}
+        while (!ct.IsCancellationRequested && !IsExitRequired())
+        {
+            Thread.Sleep(100);
+        }
+    }
 
-	protected abstract bool IsExitRequired();
+    protected abstract bool IsExitRequired();
 
-	//private void ConnectorSubscribeToSecurities()
-	//{
-	//	foreach (var security in Strategy.Securities.Keys)
-	//	{
-	//		if (security == null)
-	//			throw new ArgumentNullException(nameof(security));
-	//		foreach (var timeFrame in Strategy.Securities[security])
-	//		{
-	//			var subscription = new Subscription(timeFrame.TimeFrame(), security);
-	//			SetCandleSubscriptionDetails(subscription);
-	//			//DataConnector.Subscribe(subscription);
-	//		}
-	//	}
-	//}
+    //private void ConnectorSubscribeToSecurities()
+    //{
+    //	foreach (var security in Strategy.Securities.Keys)
+    //	{
+    //		if (security == null)
+    //			throw new ArgumentNullException(nameof(security));
+    //		foreach (var timeFrame in Strategy.Securities[security])
+    //		{
+    //			var subscription = new Subscription(timeFrame.TimeFrame(), security);
+    //			SetCandleSubscriptionDetails(subscription);
+    //			//DataConnector.Subscribe(subscription);
+    //		}
+    //	}
+    //}
 
-	#region Disposable Support
+    #region Disposable Support
 
-	private bool _disposed;
-	private readonly object _disposeLock = new();
+    private bool _disposed;
+    private readonly object _disposeLock = new();
 
-	/// <summary>
-	/// Releases all resources used by the object.
-	/// </summary>
-	public void Dispose()
-	{
-		Dispose(true);
-		GC.SuppressFinalize(this);
-	}
+    /// <summary>
+    /// Releases all resources used by the object.
+    /// </summary>
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
 
-	/// <summary>
-	/// Releases the unmanaged resources used by the object and optionally releases the managed resources.
-	/// </summary>
-	/// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
-	private void Dispose(bool disposing)
-	{
-		lock (_disposeLock)
-		{
-			if (_disposed)
-				return;
+    /// <summary>
+    /// Releases the unmanaged resources used by the object and optionally releases the managed resources.
+    /// </summary>
+    /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
+    private void Dispose(bool disposing)
+    {
+        lock (_disposeLock)
+        {
+            if (_disposed)
+                return;
 
-			if (disposing)
-			{
-				DisposeInherited();
-				//DataConnector?.Disconnect();
-				LogManager.Dispose();
-				//Strategy?.Dispose();
-				//Strategy = null;
-				//Strategy.Securities.Clear();
-			}
+            if (disposing)
+            {
+                DisposeInherited();
+                //DataConnector?.Disconnect();
+                LogManager.Dispose();
+                //Strategy?.Dispose();
+                //Strategy = null;
+                //Strategy.Securities.Clear();
+            }
 
-			_disposed = true;
-		}
-	}
+            _disposed = true;
+        }
+    }
 
-	protected abstract void DisposeInherited();
+    protected abstract void DisposeInherited();
 
-	~LauncherBase()
-	{
-		Dispose(false);
-	}
+    ~LauncherBase()
+    {
+        Dispose(false);
+    }
 
-	#endregion
+    #endregion
 }

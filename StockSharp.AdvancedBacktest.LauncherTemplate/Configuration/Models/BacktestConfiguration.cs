@@ -65,8 +65,6 @@ public class BacktestConfiguration
     [StringLength(500, ErrorMessage = "Export path cannot exceed 500 characters")]
     public string? ExportPath { get; set; }
 
-    public ExportFormat ExportFormat { get; set; } = ExportFormat.Csv;
-
     public bool ExportDetailedMetrics { get; set; } = true;
 
     public bool ExportTradeLog { get; set; } = false;
@@ -92,12 +90,4 @@ public class ParameterDefinition
 
     [StringLength(500, ErrorMessage = "Description cannot exceed 500 characters")]
     public string? Description { get; set; }
-}
-
-public enum ExportFormat
-{
-    Csv,
-    Json,
-    Excel,
-    Parquet
 }
