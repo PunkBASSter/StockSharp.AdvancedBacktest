@@ -1,58 +1,25 @@
 using System;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using StockSharp.Algo.Indicators;
 using StockSharp.Algo.Strategies;
 using StockSharp.AdvancedBacktest.Strategies;
+using StockSharp.AdvancedBacktest.Strategies.Modules;
+using StockSharp.AdvancedBacktest.Strategies.Modules.Factories;
+using StockSharp.AdvancedBacktest.Strategies.Modules.PositionSizing;
+using StockSharp.AdvancedBacktest.Strategies.Modules.StopLoss;
+using StockSharp.AdvancedBacktest.Strategies.Modules.TakeProfit;
 using StockSharp.BusinessEntities;
 using StockSharp.Messages;
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate.Strategies;
 
-public enum IndicatorType
-{
-    SMA,
-    EMA
-}
-
-public enum StopLossMethod
-{
-    Percentage,
-    ATR
-}
-
-public enum TakeProfitMethod
-{
-    Percentage,
-    ATR,
-    RiskReward
-}
-
-public enum PositionSizingMethod
-{
-    Fixed,
-    PercentOfEquity,
-    ATRBased
-}
-
-/// <summary>
-/// Previous Week Range Breakout Strategy with customizable parameters via CustomParamsContainer.
-/// Parameters are injected through dependency injection using the BacktestRunner configuration.
-/// </summary>
 public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
 {
-    // Strategy parameters accessed from CustomParams dictionary (injected via DI)
-    public int TrendFilterPeriod => GetParam<int>(nameof(TrendFilterPeriod));
-    public IndicatorType TrendFilterType => GetParam<IndicatorType>(nameof(TrendFilterType));
-    public StopLossMethod StopLossMethodValue => GetParam<StopLossMethod>(nameof(StopLossMethodValue));
-    public decimal StopLossPercentage => GetParam<decimal>(nameof(StopLossPercentage));
-    public decimal StopLossATRMultiplier => GetParam<decimal>(nameof(StopLossATRMultiplier));
-    public int ATRPeriod => GetParam<int>(nameof(ATRPeriod));
-    public TakeProfitMethod TakeProfitMethodValue => GetParam<TakeProfitMethod>(nameof(TakeProfitMethodValue));
-    public decimal TakeProfitPercentage => GetParam<decimal>(nameof(TakeProfitPercentage));
-    public decimal TakeProfitATRMultiplier => GetParam<decimal>(nameof(TakeProfitATRMultiplier));
-    public decimal RiskRewardRatio => GetParam<decimal>(nameof(RiskRewardRatio));
-    public PositionSizingMethod SizingMethod => GetParam<PositionSizingMethod>(nameof(SizingMethod));
-    public decimal FixedPositionSize => GetParam<decimal>(nameof(FixedPositionSize));
-    public decimal EquityPercentage => GetParam<decimal>(nameof(EquityPercentage));
+    private readonly StrategyOptions _options;
+    private readonly IPositionSizer _positionSizer;
+    private readonly IStopLossCalculator _stopLossCalculator;
+    private readonly ITakeProfitCalculator _takeProfitCalculator;
 
     private decimal? _previousWeekHigh;
     private decimal? _previousWeekLow;
@@ -62,6 +29,26 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
     private IIndicator? _trendFilter;
     private AverageTrueRange? _atr;
     private bool _hasBreakoutOccurred;
+
+    public PreviousWeekRangeBreakoutStrategy(IServiceProvider serviceProvider)
+    {
+        if (serviceProvider == null)
+            throw new ArgumentNullException(nameof(serviceProvider));
+
+        // Get options
+        var optionsAccessor = serviceProvider.GetRequiredService<IOptions<StrategyOptions>>();
+        _options = optionsAccessor.Value;
+
+        // Get factories
+        var positionSizerFactory = serviceProvider.GetRequiredService<PositionSizerFactory>();
+        var stopLossFactory = serviceProvider.GetRequiredService<StopLossFactory>();
+        var takeProfitFactory = serviceProvider.GetRequiredService<TakeProfitFactory>();
+
+        // Resolve specific implementations based on options
+        _positionSizer = positionSizerFactory.Create(_options.SizingMethod);
+        _stopLossCalculator = stopLossFactory.Create(_options.StopLossMethodValue);
+        _takeProfitCalculator = takeProfitFactory.Create(_options.TakeProfitMethodValue);
+    }
 
     protected override void OnReseted()
     {
@@ -79,11 +66,11 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
     {
         base.OnStarted(time);
 
-        _trendFilter = TrendFilterType == IndicatorType.SMA
-            ? new SimpleMovingAverage { Length = TrendFilterPeriod }
-            : new ExponentialMovingAverage { Length = TrendFilterPeriod };
+        _trendFilter = _options.TrendFilterType == StockSharp.AdvancedBacktest.Strategies.Modules.IndicatorType.SMA
+            ? new SimpleMovingAverage { Length = _options.TrendFilterPeriod }
+            : new ExponentialMovingAverage { Length = _options.TrendFilterPeriod };
 
-        _atr = new AverageTrueRange { Length = ATRPeriod };
+        _atr = new AverageTrueRange { Length = _options.ATRPeriod };
 
         var subscription = new Subscription(TimeSpan.FromDays(1).TimeFrame(), Security)
         {
@@ -180,7 +167,7 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
         this.LogInfo($"Breakout signal detected: {direction} at {candle.CloseTime:yyyy-MM-dd HH:mm:ss}");
         this.LogInfo($"  Close Price: {candle.ClosePrice:F2}");
         this.LogInfo($"  Breakout Level: {breakoutLevel:F2}");
-        this.LogInfo($"  Trend Filter ({TrendFilterType}): {trendValue:F2}");
+        this.LogInfo($"  Trend Filter ({_options.TrendFilterType}): {trendValue:F2}");
         this.LogInfo($"  Position: {Position}");
     }
 
@@ -189,16 +176,8 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
         if (price <= 0)
             throw new ArgumentException("Price must be greater than zero", nameof(price));
 
-        var positionSize = SizingMethod switch
-        {
-            PositionSizingMethod.Fixed => FixedPositionSize,
-
-            PositionSizingMethod.PercentOfEquity => CalculatePercentOfEquitySize(price),
-
-            PositionSizingMethod.ATRBased => CalculateATRBasedSize(price),
-
-            _ => throw new InvalidOperationException($"Unknown position sizing method: {SizingMethod}")
-        };
+        var atrValue = GetCurrentATRValue();
+        var positionSize = _positionSizer.Calculate(price, atrValue, Portfolio);
 
         const decimal minimumPositionSize = 0.01m;
         if (positionSize < minimumPositionSize)
@@ -208,66 +187,13 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
         return positionSize;
     }
 
-    private decimal CalculatePercentOfEquitySize(decimal price)
-    {
-        var equity = Portfolio?.CurrentValue ?? Portfolio?.BeginValue ?? 0;
-
-        if (equity <= 0)
-            throw new InvalidOperationException("Portfolio equity must be greater than zero for PercentOfEquity sizing");
-
-        var riskAmount = equity * (EquityPercentage / 100m);
-        return riskAmount / price;
-    }
-
-    private decimal CalculateATRBasedSize(decimal price)
-    {
-        var atrValue = GetCurrentATRValue();
-        var equity = Portfolio?.CurrentValue ?? Portfolio?.BeginValue ?? 0;
-
-        if (equity <= 0)
-            throw new InvalidOperationException("Portfolio equity must be greater than zero for ATRBased sizing");
-
-        var riskAmount = equity * (EquityPercentage / 100m);
-        var riskPerShare = atrValue * StopLossATRMultiplier;
-
-        if (riskPerShare <= 0)
-            throw new InvalidOperationException("Risk per share must be greater than zero");
-
-        return riskAmount / riskPerShare;
-    }
-
     private decimal CalculateStopLoss(Sides side, decimal entryPrice)
     {
         if (entryPrice <= 0)
             throw new ArgumentException("Entry price must be greater than zero", nameof(entryPrice));
 
-        var stopLoss = StopLossMethodValue switch
-        {
-            StopLossMethod.Percentage => CalculatePercentageStopLoss(side, entryPrice),
-
-            StopLossMethod.ATR => CalculateATRStopLoss(side, entryPrice),
-
-            _ => throw new InvalidOperationException($"Unknown stop-loss method: {StopLossMethodValue}")
-        };
-
-        ValidateStopLoss(side, entryPrice, stopLoss);
-        return stopLoss;
-    }
-
-    private decimal CalculatePercentageStopLoss(Sides side, decimal entryPrice)
-    {
-        return side == Sides.Buy
-            ? entryPrice * (1 - StopLossPercentage / 100m)
-            : entryPrice * (1 + StopLossPercentage / 100m);
-    }
-
-    private decimal CalculateATRStopLoss(Sides side, decimal entryPrice)
-    {
         var atrValue = GetCurrentATRValue();
-
-        return side == Sides.Buy
-            ? entryPrice - (atrValue * StopLossATRMultiplier)
-            : entryPrice + (atrValue * StopLossATRMultiplier);
+        return _stopLossCalculator.Calculate(side, entryPrice, atrValue);
     }
 
     private decimal CalculateTakeProfit(Sides side, decimal entryPrice, decimal stopLoss)
@@ -278,44 +204,8 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
         if (stopLoss <= 0)
             throw new ArgumentException("Stop-loss must be greater than zero", nameof(stopLoss));
 
-        var takeProfit = TakeProfitMethodValue switch
-        {
-            TakeProfitMethod.Percentage => CalculatePercentageTakeProfit(side, entryPrice),
-
-            TakeProfitMethod.ATR => CalculateATRTakeProfit(side, entryPrice),
-
-            TakeProfitMethod.RiskReward => CalculateRiskRewardTakeProfit(side, entryPrice, stopLoss),
-
-            _ => throw new InvalidOperationException($"Unknown take-profit method: {TakeProfitMethodValue}")
-        };
-
-        ValidateTakeProfit(side, entryPrice, takeProfit);
-        return takeProfit;
-    }
-
-    private decimal CalculatePercentageTakeProfit(Sides side, decimal entryPrice)
-    {
-        return side == Sides.Buy
-            ? entryPrice * (1 + TakeProfitPercentage / 100m)
-            : entryPrice * (1 - TakeProfitPercentage / 100m);
-    }
-
-    private decimal CalculateATRTakeProfit(Sides side, decimal entryPrice)
-    {
         var atrValue = GetCurrentATRValue();
-
-        return side == Sides.Buy
-            ? entryPrice + (atrValue * TakeProfitATRMultiplier)
-            : entryPrice - (atrValue * TakeProfitATRMultiplier);
-    }
-
-    private decimal CalculateRiskRewardTakeProfit(Sides side, decimal entryPrice, decimal stopLoss)
-    {
-        var risk = Math.Abs(entryPrice - stopLoss);
-
-        return side == Sides.Buy
-            ? entryPrice + (risk * RiskRewardRatio)
-            : entryPrice - (risk * RiskRewardRatio);
+        return _takeProfitCalculator.Calculate(side, entryPrice, stopLoss, atrValue);
     }
 
     private decimal GetCurrentATRValue()
@@ -332,33 +222,5 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
             throw new InvalidOperationException($"ATR value must be greater than zero, got {atrValue}");
 
         return atrValue;
-    }
-
-    private void ValidateStopLoss(Sides side, decimal entryPrice, decimal stopLoss)
-    {
-        if (stopLoss <= 0)
-            throw new InvalidOperationException("Stop-loss must be greater than zero");
-
-        if (side == Sides.Buy && stopLoss >= entryPrice)
-            throw new InvalidOperationException(
-                $"For long position, stop-loss ({stopLoss}) must be below entry price ({entryPrice})");
-
-        if (side == Sides.Sell && stopLoss <= entryPrice)
-            throw new InvalidOperationException(
-                $"For short position, stop-loss ({stopLoss}) must be above entry price ({entryPrice})");
-    }
-
-    private void ValidateTakeProfit(Sides side, decimal entryPrice, decimal takeProfit)
-    {
-        if (takeProfit <= 0)
-            throw new InvalidOperationException("Take-profit must be greater than zero");
-
-        if (side == Sides.Buy && takeProfit <= entryPrice)
-            throw new InvalidOperationException(
-                $"For long position, take-profit ({takeProfit}) must be above entry price ({entryPrice})");
-
-        if (side == Sides.Sell && takeProfit >= entryPrice)
-            throw new InvalidOperationException(
-                $"For short position, take-profit ({takeProfit}) must be below entry price ({entryPrice})");
     }
 }
