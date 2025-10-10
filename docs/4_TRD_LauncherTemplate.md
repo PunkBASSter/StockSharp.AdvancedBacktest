@@ -60,7 +60,7 @@ The LauncherTemplate is a reference implementation that demonstrates all capabil
     └────────────────┘           └─────────────────┘
 ```
 
-### 1.3 Component Layers
+### 1.3 Component Layers (currently not physically separated)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -79,6 +79,9 @@ The LauncherTemplate is a reference implementation that demonstrates all capabil
 │  Domain Layer (Strategy)                                │
 │  - PreviousWeekRangeBreakoutStrategy                    │
 │  - Risk Management Logic                                │
+│  - StockSharp.AdvancedBacktest Library                  │
+│  - StockSharp Algo|Strategy|Indicator                   │
+│  - StockSharp Framework                                 │
 └────────────────────┬────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────┐
@@ -90,8 +93,6 @@ The LauncherTemplate is a reference implementation that demonstrates all capabil
                      │
 ┌────────────────────▼────────────────────────────────────┐
 │  External Dependencies                                  │
-│  - StockSharp.AdvancedBacktest Library                  │
-│  - StockSharp Framework                                 │
 │  - Broker APIs (via StockSharp connectors)              │
 └─────────────────────────────────────────────────────────┘
 ```

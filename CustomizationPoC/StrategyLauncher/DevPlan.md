@@ -4,13 +4,6 @@
 
 TODO:
 
-- Restructure StrategyLauncher as a separate solution in a separate repository.
-- Visualization tool as a separate FE web app.
-- Decompose to JS, CSS, HTML, JSON data.
-- Build chart for bigger periods.
-
-- Verify 0 Sharpe and 0 Sortino Ratios?
-
 - Delta ZigZag is implemented on StockSharp and used.
 - Delta ZigZag based strategy is implemented.
 - Implement Monte-Carlo permutations tests to estimate overfitting.

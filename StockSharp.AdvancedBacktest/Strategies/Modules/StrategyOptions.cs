@@ -1,8 +1,9 @@
 namespace StockSharp.AdvancedBacktest.Strategies.Modules;
 
-/// <summary>
-/// Configuration options for the PreviousWeekRangeBreakoutStrategy
-/// </summary>
+//TODO:
+//Fix wrong architecture. This is a concrete DTO class, that is used by a concrete strategy But it is located in a generic library.
+//It's tightly coupled with different strategy modules that supposed to be interchangeable and suitable for other strategies.
+//
 public class StrategyOptions
 {
     // Trend Filter settings
