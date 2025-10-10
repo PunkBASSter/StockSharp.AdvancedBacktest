@@ -1,23 +1,17 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies;
+using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.PreviousWeekRangeBreakout;
+using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Strategies.Modules;
-using StockSharp.AdvancedBacktest.Strategies.Modules.Factories;
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate;
 
-/// <summary>
-/// Entry point for the LauncherTemplate console application with Dependency Injection.
-/// </summary>
+// Entry point for the LauncherTemplate console application.
+// Uses CustomParams pattern for configuration instead of Dependency Injection.
 public class Program
 {
     public static int Main(string[] args)
     {
-        Console.WriteLine("StockSharp Advanced Backtest - Launcher Template with DI");
-
-        // Build DI container
-        var services = ConfigureServices();
-        var serviceProvider = services.BuildServiceProvider();
+        Console.WriteLine("StockSharp Advanced Backtest - Launcher Template");
 
         // Determine mode
         var mode = args.Length > 0 && args[0] == "--live" ? "live" : "optimization";
@@ -25,82 +19,61 @@ public class Program
 
         if (mode == "live")
         {
-            RunLiveMode(serviceProvider);
+            RunLiveMode();
         }
         else
         {
-            RunOptimizationMode(serviceProvider);
+            RunOptimizationMode();
         }
 
         return 0;
     }
 
-    private static ServiceCollection ConfigureServices()
-    {
-        var services = new ServiceCollection();
-
-        // Configure strategy options
-        services.Configure<StrategyOptions>(options =>
-        {
-            // Trend Filter settings
-            options.TrendFilterType = IndicatorType.SMA;
-            options.TrendFilterPeriod = 20;
-
-            // ATR settings
-            options.ATRPeriod = 14;
-
-            // Position sizing
-            options.SizingMethod = PositionSizingMethod.ATRBased;
-            options.FixedPositionSize = 1m;
-            options.EquityPercentage = 2m;
-
-            // Stop loss settings
-            options.StopLossMethodValue = StopLossMethod.ATR;
-            options.StopLossPercentage = 2m;
-            options.StopLossATRMultiplier = 2m;
-
-            // Take profit settings
-            options.TakeProfitMethodValue = TakeProfitMethod.RiskReward;
-            options.TakeProfitPercentage = 4m;
-            options.TakeProfitATRMultiplier = 3m;
-            options.RiskRewardRatio = 2m;
-        });
-
-        // Register factories (scoped to allow options updates per optimization iteration)
-        services.AddScoped<PositionSizerFactory>();
-        services.AddScoped<StopLossFactory>();
-        services.AddScoped<TakeProfitFactory>();
-
-        // Register strategy (scoped to create new instances per optimization iteration)
-        services.AddScoped<PreviousWeekRangeBreakoutStrategy>();
-
-        return services;
-    }
-
-    private static void RunLiveMode(ServiceProvider serviceProvider)
+    private static void RunLiveMode()
     {
         Console.WriteLine("Live trading mode - creating strategy instance");
 
-        var strategy = serviceProvider.GetRequiredService<PreviousWeekRangeBreakoutStrategy>();
+        // Build configuration using type-safe builder
+        var config = new PreviousWeekRangeBreakoutConfigBuilder()
+            .WithTrendFilter(IndicatorType.SMA, 20)
+            .WithATRPeriod(14)
+            .WithATRBasedPositionSizing(equityPercent: 2m, atrMultiplier: 2m)
+            .WithATRStopLoss(2m)
+            .WithRiskRewardTakeProfit(2m)
+            .Build();
+
+        // Create strategy instance using CustomStrategyBase factory method
+        var strategy = CustomStrategyBase.Create<PreviousWeekRangeBreakoutStrategy>(config);
 
         // TODO: Configure connector, portfolio, security, etc.
         // TODO: Start strategy
 
         Console.WriteLine("Strategy created successfully");
-        Console.WriteLine($"  Position Sizing: {serviceProvider.GetRequiredService<IOptions<StrategyOptions>>().Value.SizingMethod}");
-        Console.WriteLine($"  Stop Loss Method: {serviceProvider.GetRequiredService<IOptions<StrategyOptions>>().Value.StopLossMethodValue}");
-        Console.WriteLine($"  Take Profit Method: {serviceProvider.GetRequiredService<IOptions<StrategyOptions>>().Value.TakeProfitMethodValue}");
+        Console.WriteLine($"  Position Sizing: ATRBased");
+        Console.WriteLine($"  Stop Loss Method: ATR");
+        Console.WriteLine($"  Take Profit Method: RiskReward");
     }
 
-    private static void RunOptimizationMode(ServiceProvider serviceProvider)
+    private static void RunOptimizationMode()
     {
         Console.WriteLine("Optimization mode - demonstrating parameter iteration");
 
-        // Example: Iterate through different combinations
-        var positionSizingMethods = new[] { PositionSizingMethod.Fixed, PositionSizingMethod.PercentOfEquity, PositionSizingMethod.ATRBased };
-        var stopLossMethods = new[] { StopLossMethod.Percentage, StopLossMethod.ATR };
+        // Define parameter combinations to test
+        var positionSizingMethods = new[]
+        {
+            PositionSizingMethod.Fixed,
+            PositionSizingMethod.PercentOfEquity,
+            PositionSizingMethod.ATRBased
+        };
+
+        var stopLossMethods = new[]
+        {
+            StopLossMethod.Percentage,
+            StopLossMethod.ATR
+        };
 
         int iteration = 0;
+
         foreach (var posMethod in positionSizingMethods)
         {
             foreach (var slMethod in stopLossMethods)
@@ -110,18 +83,47 @@ public class Program
                 Console.WriteLine($"  Position Sizing: {posMethod}");
                 Console.WriteLine($"  Stop Loss: {slMethod}");
 
-                // Create a new scope for this optimization iteration
-                using var scope = serviceProvider.CreateScope();
+                // Build configuration for this iteration
+                var configBuilder = new PreviousWeekRangeBreakoutConfigBuilder()
+                    .WithTrendFilter(IndicatorType.SMA, 20)
+                    .WithATRPeriod(14);
 
-                // Update options for this iteration
-                var optionsMonitor = scope.ServiceProvider.GetRequiredService<IOptionsMonitor<StrategyOptions>>();
+                // Configure position sizing based on method
+                configBuilder = posMethod switch
+                {
+                    PositionSizingMethod.Fixed =>
+                        configBuilder.WithFixedPositionSizing(1m),
 
-                // Note: In a real implementation, you would use IOptionsSnapshot or a custom mechanism
-                // to update options per scope. For this example, we're demonstrating the pattern.
+                    PositionSizingMethod.PercentOfEquity =>
+                        configBuilder.WithPercentEquityPositionSizing(2m),
+
+                    PositionSizingMethod.ATRBased =>
+                        configBuilder.WithATRBasedPositionSizing(equityPercent: 2m, atrMultiplier: 2m),
+
+                    _ => throw new InvalidOperationException($"Unknown position sizing method: {posMethod}")
+                };
+
+                // Configure stop loss based on method
+                configBuilder = slMethod switch
+                {
+                    StopLossMethod.Percentage =>
+                        configBuilder.WithPercentageStopLoss(2m),
+
+                    StopLossMethod.ATR =>
+                        configBuilder.WithATRStopLoss(2m),
+
+                    _ => throw new InvalidOperationException($"Unknown stop loss method: {slMethod}")
+                };
+
+                // Always use RiskReward take profit for this example
+                var config = configBuilder
+                    .WithRiskRewardTakeProfit(2m)
+                    .Build();
 
                 // Create strategy instance with current parameters
-                var strategy = scope.ServiceProvider.GetRequiredService<PreviousWeekRangeBreakoutStrategy>();
+                var strategy = CustomStrategyBase.Create<PreviousWeekRangeBreakoutStrategy>(config);
 
+                // TODO: Configure connector, portfolio, security for backtest
                 // TODO: Run backtest with this strategy configuration
                 // TODO: Collect metrics (Sharpe ratio, drawdown, etc.)
 
@@ -130,5 +132,10 @@ public class Program
         }
 
         Console.WriteLine("\nOptimization complete - would collect and rank results by metrics");
+        Console.WriteLine("Next steps:");
+        Console.WriteLine("  - Run each strategy instance through backtester");
+        Console.WriteLine("  - Collect performance metrics");
+        Console.WriteLine("  - Rank configurations by Sharpe ratio / drawdown");
+        Console.WriteLine("  - Export results to JSON for web visualization");
     }
 }
