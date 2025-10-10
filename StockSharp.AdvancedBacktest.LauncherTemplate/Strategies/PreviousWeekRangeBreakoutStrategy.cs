@@ -32,8 +32,7 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
 
     public PreviousWeekRangeBreakoutStrategy(IServiceProvider serviceProvider)
     {
-        if (serviceProvider == null)
-            throw new ArgumentNullException(nameof(serviceProvider));
+        ArgumentNullException.ThrowIfNull(serviceProvider);
 
         // Get options
         var optionsAccessor = serviceProvider.GetRequiredService<IOptions<StrategyOptions>>();
