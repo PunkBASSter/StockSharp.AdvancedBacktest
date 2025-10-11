@@ -1,6 +1,4 @@
-using System;
 using StockSharp.Algo.Indicators;
-using StockSharp.Algo.Strategies;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Strategies.Modules;
 using StockSharp.AdvancedBacktest.Strategies.Modules.PositionSizing;
@@ -28,6 +26,14 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
     private bool _hasBreakoutOccurred;
     private ModulesIndicatorType _trendFilterType;
 
+    private class ProtectiveOrders
+    {
+        public required Order StopLoss { get; set; }
+        public required Order TakeProfit { get; set; }
+    }
+
+    private readonly Dictionary<Order, ProtectiveOrders> _protectiveOrdersMap = new();
+
     protected override void OnReseted()
     {
         base.OnReseted();
@@ -38,6 +44,7 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
         _weekHigh = 0;
         _weekLow = 0;
         _hasBreakoutOccurred = false;
+        _protectiveOrdersMap.Clear();
     }
 
     protected override void OnStarted(DateTimeOffset time)
@@ -73,6 +80,42 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
         SubscribeCandles(subscription)
             .Bind(_trendFilter, _atr, OnProcess)
             .Start();
+    }
+
+    protected override void OnOwnTradeReceived(MyTrade trade)
+    {
+        base.OnOwnTradeReceived(trade);
+
+        var order = trade.Order;
+
+        this.LogInfo("Trade filled: {0} {1} @ {2:F2}, Position: {3}",
+            order.Side, trade.Trade.Volume, trade.Trade.Price, Position);
+
+        // Check if this is a protective order fill
+        foreach (var kvp in _protectiveOrdersMap.ToList())
+        {
+            var entryOrder = kvp.Key;
+            var protective = kvp.Value;
+
+            if (order == protective.StopLoss || order == protective.TakeProfit)
+            {
+                // One protective filled, cancel the other
+                var orderToCancel = (order == protective.StopLoss)
+                    ? protective.TakeProfit
+                    : protective.StopLoss;
+
+                if (orderToCancel.State == OrderStates.Active)
+                {
+                    this.LogInfo("Canceling opposite protective order: {0}",
+                        orderToCancel.TransactionId);
+                    CancelOrder(orderToCancel);
+                }
+
+                // Clean up tracking
+                _protectiveOrdersMap.Remove(entryOrder);
+                break;
+            }
+        }
     }
 
     private IPositionSizer CreatePositionSizer()
@@ -160,6 +203,7 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
         if (signal != null)
         {
             LogSignal(signal.Value, candle, trendValue);
+            ExecuteBreakoutTrade(signal.Value, candle);
             _hasBreakoutOccurred = true;
         }
     }
@@ -259,6 +303,85 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
 
         var atrValue = GetCurrentATRValue();
         return _takeProfitCalculator.Calculate(side, entryPrice, stopLoss, atrValue);
+    }
+
+    private void ExecuteBreakoutTrade(Sides signal, ICandleMessage candle)
+    {
+        if (Position != 0)
+        {
+            this.LogWarning("Cannot execute trade: existing position {0}", Position);
+            return;
+        }
+
+        if (!IsFormedAndOnlineAndAllowTrading())
+        {
+            this.LogWarning("Cannot execute trade: strategy not ready");
+            return;
+        }
+
+        try
+        {
+            var entryPrice = candle.ClosePrice;
+
+            // Reuse existing calculation modules
+            var positionSize = CalculatePositionSize(entryPrice);
+            var stopLossPrice = CalculateStopLoss(signal, entryPrice);
+            var takeProfitPrice = CalculateTakeProfit(signal, entryPrice, stopLossPrice);
+
+            this.LogInfo("Executing {0} breakout trade:", signal);
+            this.LogInfo("  Entry Price: {0:F2}", entryPrice);
+            this.LogInfo("  Position Size: {0:F4}", positionSize);
+            this.LogInfo("  Stop Loss: {0:F2}", stopLossPrice);
+            this.LogInfo("  Take Profit: {0:F2}", takeProfitPrice);
+            this.LogInfo("  ATR: {0:F2}", GetCurrentATRValue());
+
+            // Create entry order (limit order at breakout price)
+            Order entryOrder;
+            if (signal == Sides.Buy)
+                entryOrder = BuyLimit(entryPrice, positionSize);
+            else
+                entryOrder = SellLimit(entryPrice, positionSize);
+
+            this.LogInfo("Entry order {0} registered at {1:F2}", entryOrder.TransactionId, entryPrice);
+
+            // Register protective orders immediately
+            RegisterProtectiveOrders(entryOrder, signal, positionSize, stopLossPrice, takeProfitPrice);
+        }
+        catch (Exception ex)
+        {
+            this.LogError("Trade execution failed: {0}", ex.Message);
+        }
+    }
+
+    private void RegisterProtectiveOrders(Order entryOrder, Sides entrySide, decimal volume,
+        decimal stopLossPrice, decimal takeProfitPrice)
+    {
+        var exitSide = entrySide.Invert();
+
+        // Stop-loss limit order
+        Order stopOrder;
+        if (exitSide == Sides.Buy)
+            stopOrder = BuyLimit(stopLossPrice, volume);
+        else
+            stopOrder = SellLimit(stopLossPrice, volume);
+
+        // Take-profit limit order
+        Order tpOrder;
+        if (exitSide == Sides.Buy)
+            tpOrder = BuyLimit(takeProfitPrice, volume);
+        else
+            tpOrder = SellLimit(takeProfitPrice, volume);
+
+        // Track for later cancellation
+        _protectiveOrdersMap[entryOrder] = new ProtectiveOrders
+        {
+            StopLoss = stopOrder,
+            TakeProfit = tpOrder
+        };
+
+        this.LogInfo("Protective orders registered:");
+        this.LogInfo("  Stop-Loss: {0} at {1:F2}", stopOrder.TransactionId, stopLossPrice);
+        this.LogInfo("  Take-Profit: {0} at {1:F2}", tpOrder.TransactionId, takeProfitPrice);
     }
 
     private decimal GetCurrentATRValue()
