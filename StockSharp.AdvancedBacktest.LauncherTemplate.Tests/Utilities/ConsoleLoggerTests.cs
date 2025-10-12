@@ -107,7 +107,7 @@ public class ConsoleLoggerTests
     }
 
     [Fact]
-    public void ConcurrentLogging_FromMultipleThreads_DoesNotThrow()
+    public async Task ConcurrentLogging_FromMultipleThreads_DoesNotThrow()
     {
         // Arrange
         var tasks = new List<Task>();
@@ -130,11 +130,11 @@ public class ConsoleLoggerTests
         }
 
         // Assert - All tasks should complete without exceptions
-        Task.WaitAll(tasks.ToArray());
+        await Task.WhenAll(tasks);
     }
 
     [Fact]
-    public void ConcurrentProgressAndLogging_DoesNotThrow()
+    public async Task ConcurrentProgressAndLogging_DoesNotThrow()
     {
         // Arrange
         var progressTask = Task.Run(() =>
@@ -157,7 +157,7 @@ public class ConsoleLoggerTests
         });
 
         // Act & Assert - Both tasks should complete without exceptions
-        Task.WaitAll(progressTask, loggingTask);
+        await Task.WhenAll(progressTask, loggingTask);
     }
 
     [Fact]
