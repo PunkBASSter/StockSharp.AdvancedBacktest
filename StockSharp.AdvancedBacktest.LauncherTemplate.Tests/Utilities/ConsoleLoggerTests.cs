@@ -1,5 +1,4 @@
 using StockSharp.AdvancedBacktest.LauncherTemplate.Utilities;
-using Xunit;
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate.Tests.Utilities;
 

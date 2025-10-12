@@ -723,9 +723,34 @@ public class ConfigurationValidatorTests
 
     private LiveTradingConfiguration CreateValidLiveTradingConfiguration()
     {
-        // Create temporary files for testing
-        var strategyConfigPath = Path.GetTempFileName();
-        var brokerConfigPath = Path.GetTempFileName();
+        // Create temporary files with valid JSON content
+        var strategyConfigPath = Path.Combine(Path.GetTempPath(), $"strategy_{Guid.NewGuid()}.json");
+        var brokerConfigPath = Path.Combine(Path.GetTempPath(), $"broker_{Guid.NewGuid()}.json");
+
+        // Write valid strategy config
+        File.WriteAllText(strategyConfigPath, @"{""StrategyName"": ""Test""}");
+
+        // Write valid Binance connector config with all required structure
+        var binanceConfig = new
+        {
+            Adapter = new
+            {
+                InnerAdapters = new[]
+                {
+                    new
+                    {
+                        AdapterType = "StockSharp.Binance.BinanceMessageAdapter",
+                        AdapterSettings = new
+                        {
+                            Key = "test_api_key",
+                            Secret = "test_secret_key",
+                            Sections = "Spot"
+                        }
+                    }
+                }
+            }
+        };
+        File.WriteAllText(brokerConfigPath, JsonSerializer.Serialize(binanceConfig));
 
         return new LiveTradingConfiguration
         {
@@ -745,7 +770,19 @@ public class ConfigurationValidatorTests
                 MaxPositionConcentrationPercentage = 20
             },
             EnableAlerts = true,
-            AlertEmail = "test@example.com"
+            AlertEmail = "test@example.com",
+            EnableFileLogging = true,
+            EnableDryRun = true,
+            TradingSessions = new List<TradingSession>
+            {
+                new TradingSession
+                {
+                    Name = "Default Session",
+                    StartTime = new TimeOnly(9, 0),
+                    EndTime = new TimeOnly(16, 0),
+                    DaysOfWeek = new List<DayOfWeek> { DayOfWeek.Monday, DayOfWeek.Tuesday }
+                }
+            }
         };
     }
 
