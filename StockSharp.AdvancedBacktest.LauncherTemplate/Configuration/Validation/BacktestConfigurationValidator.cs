@@ -111,12 +111,16 @@ public class BacktestConfigurationValidator : AbstractValidator<BacktestConfigur
                 .WithSeverity(Severity.Warning)
                 .When(x => !string.IsNullOrWhiteSpace(x.ExportPath));
 
-        // Optimizable parameters validation
+        // Optimizable parameters validation (required only in Optimization mode)
         RuleFor(x => x.OptimizableParameters)
-            .NotNull().WithMessage("Optimizable parameters cannot be null.")
-            .NotEmpty().WithMessage("At least one optimizable parameter must be specified.")
-            .Must(parameters => parameters.Count <= 10)
-                .WithMessage(x => $"You have {x.OptimizableParameters.Count} optimizable parameters. This may result in very long optimization times.")
+            .NotNull()
+                .WithMessage("Optimizable parameters cannot be null when RunMode is Optimization.")
+                .When(x => x.RunMode == RunMode.Optimization)
+            .NotEmpty()
+                .WithMessage("At least one optimizable parameter must be specified when RunMode is Optimization.")
+                .When(x => x.RunMode == RunMode.Optimization)
+            .Must(parameters => parameters == null || parameters.Count <= 10)
+                .WithMessage(x => $"You have {x.OptimizableParameters?.Count ?? 0} optimizable parameters. This may result in very long optimization times.")
                 .WithSeverity(Severity.Warning);
 
         RuleForEach(x => x.OptimizableParameters)
@@ -127,7 +131,24 @@ public class BacktestConfigurationValidator : AbstractValidator<BacktestConfigur
 
                 param.RuleFor(p => p.Value)
                     .SetValidator(new ParameterDefinitionValidator());
-            });
+            })
+            .When(x => x.OptimizableParameters != null);
+
+        // Fixed parameters validation (required in Single mode)
+        RuleFor(x => x.FixedParameters)
+            .NotNull()
+                .WithMessage("FixedParameters cannot be null when RunMode is Single.")
+                .When(x => x.RunMode == RunMode.Single)
+            .NotEmpty()
+                .WithMessage("At least one fixed parameter must be specified when RunMode is Single.")
+                .When(x => x.RunMode == RunMode.Single);
+
+        // Cross-validation: ensure correct parameters are provided for each mode
+        RuleFor(x => x)
+            .Must(x => x.RunMode != RunMode.Optimization || (x.OptimizableParameters != null && x.OptimizableParameters.Count > 0))
+                .WithMessage("Optimization mode requires at least one optimizable parameter.")
+            .Must(x => x.RunMode != RunMode.Single || (x.FixedParameters != null && x.FixedParameters.Count > 0))
+                .WithMessage("Single mode requires at least one fixed parameter.");
 
         // Walk-forward config validation
         RuleFor(x => x.WalkForwardConfig)

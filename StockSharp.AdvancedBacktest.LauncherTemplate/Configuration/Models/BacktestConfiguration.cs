@@ -4,6 +4,19 @@ using StockSharp.AdvancedBacktest.PerformanceValidation;
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate.Configuration.Models;
 
+public enum RunMode
+{
+    /// <summary>
+    /// Run parameter optimization across ranges (default behavior)
+    /// </summary>
+    Optimization,
+
+    /// <summary>
+    /// Execute a single backtest with fixed parameter values (no optimization)
+    /// </summary>
+    Single
+}
+
 public class BacktestConfiguration
 {
     [Required(ErrorMessage = "Strategy name is required")]
@@ -35,8 +48,15 @@ public class BacktestConfiguration
     [Required(ErrorMessage = "At least one timeframe must be specified")]
     public List<string> TimeFrames { get; set; } = ["1d"];
 
-    [Required(ErrorMessage = "Optimizable parameters are required")]
-    public required Dictionary<string, ParameterDefinition> OptimizableParameters { get; set; }
+    /// <summary>
+    /// Execution mode: Optimization (default) or Single run
+    /// </summary>
+    public RunMode RunMode { get; set; } = RunMode.Optimization;
+
+    /// <summary>
+    /// Optimizable parameters (required when RunMode = Optimization)
+    /// </summary>
+    public Dictionary<string, ParameterDefinition>? OptimizableParameters { get; set; }
 
     public Dictionary<string, JsonElement> FixedParameters { get; set; } = [];
 

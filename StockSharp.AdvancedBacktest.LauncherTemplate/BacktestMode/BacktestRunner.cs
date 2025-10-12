@@ -1,5 +1,9 @@
 using System.Text.Json;
+using StockSharp.Algo;
+using StockSharp.Algo.Candles;
 using StockSharp.Algo.Commissions;
+using StockSharp.Algo.Storages;
+using StockSharp.Algo.Testing;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Configuration;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Configuration.Models;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Utilities;
@@ -9,6 +13,7 @@ using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.AdvancedBacktest.Statistics;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.PerformanceValidation;
+using StockSharp.AdvancedBacktest.Utilities;
 using StockSharp.BusinessEntities;
 using StockSharp.Messages;
 
@@ -35,9 +40,33 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         {
             ConsoleLogger.LogSection("Starting Backtest Workflow");
             ConsoleLogger.LogInfo($"Strategy: {_config.StrategyName} v{_config.StrategyVersion}");
+            ConsoleLogger.LogInfo($"Run Mode: {_config.RunMode}");
             ConsoleLogger.LogInfo($"Training Period: {_config.TrainingStartDate:yyyy-MM-dd} to {_config.TrainingEndDate:yyyy-MM-dd}");
             ConsoleLogger.LogInfo($"Validation Period: {_config.ValidationStartDate:yyyy-MM-dd} to {_config.ValidationEndDate:yyyy-MM-dd}");
 
+            // Route to appropriate execution path based on RunMode
+            return _config.RunMode switch
+            {
+                Configuration.Models.RunMode.Optimization => await RunOptimizationModeAsync(),
+                Configuration.Models.RunMode.Single => await RunSingleModeAsync(),
+                _ => throw new InvalidOperationException($"Unsupported run mode: {_config.RunMode}")
+            };
+        }
+        catch (Exception ex)
+        {
+            ConsoleLogger.LogError($"Backtest workflow failed: {ex.Message}");
+            if (VerboseLogging)
+            {
+                ConsoleLogger.LogError($"Stack trace: {ex.StackTrace}");
+            }
+            return 1;
+        }
+    }
+
+    private async Task<int> RunOptimizationModeAsync()
+    {
+        try
+        {
             // Step 1: Validate configuration
             ConsoleLogger.LogSection("Step 1: Validating Configuration");
             ValidateConfiguration();
@@ -107,7 +136,90 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         }
         catch (Exception ex)
         {
-            ConsoleLogger.LogError($"Backtest workflow failed: {ex.Message}");
+            ConsoleLogger.LogError($"Optimization mode failed: {ex.Message}");
+            if (VerboseLogging)
+            {
+                ConsoleLogger.LogError($"Stack trace: {ex.StackTrace}");
+            }
+            return 1;
+        }
+    }
+
+    private async Task<int> RunSingleModeAsync()
+    {
+        try
+        {
+            ConsoleLogger.LogSection("Running Single Mode (No Optimization)");
+
+            // Step 1: Validate single-mode configuration
+            ConsoleLogger.LogSection("Step 1: Validating Single Mode Configuration");
+            ValidateSingleModeConfiguration();
+            ConsoleLogger.LogSuccess("Single mode configuration validated successfully");
+
+            // Step 2: Build parameter container from fixed parameters
+            ConsoleLogger.LogSection("Step 2: Building Parameter Container from Fixed Parameters");
+            var paramContainer = BuildParameterContainerFromFixed();
+            ConsoleLogger.LogSuccess($"Created parameter container with {_config.FixedParameters.Count} fixed parameters");
+
+            // Step 3: Create single strategy instance
+            ConsoleLogger.LogSection("Step 3: Creating Strategy Instance");
+            var strategyParams = paramContainer.CustomParams.ToList();
+            var trainingStrategy = CustomStrategyBase.Create<TStrategy>(strategyParams);
+            trainingStrategy.ParamsBackup = strategyParams;
+            ConsoleLogger.LogSuccess("Strategy instance created");
+
+            // Step 4-5: Run backtest using OptimizerRunner (simpler and more reliable)
+            ConsoleLogger.LogSection("Step 4: Creating Optimization Config for Single Run");
+            var optimizationConfig = CreateOptimizationConfig(paramContainer);
+            ConsoleLogger.LogSuccess("Configuration created");
+
+            // Run as "optimization" with single parameter set
+            ConsoleLogger.LogSection("Step 5: Executing Single Backtest");
+            var optimizer = new OptimizerRunner<TStrategy>();
+            var baseOptimizer = optimizer.CreateOptimizer(optimizationConfig);
+
+            ConsoleLogger.LogInfo("Running backtest on training and validation periods...");
+            var results = optimizer.Optimize();
+
+            if (results.Count == 0)
+            {
+                ConsoleLogger.LogWarning("Backtest failed to generate results.");
+                return 1;
+            }
+
+            var result = results.Values.First();
+            var trainingResult = result.TrainingMetrics;
+            var validationResult = result.ValidationMetrics;
+
+            ConsoleLogger.LogSuccess($"Training completed - Net Profit: {trainingResult?.NetProfit:C2}");
+            ConsoleLogger.LogSuccess($"Validation completed - Net Profit: {validationResult?.NetProfit:C2}");
+
+            // Step 6: Generate reports
+            ConsoleLogger.LogSection("Step 6: Generating Reports");
+            await GenerateSingleModeReportAsync(trainingResult, validationResult);
+            ConsoleLogger.LogSuccess("Report generated successfully");
+
+            // Step 7: Export results
+            if (!string.IsNullOrWhiteSpace(_config.ExportPath))
+            {
+                ConsoleLogger.LogSection("Step 7: Exporting Results");
+                await ExportSingleModeResultsAsync(result.TrainedStrategy!, result.ValidatedStrategy!, trainingResult, validationResult);
+                ConsoleLogger.LogSuccess($"Results exported to: {_config.ExportPath}");
+            }
+            else
+            {
+                ConsoleLogger.LogInfo("Step 7: Export skipped (ExportPath not configured)");
+            }
+
+            // Step 8: Log summary
+            ConsoleLogger.LogSection("Single Mode Backtest Complete");
+            LogSingleModeSummary(trainingResult, validationResult);
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            ConsoleLogger.LogError($"Single mode failed: {ex.Message}");
             if (VerboseLogging)
             {
                 ConsoleLogger.LogError($"Stack trace: {ex.StackTrace}");
@@ -130,9 +242,9 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
 
         ValidateHistoryPath();
 
-        if (_config.OptimizableParameters.Count == 0)
+        if (_config.OptimizableParameters == null || _config.OptimizableParameters.Count == 0)
         {
-            throw new InvalidOperationException("At least one optimizable parameter must be specified");
+            throw new InvalidOperationException("At least one optimizable parameter must be specified in Optimization mode");
         }
 
         if (_config.Securities.Count == 0)
@@ -237,8 +349,11 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         AddSecurityParameters(parameters);
 
         // Add optimizable parameters using factory
-        parameters.AddRange(
-            ParameterFactory.CreateFromDictionary(_config.OptimizableParameters));
+        if (_config.OptimizableParameters != null)
+        {
+            parameters.AddRange(
+                ParameterFactory.CreateFromDictionary(_config.OptimizableParameters));
+        }
 
         if (VerboseLogging)
         {
@@ -512,6 +627,220 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         {
             ConsoleLogger.LogInfo($"  WF Efficiency: {walkForwardResult.WalkForwardEfficiency:F4}");
             ConsoleLogger.LogInfo($"  Consistency (Std Dev): {walkForwardResult.Consistency:F4}");
+        }
+
+        ConsoleLogger.LogInfo($"\nResults saved to: {OutputDirectory}");
+    }
+
+    // ========== Single Mode Helper Methods ==========
+
+    private void ValidateSingleModeConfiguration()
+    {
+        if (_config.TrainingEndDate <= _config.TrainingStartDate)
+        {
+            throw new InvalidOperationException("Training end date must be after training start date");
+        }
+
+        if (_config.ValidationEndDate <= _config.ValidationStartDate)
+        {
+            throw new InvalidOperationException("Validation end date must be after validation start date");
+        }
+
+        ValidateHistoryPath();
+
+        if (_config.FixedParameters == null || _config.FixedParameters.Count == 0)
+        {
+            throw new InvalidOperationException("Single mode requires at least one fixed parameter");
+        }
+
+        if (_config.Securities.Count == 0)
+        {
+            throw new InvalidOperationException("At least one security must be specified");
+        }
+
+        if (VerboseLogging)
+        {
+            ConsoleLogger.LogInfo($"Single mode validation passed:");
+            ConsoleLogger.LogInfo($"  - Fixed Parameters: {_config.FixedParameters.Count}");
+            ConsoleLogger.LogInfo($"  - Securities: {string.Join(", ", _config.Securities)}");
+        }
+
+        ValidateHistoryDataAccess();
+    }
+
+    private CustomParamsContainer BuildParameterContainerFromFixed()
+    {
+        var parameters = new List<ICustomParam>();
+
+        // Add security parameters
+        AddSecurityParameters(parameters);
+
+        // Convert fixed parameters to ICustomParam instances
+        foreach (var fixedParam in _config.FixedParameters)
+        {
+            var paramName = fixedParam.Key;
+            var paramValue = fixedParam.Value;
+
+            // Create a parameter definition from the fixed value
+            ICustomParam param = InferParameterTypeAndCreate(paramName, paramValue);
+            parameters.Add(param);
+
+            if (VerboseLogging)
+            {
+                ConsoleLogger.LogInfo($"  - {paramName}: {paramValue}");
+            }
+        }
+
+        return new CustomParamsContainer(parameters);
+    }
+
+    private ICustomParam InferParameterTypeAndCreate(string name, JsonElement value)
+    {
+        // Try to infer the type from the JsonElement
+        switch (value.ValueKind)
+        {
+            case JsonValueKind.Number:
+                // Check if it's an integer or decimal
+                if (value.TryGetInt32(out int intValue))
+                {
+                    return new NumberParam<int>(name, intValue, intValue, intValue, 1) { CanOptimize = false };
+                }
+                else if (value.TryGetDecimal(out decimal decimalValue))
+                {
+                    return new NumberParam<decimal>(name, decimalValue, decimalValue, decimalValue, 0.01m) { CanOptimize = false };
+                }
+                else if (value.TryGetDouble(out double doubleValue))
+                {
+                    return new NumberParam<double>(name, doubleValue, doubleValue, doubleValue, 0.01) { CanOptimize = false };
+                }
+                break;
+
+            case JsonValueKind.String:
+                string stringValue = value.GetString() ?? string.Empty;
+                return new ClassParam<string>(name, [stringValue]) { CanOptimize = false };
+
+            case JsonValueKind.True:
+            case JsonValueKind.False:
+                bool boolValue = value.GetBoolean();
+                return new ClassParam<string>(name, [boolValue.ToString()]) { CanOptimize = false };
+        }
+
+        throw new InvalidOperationException($"Unable to infer parameter type for '{name}' with value kind: {value.ValueKind}");
+    }
+
+    private async Task GenerateSingleModeReportAsync(PerformanceMetrics? trainingMetrics, PerformanceMetrics? validationMetrics)
+    {
+        Directory.CreateDirectory(OutputDirectory);
+
+        var reportPath = Path.Combine(OutputDirectory, "single_run_report.txt");
+        await using var writer = new StreamWriter(reportPath);
+
+        await writer.WriteLineAsync("=== Single Run Mode Report ===");
+        await writer.WriteLineAsync($"Generated: {DateTimeOffset.UtcNow:yyyy-MM-dd HH:mm:ss UTC}");
+        await writer.WriteLineAsync($"Strategy: {_config.StrategyName} v{_config.StrategyVersion}");
+        await writer.WriteLineAsync();
+
+        await writer.WriteLineAsync("Fixed Parameters:");
+        foreach (var param in _config.FixedParameters)
+        {
+            await writer.WriteLineAsync($"  {param.Key}: {param.Value}");
+        }
+        await writer.WriteLineAsync();
+
+        if (trainingMetrics != null)
+        {
+            await writer.WriteLineAsync("=== Training Period Results ===");
+            await writer.WriteLineAsync($"Period: {_config.TrainingStartDate:yyyy-MM-dd} to {_config.TrainingEndDate:yyyy-MM-dd}");
+            await writer.WriteLineAsync($"Net Profit: {trainingMetrics.NetProfit:C2}");
+            await writer.WriteLineAsync($"Total Return: {trainingMetrics.TotalReturn:P2}");
+            await writer.WriteLineAsync($"Sortino Ratio: {trainingMetrics.SortinoRatio:F4}");
+            await writer.WriteLineAsync($"Win Rate: {trainingMetrics.WinRate:P2}");
+            await writer.WriteLineAsync($"Total Trades: {trainingMetrics.TotalTrades}");
+            await writer.WriteLineAsync($"Max Drawdown: {trainingMetrics.MaxDrawdown:P2}");
+            await writer.WriteLineAsync();
+        }
+
+        if (validationMetrics != null)
+        {
+            await writer.WriteLineAsync("=== Validation Period Results ===");
+            await writer.WriteLineAsync($"Period: {_config.ValidationStartDate:yyyy-MM-dd} to {_config.ValidationEndDate:yyyy-MM-dd}");
+            await writer.WriteLineAsync($"Net Profit: {validationMetrics.NetProfit:C2}");
+            await writer.WriteLineAsync($"Total Return: {validationMetrics.TotalReturn:P2}");
+            await writer.WriteLineAsync($"Sortino Ratio: {validationMetrics.SortinoRatio:F4}");
+            await writer.WriteLineAsync($"Win Rate: {validationMetrics.WinRate:P2}");
+            await writer.WriteLineAsync($"Total Trades: {validationMetrics.TotalTrades}");
+            await writer.WriteLineAsync($"Max Drawdown: {validationMetrics.MaxDrawdown:P2}");
+        }
+
+        ConsoleLogger.LogInfo($"Report saved to: {reportPath}");
+    }
+
+    private async Task ExportSingleModeResultsAsync(
+        TStrategy trainingStrategy,
+        TStrategy validationStrategy,
+        PerformanceMetrics? trainingMetrics,
+        PerformanceMetrics? validationMetrics)
+    {
+        var exportDir = _config.ExportPath!;
+        Directory.CreateDirectory(exportDir);
+
+        // Export as JSON
+        var exportData = new
+        {
+            Strategy = new
+            {
+                Name = _config.StrategyName,
+                Version = _config.StrategyVersion,
+                Description = _config.StrategyDescription
+            },
+            RunMode = "Single",
+            Parameters = _config.FixedParameters,
+            Training = new
+            {
+                Period = new
+                {
+                    Start = _config.TrainingStartDate,
+                    End = _config.TrainingEndDate
+                },
+                Metrics = trainingMetrics
+            },
+            Validation = new
+            {
+                Period = new
+                {
+                    Start = _config.ValidationStartDate,
+                    End = _config.ValidationEndDate
+                },
+                Metrics = validationMetrics
+            },
+            ExportedAt = DateTimeOffset.UtcNow
+        };
+
+        var jsonPath = Path.Combine(exportDir, "single_run_results.json");
+        var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
+        var jsonContent = JsonSerializer.Serialize(exportData, jsonOptions);
+        await File.WriteAllTextAsync(jsonPath, jsonContent);
+
+        ConsoleLogger.LogInfo($"Results exported to: {jsonPath}");
+    }
+
+    private void LogSingleModeSummary(PerformanceMetrics? trainingMetrics, PerformanceMetrics? validationMetrics)
+    {
+        ConsoleLogger.LogSuccess("✓ Single mode completed successfully");
+        ConsoleLogger.LogInfo($"  Fixed Parameters: {_config.FixedParameters.Count}");
+
+        if (trainingMetrics != null)
+        {
+            ConsoleLogger.LogInfo($"  Training Net Profit: {trainingMetrics.NetProfit:C2}");
+            ConsoleLogger.LogInfo($"  Training Sortino Ratio: {trainingMetrics.SortinoRatio:F4}");
+            ConsoleLogger.LogInfo($"  Training Total Trades: {trainingMetrics.TotalTrades}");
+        }
+
+        if (validationMetrics != null)
+        {
+            ConsoleLogger.LogInfo($"  Validation Net Profit: {validationMetrics.NetProfit:C2}");
+            ConsoleLogger.LogInfo($"  Validation Sortino Ratio: {validationMetrics.SortinoRatio:F4}");
+            ConsoleLogger.LogInfo($"  Validation Total Trades: {validationMetrics.TotalTrades}");
         }
 
         ConsoleLogger.LogInfo($"\nResults saved to: {OutputDirectory}");

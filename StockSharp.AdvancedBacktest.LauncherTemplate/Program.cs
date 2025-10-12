@@ -39,6 +39,7 @@ public class Program
                 "--live" => RunLiveMode(),
                 "--validate-data" => await RunValidationMode(args),
                 "--config" when args.Length > 1 => await RunBacktestMode(args[1]),
+                "--single-run" when args.Length > 1 => await RunSingleMode(args[1]),
                 "--help" or "-h" => ShowHelpAndExit(),
                 _ => ShowHelpAndExit()
             };
@@ -67,6 +68,40 @@ public class Program
         {
             ConsoleLogger.LogError("Failed to parse configuration file");
             return 1;
+        }
+
+        var runner = new BacktestRunner<PreviousWeekRangeBreakoutStrategy>(config)
+        {
+            VerboseLogging = true
+        };
+
+        return await runner.RunAsync();
+    }
+
+    private static async Task<int> RunSingleMode(string configPath)
+    {
+        ConsoleLogger.LogInfo($"Loading single-run configuration from: {configPath}");
+
+        if (!File.Exists(configPath))
+        {
+            ConsoleLogger.LogError($"Configuration file not found: {configPath}");
+            return 1;
+        }
+
+        var configJson = await File.ReadAllTextAsync(configPath);
+        var config = JsonSerializer.Deserialize<BacktestConfiguration>(configJson);
+
+        if (config == null)
+        {
+            ConsoleLogger.LogError("Failed to parse configuration file");
+            return 1;
+        }
+
+        if (config.RunMode != Configuration.Models.RunMode.Single)
+        {
+            ConsoleLogger.LogWarning($"Configuration RunMode is set to '{config.RunMode}', but --single-run flag was specified.");
+            ConsoleLogger.LogInfo("Overriding RunMode to 'Single' to match CLI flag.");
+            config.RunMode = Configuration.Models.RunMode.Single;
         }
 
         var runner = new BacktestRunner<PreviousWeekRangeBreakoutStrategy>(config)
@@ -140,6 +175,7 @@ public class Program
         Console.WriteLine("Usage:");
         Console.WriteLine("  dotnet run                                    Run backtest (searches for config file)");
         Console.WriteLine("  dotnet run --config <path>                    Run backtest with specified config");
+        Console.WriteLine("  dotnet run --single-run <config>              Run single backtest (no optimization)");
         Console.WriteLine("  dotnet run --validate-data [config]           Validate history data availability");
         Console.WriteLine("  dotnet run --live                             Run live trading mode (not implemented)");
         Console.WriteLine("  dotnet run --help                             Show this help message");
@@ -157,6 +193,7 @@ public class Program
         Console.WriteLine();
         Console.WriteLine("Examples:");
         Console.WriteLine("  dotnet run --config ConfigFiles/test-backtest-btcusdt.json");
+        Console.WriteLine("  dotnet run --single-run ConfigFiles/single-run-btcusdt.json");
         Console.WriteLine("  dotnet run --validate-data");
         Console.WriteLine("  dotnet test");
 

@@ -1,0 +1,38 @@
+{
+  "RunMode": "Single",
+  "StrategyName": "PreviousWeekRangeBreakout",
+  "StrategyVersion": "1.0.0",
+  "StrategyDescription": "Single run test with fixed parameters (no optimization)",
+  "TrainingStartDate": "2020-01-01T00:00:00Z",
+  "TrainingEndDate": "2021-12-31T23:59:59Z",
+  "ValidationStartDate": "2022-01-01T00:00:00Z",
+  "ValidationEndDate": "2022-12-31T23:59:59Z",
+  "Securities": [
+    "BTCUSDT@BNB"
+  ],
+  "TimeFrames": [
+    "1d"
+  ],
+  "FixedParameters": {
+    "TrendFilterPeriod": 50,
+    "TrendFilterType": "SMA",
+    "ATRPeriod": 14,
+    "StopLossMethodValue": "ATR",
+    "StopLossATRMultiplier": 2.0,
+    "TakeProfitMethodValue": "RiskReward",
+    "RiskRewardRatio": 2.0,
+    "SizingMethod": "ATRBased",
+    "EquityPercentage": 2.0
+  },
+  "MetricFilterExpressions": [],
+  "WalkForwardConfig": null,
+  "HistoryPath": "C:/Users/Andrew/OneDrive/Документы/StockSharp/Hydra/Storage/",
+  "InitialCapital": 10000,
+  "TradeVolume": 0.01,
+  "CommissionPercentage": 0.1,
+  "ParallelWorkers": 1,
+  "UseBruteForceOptimization": false,
+  "ExportPath": "./output/single-run-btcusdt",
+  "ExportDetailedMetrics": true,
+  "ExportTradeLog": true
+}
