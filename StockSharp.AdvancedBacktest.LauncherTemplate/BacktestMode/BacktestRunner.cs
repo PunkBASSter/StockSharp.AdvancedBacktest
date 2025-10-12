@@ -220,6 +220,14 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         catch (Exception ex)
         {
             ConsoleLogger.LogError($"Single mode failed: {ex.Message}");
+            if (ex.InnerException != null)
+            {
+                ConsoleLogger.LogError($"Inner exception: {ex.InnerException.Message}");
+                if (VerboseLogging && ex.InnerException.StackTrace != null)
+                {
+                    ConsoleLogger.LogError($"Inner stack trace: {ex.InnerException.StackTrace}");
+                }
+            }
             if (VerboseLogging)
             {
                 ConsoleLogger.LogError($"Stack trace: {ex.StackTrace}");

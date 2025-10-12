@@ -14,15 +14,16 @@
     "1d"
   ],
   "FixedParameters": {
-    "TrendFilterPeriod": 50,
-    "TrendFilterType": "SMA",
-    "ATRPeriod": 14,
-    "StopLossMethodValue": "ATR",
-    "StopLossATRMultiplier": 2.0,
-    "TakeProfitMethodValue": "RiskReward",
-    "RiskRewardRatio": 2.0,
-    "SizingMethod": "ATRBased",
-    "EquityPercentage": 2.0
+    "TrendFilter.Type": "SMA",
+    "TrendFilter.Period": 50,
+    "ATR.Period": 14,
+    "PositionSizing.Method": "ATRBased",
+    "PositionSizing.EquityPercent": 2.0,
+    "PositionSizing.ATRMultiplier": 2.0,
+    "StopLoss.Method": "ATR",
+    "StopLoss.ATRMultiplier": 2.0,
+    "TakeProfit.Method": "RiskReward",
+    "TakeProfit.RiskRewardRatio": 2.0
   },
   "MetricFilterExpressions": [],
   "WalkForwardConfig": null,

@@ -10,6 +10,27 @@ using ModulesIndicatorType = StockSharp.AdvancedBacktest.Strategies.Modules.Indi
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate.Strategies;
 
+/*
+  Strategy order execution flow:
+
+  1. Breakout Signal Detected:
+     - BUY: candle close > (previousWeekHigh - range/3) && close > trend filter
+     - SELL: candle close < (previousWeekLow + range/3) && close < trend filter
+     - Where range = previousWeekHigh - previousWeekLow
+     ↓
+  2. Place LIMIT order at candle.ClosePrice (entry level)
+     ↓
+  3. Store entry details in _pendingEntries
+     ↓
+  4. Entry fills → OnOwnTradeReceived() triggered
+     ↓
+  5. Create protective orders (stop-loss & take-profit)
+     ↓
+  6. Track protective orders in _protectiveOrdersMap
+     ↓
+  7. One protective fills → Cancel the other
+*/
+
 public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
 {
     private IPositionSizer? _positionSizer;
@@ -32,7 +53,17 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
         public required Order TakeProfit { get; set; }
     }
 
+    private class PendingEntry
+    {
+        public required Order EntryOrder { get; set; }
+        public required Sides EntrySide { get; set; }
+        public required decimal Volume { get; set; }
+        public required decimal StopLossPrice { get; set; }
+        public required decimal TakeProfitPrice { get; set; }
+    }
+
     private readonly Dictionary<Order, ProtectiveOrders> _protectiveOrdersMap = new();
+    private readonly Dictionary<Order, PendingEntry> _pendingEntries = new();
 
     protected override void OnReseted()
     {
@@ -45,6 +76,7 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
         _weekLow = 0;
         _hasBreakoutOccurred = false;
         _protectiveOrdersMap.Clear();
+        _pendingEntries.Clear();
     }
 
     protected override void OnStarted(DateTimeOffset time)
@@ -90,6 +122,19 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
 
         this.LogInfo("Trade filled: {0} {1} @ {2:F2}, Position: {3}",
             order.Side, trade.Trade.Volume, trade.Trade.Price, Position);
+
+        // Check if this is a pending entry order that just filled
+        if (_pendingEntries.TryGetValue(order, out var pendingEntry))
+        {
+            this.LogInfo("Entry order filled, creating protective orders");
+
+            // Entry filled, now create protective orders
+            CreateProtectiveOrdersAfterEntry(order, pendingEntry);
+
+            // Remove from pending
+            _pendingEntries.Remove(order);
+            return;
+        }
 
         // Check if this is a protective order fill
         foreach (var kvp in _protectiveOrdersMap.ToList())
@@ -237,11 +282,16 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
             return null;
 
         var closePrice = candle.ClosePrice;
+        var previousWeekRange = _previousWeekHigh.Value - _previousWeekLow.Value;
 
-        if (closePrice > _previousWeekHigh.Value && closePrice > trendValue)
+        // Calculate trigger levels: 1/3 of previous week's range from the breakout level
+        var buyTriggerLevel = _previousWeekHigh.Value - (previousWeekRange / 3m);
+        var sellTriggerLevel = _previousWeekLow.Value + (previousWeekRange / 3m);
+
+        if (closePrice > buyTriggerLevel && closePrice > trendValue)
             return Sides.Buy;
 
-        if (closePrice < _previousWeekLow.Value && closePrice < trendValue)
+        if (closePrice < sellTriggerLevel && closePrice < trendValue)
             return Sides.Sell;
 
         return null;
@@ -249,12 +299,19 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
 
     private void LogSignal(Sides signal, ICandleMessage candle, decimal trendValue)
     {
-        var breakoutLevel = signal == Sides.Buy ? _previousWeekHigh : _previousWeekLow;
         var direction = signal == Sides.Buy ? "LONG" : "SHORT";
+        var previousWeekRange = _previousWeekHigh!.Value - _previousWeekLow!.Value;
+
+        var triggerLevel = signal == Sides.Buy
+            ? _previousWeekHigh.Value - (previousWeekRange / 3m)
+            : _previousWeekLow.Value + (previousWeekRange / 3m);
+
+        var actualBreakoutLevel = signal == Sides.Buy ? _previousWeekHigh : _previousWeekLow;
 
         this.LogInfo($"Breakout signal detected: {direction} at {candle.CloseTime:yyyy-MM-dd HH:mm:ss}");
         this.LogInfo($"  Close Price: {candle.ClosePrice:F2}");
-        this.LogInfo($"  Breakout Level: {breakoutLevel:F2}");
+        this.LogInfo($"  Trigger Level: {triggerLevel:F2} (prev week {(signal == Sides.Buy ? "high" : "low")}: {actualBreakoutLevel:F2})");
+        this.LogInfo($"  Previous Week Range: {previousWeekRange:F2}");
         this.LogInfo($"  Trend Filter ({_trendFilterType}): {trendValue:F2}");
         this.LogInfo($"  Position: {Position}");
     }
@@ -342,10 +399,17 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
             else
                 entryOrder = SellLimit(entryPrice, positionSize);
 
-            this.LogInfo("Entry order {0} registered at {1:F2}", entryOrder.TransactionId, entryPrice);
+            this.LogInfo("Entry order {0} registered at {1:F2} (limit order)", entryOrder.TransactionId, entryPrice);
 
-            // Register protective orders immediately
-            RegisterProtectiveOrders(entryOrder, signal, positionSize, stopLossPrice, takeProfitPrice);
+            // Store pending entry - protective orders will be created after fill
+            _pendingEntries[entryOrder] = new PendingEntry
+            {
+                EntryOrder = entryOrder,
+                EntrySide = signal,
+                Volume = positionSize,
+                StopLossPrice = stopLossPrice,
+                TakeProfitPrice = takeProfitPrice
+            };
         }
         catch (Exception ex)
         {
@@ -353,10 +417,12 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
         }
     }
 
-    private void RegisterProtectiveOrders(Order entryOrder, Sides entrySide, decimal volume,
-        decimal stopLossPrice, decimal takeProfitPrice)
+    private void CreateProtectiveOrdersAfterEntry(Order entryOrder, PendingEntry pendingEntry)
     {
-        var exitSide = entrySide.Invert();
+        var exitSide = pendingEntry.EntrySide.Invert();
+        var volume = pendingEntry.Volume;
+        var stopLossPrice = pendingEntry.StopLossPrice;
+        var takeProfitPrice = pendingEntry.TakeProfitPrice;
 
         // Stop-loss limit order
         Order stopOrder;
@@ -379,7 +445,7 @@ public class PreviousWeekRangeBreakoutStrategy : CustomStrategyBase
             TakeProfit = tpOrder
         };
 
-        this.LogInfo("Protective orders registered:");
+        this.LogInfo("Protective orders created after entry fill:");
         this.LogInfo("  Stop-Loss: {0} at {1:F2}", stopOrder.TransactionId, stopLossPrice);
         this.LogInfo("  Take-Profit: {0} at {1:F2}", tpOrder.TransactionId, takeProfitPrice);
     }

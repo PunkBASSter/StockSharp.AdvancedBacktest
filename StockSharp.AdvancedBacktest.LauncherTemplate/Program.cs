@@ -62,7 +62,7 @@ public class Program
         }
 
         var configJson = await File.ReadAllTextAsync(configPath);
-        var config = JsonSerializer.Deserialize<BacktestConfiguration>(configJson);
+        var config = JsonSerializationHelper.Deserialize<BacktestConfiguration>(configJson);
 
         if (config == null)
         {
@@ -89,7 +89,7 @@ public class Program
         }
 
         var configJson = await File.ReadAllTextAsync(configPath);
-        var config = JsonSerializer.Deserialize<BacktestConfiguration>(configJson);
+        var config = JsonSerializationHelper.Deserialize<BacktestConfiguration>(configJson);
 
         if (config == null)
         {
@@ -128,7 +128,7 @@ public class Program
         }
 
         var configJson = await File.ReadAllTextAsync(configPath);
-        var config = JsonSerializer.Deserialize<BacktestConfiguration>(configJson);
+        var config = JsonSerializationHelper.Deserialize<BacktestConfiguration>(configJson);
 
         if (config == null)
         {
