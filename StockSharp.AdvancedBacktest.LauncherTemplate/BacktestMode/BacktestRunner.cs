@@ -128,10 +128,7 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
             throw new InvalidOperationException("Validation end date must be after validation start date");
         }
 
-        if (!Directory.Exists(_config.HistoryPath))
-        {
-            throw new DirectoryNotFoundException($"History path not found: {_config.HistoryPath}");
-        }
+        ValidateHistoryPath();
 
         if (_config.OptimizableParameters.Count == 0)
         {
@@ -149,6 +146,86 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
             ConsoleLogger.LogInfo($"  - Parameters: {_config.OptimizableParameters.Count}");
             ConsoleLogger.LogInfo($"  - Securities: {string.Join(", ", _config.Securities)}");
             ConsoleLogger.LogInfo($"  - Parallel workers: {ParallelThreads}");
+        }
+
+        ValidateHistoryDataAccess();
+    }
+
+    private void ValidateHistoryPath()
+    {
+        if (string.IsNullOrWhiteSpace(_config.HistoryPath))
+        {
+            throw new ArgumentException("History path is required");
+        }
+
+        var isOneDrivePath = _config.HistoryPath.Contains("OneDrive", StringComparison.OrdinalIgnoreCase);
+
+        for (int attempt = 1; attempt <= 3; attempt++)
+        {
+            if (Directory.Exists(_config.HistoryPath))
+            {
+                if (attempt > 1)
+                {
+                    ConsoleLogger.LogInfo($"History path accessible after {attempt} attempts");
+                }
+                return;
+            }
+
+            if (isOneDrivePath && attempt < 3)
+            {
+                ConsoleLogger.LogWarning($"OneDrive path not immediately accessible, waiting for sync (attempt {attempt}/3)...");
+                Thread.Sleep(2000);
+            }
+        }
+
+        var errorMessage = $"History path not found: {_config.HistoryPath}";
+        if (isOneDrivePath)
+        {
+            errorMessage += "\n  Note: This appears to be a OneDrive path. Please ensure:" +
+                          "\n  - OneDrive is running and synced" +
+                          "\n  - The folder is available offline" +
+                          "\n  - You have network connectivity";
+        }
+
+        throw new DirectoryNotFoundException(errorMessage);
+    }
+
+    private void ValidateHistoryDataAccess()
+    {
+        try
+        {
+            ConsoleLogger.LogInfo("Validating history data availability...");
+
+            var validator = new HistoryDataValidator(_config.HistoryPath);
+            var timeFrames = _config.TimeFrames.Select(ParseTimeFrame).ToList();
+            var report = validator.Validate(_config.Securities, timeFrames);
+
+            if (!report.IsSuccess)
+            {
+                ConsoleLogger.LogWarning("History data validation issues detected:");
+                foreach (var error in report.Errors)
+                {
+                    ConsoleLogger.LogError($"  - {error}");
+                }
+
+                foreach (var warning in report.Warnings)
+                {
+                    ConsoleLogger.LogWarning($"  - {warning}");
+                }
+
+                if (report.Errors.Count > 0)
+                {
+                    throw new InvalidOperationException("History data validation failed. Check errors above.");
+                }
+            }
+            else
+            {
+                ConsoleLogger.LogSuccess($"History data validated: {report.SecurityResults.Count} securities available");
+            }
+        }
+        catch (Exception ex) when (ex is not InvalidOperationException)
+        {
+            throw new InvalidOperationException($"Failed to validate history data: {ex.Message}", ex);
         }
     }
 

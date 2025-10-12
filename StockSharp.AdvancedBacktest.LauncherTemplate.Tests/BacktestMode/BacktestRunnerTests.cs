@@ -3,15 +3,14 @@ using StockSharp.AdvancedBacktest.LauncherTemplate.BacktestMode;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Configuration.Models;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.PerformanceValidation;
-using Xunit;
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate.Tests.BacktestMode;
 
-// Mock strategy for testing
 public class MockTestStrategy : CustomStrategyBase
 {
     public MockTestStrategy()
     {
+        Name = "MockTestStrategy";
     }
 }
 

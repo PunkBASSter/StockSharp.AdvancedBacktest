@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentValidation;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Configuration.Models;
 
@@ -18,6 +19,24 @@ public class LiveTradingConfigurationValidator : AbstractValidator<LiveTradingCo
             .NotEmpty().WithMessage("Broker configuration path is required.")
             .Must(File.Exists).WithMessage(x => $"Broker configuration file does not exist: '{x.BrokerConfigPath}'")
                 .When(x => !string.IsNullOrWhiteSpace(x.BrokerConfigPath));
+
+        // Binance connector configuration validation
+        RuleFor(x => x.BrokerConfigPath)
+            .Must(IsValidBinanceConfig).WithMessage(x => $"Invalid Binance connector configuration in: '{x.BrokerConfigPath}'")
+                .When(x => !string.IsNullOrWhiteSpace(x.BrokerConfigPath) && File.Exists(x.BrokerConfigPath));
+
+        RuleFor(x => x.BrokerConfigPath)
+            .Must(HasBinanceAdapter).WithMessage(x => $"Binance adapter not found in connector configuration: '{x.BrokerConfigPath}'")
+                .When(x => !string.IsNullOrWhiteSpace(x.BrokerConfigPath) && File.Exists(x.BrokerConfigPath));
+
+        RuleFor(x => x.BrokerConfigPath)
+            .Must(HasValidBinanceCredentials).WithMessage(x => $"Binance API credentials (Key/Secret) are missing or invalid in: '{x.BrokerConfigPath}'")
+                .When(x => !string.IsNullOrWhiteSpace(x.BrokerConfigPath) && File.Exists(x.BrokerConfigPath) && HasBinanceAdapter(x.BrokerConfigPath));
+
+        RuleFor(x => x.BrokerConfigPath)
+            .Must(path => HasValidBinanceSections(path)).WithMessage(x => $"Binance sections configuration is invalid in: '{x.BrokerConfigPath}'. Expected format: 'Spot,Margin,Futures,FuturesCoin'")
+                .WithSeverity(Severity.Warning)
+                .When(x => !string.IsNullOrWhiteSpace(x.BrokerConfigPath) && File.Exists(x.BrokerConfigPath) && HasBinanceAdapter(x.BrokerConfigPath));
 
         // Risk limits validation
         RuleFor(x => x.RiskLimits)
@@ -155,5 +174,148 @@ public class LiveTradingConfigurationValidator : AbstractValidator<LiveTradingCo
     private bool HasOverlappingTime(TradingSession session1, TradingSession session2)
     {
         return session1.StartTime < session2.EndTime && session2.StartTime < session1.EndTime;
+    }
+
+    private bool IsValidBinanceConfig(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return true;
+
+        try
+        {
+            var json = File.ReadAllText(path);
+            var document = JsonDocument.Parse(json);
+
+            // Check for required structure
+            if (!document.RootElement.TryGetProperty("Adapter", out var adapter))
+                return false;
+
+            if (!adapter.TryGetProperty("InnerAdapters", out var innerAdapters))
+                return false;
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private bool HasBinanceAdapter(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return true;
+
+        try
+        {
+            var json = File.ReadAllText(path);
+            var document = JsonDocument.Parse(json);
+
+            var adapter = document.RootElement.GetProperty("Adapter");
+            var innerAdapters = adapter.GetProperty("InnerAdapters");
+
+            foreach (var innerAdapter in innerAdapters.EnumerateArray())
+            {
+                if (innerAdapter.TryGetProperty("AdapterType", out var adapterType))
+                {
+                    var typeValue = adapterType.GetString();
+                    if (typeValue?.Contains("BinanceMessageAdapter") == true)
+                        return true;
+                }
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private bool HasValidBinanceCredentials(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return true;
+
+        try
+        {
+            var json = File.ReadAllText(path);
+            var document = JsonDocument.Parse(json);
+
+            var adapter = document.RootElement.GetProperty("Adapter");
+            var innerAdapters = adapter.GetProperty("InnerAdapters");
+
+            foreach (var innerAdapter in innerAdapters.EnumerateArray())
+            {
+                if (innerAdapter.TryGetProperty("AdapterType", out var adapterType))
+                {
+                    var typeValue = adapterType.GetString();
+                    if (typeValue?.Contains("BinanceMessageAdapter") == true)
+                    {
+                        var adapterSettings = innerAdapter.GetProperty("AdapterSettings");
+
+                        if (!adapterSettings.TryGetProperty("Key", out var key) || string.IsNullOrWhiteSpace(key.GetString()))
+                            return false;
+
+                        if (!adapterSettings.TryGetProperty("Secret", out var secret) || string.IsNullOrWhiteSpace(secret.GetString()))
+                            return false;
+
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private bool HasValidBinanceSections(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return true;
+
+        try
+        {
+            var json = File.ReadAllText(path);
+            var document = JsonDocument.Parse(json);
+
+            var adapter = document.RootElement.GetProperty("Adapter");
+            var innerAdapters = adapter.GetProperty("InnerAdapters");
+
+            foreach (var innerAdapter in innerAdapters.EnumerateArray())
+            {
+                if (innerAdapter.TryGetProperty("AdapterType", out var adapterType))
+                {
+                    var typeValue = adapterType.GetString();
+                    if (typeValue?.Contains("BinanceMessageAdapter") == true)
+                    {
+                        var adapterSettings = innerAdapter.GetProperty("AdapterSettings");
+
+                        if (!adapterSettings.TryGetProperty("Sections", out var sections))
+                            return true; // Optional field
+
+                        var sectionsValue = sections.GetString();
+                        if (string.IsNullOrWhiteSpace(sectionsValue))
+                            return true;
+
+                        // Validate format: should be comma-separated values
+                        var validSections = new[] { "Spot", "Margin", "Futures", "FuturesCoin" };
+                        var configuredSections = sectionsValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                        return configuredSections.All(s => validSections.Contains(s));
+                    }
+                }
+            }
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

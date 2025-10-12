@@ -1,0 +1,114 @@
+{
+  "StrategyName": "PreviousWeekRangeBreakout",
+  "StrategyVersion": "1.0.0",
+  "StrategyDescription": "Integration test for backtest pipeline with local Hydra history data",
+  "TrainingStartDate": "2020-01-01T00:00:00Z",
+  "TrainingEndDate": "2021-12-31T23:59:59Z",
+  "ValidationStartDate": "2022-01-01T00:00:00Z",
+  "ValidationEndDate": "2022-12-31T23:59:59Z",
+  "Securities": [
+    "BTCUSDT@BNB"
+  ],
+  "TimeFrames": [
+    "1d"
+  ],
+  "OptimizableParameters": {
+    "TrendFilterPeriod": {
+      "Name": "TrendFilterPeriod",
+      "Type": "int",
+      "MinValue": 20,
+      "MaxValue": 50,
+      "StepValue": 15,
+      "DefaultValue": 20,
+      "Description": "Period for the trend filter indicator (SMA or EMA)"
+    },
+    "TrendFilterType": {
+      "Name": "TrendFilterType",
+      "Type": "enum",
+      "Values": [
+        "SMA"
+      ],
+      "DefaultValue": "SMA",
+      "Description": "Type of moving average to use for trend filtering"
+    },
+    "ATRPeriod": {
+      "Name": "ATRPeriod",
+      "Type": "int",
+      "MinValue": 14,
+      "MaxValue": 14,
+      "StepValue": 1,
+      "DefaultValue": 14,
+      "Description": "Period for Average True Range (ATR) indicator"
+    },
+    "StopLossMethodValue": {
+      "Name": "StopLossMethodValue",
+      "Type": "enum",
+      "Values": [
+        "ATR"
+      ],
+      "DefaultValue": "ATR",
+      "Description": "Method for calculating stop-loss"
+    },
+    "StopLossATRMultiplier": {
+      "Name": "StopLossATRMultiplier",
+      "Type": "decimal",
+      "MinValue": 2.0,
+      "MaxValue": 3.0,
+      "StepValue": 1.0,
+      "DefaultValue": 2.0,
+      "Description": "ATR multiplier for stop-loss"
+    },
+    "TakeProfitMethodValue": {
+      "Name": "TakeProfitMethodValue",
+      "Type": "enum",
+      "Values": [
+        "RiskReward"
+      ],
+      "DefaultValue": "RiskReward",
+      "Description": "Method for calculating take-profit target"
+    },
+    "RiskRewardRatio": {
+      "Name": "RiskRewardRatio",
+      "Type": "decimal",
+      "MinValue": 2.0,
+      "MaxValue": 2.0,
+      "StepValue": 1.0,
+      "DefaultValue": 2.0,
+      "Description": "Risk-to-reward ratio"
+    },
+    "SizingMethod": {
+      "Name": "SizingMethod",
+      "Type": "enum",
+      "Values": [
+        "ATRBased"
+      ],
+      "DefaultValue": "ATRBased",
+      "Description": "Method for calculating position size"
+    },
+    "EquityPercentage": {
+      "Name": "EquityPercentage",
+      "Type": "decimal",
+      "MinValue": 2.0,
+      "MaxValue": 2.0,
+      "StepValue": 1.0,
+      "DefaultValue": 2.0,
+      "Description": "Percentage of equity to risk per trade"
+    }
+  },
+  "FixedParameters": {},
+  "MetricFilterExpressions": [
+    "TotalTrades >= 5",
+    "NetProfit > 0"
+  ],
+  "WalkForwardConfig": null,
+  "HistoryPath": "C:/Users/Andrew/OneDrive/Документы/StockSharp/Hydra/Storage/",
+  "InitialCapital": 10000,
+  "TradeVolume": 0.01,
+  "CommissionPercentage": 0.1,
+  "ParallelWorkers": 4,
+  "UseBruteForceOptimization": true,
+  "ExportPath": "./output/test-backtest-btcusdt",
+  "ExportFormat": "Csv",
+  "ExportDetailedMetrics": true,
+  "ExportTradeLog": true
+}

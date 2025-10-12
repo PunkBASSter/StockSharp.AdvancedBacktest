@@ -1,39 +1,119 @@
+using System.Text.Json;
+using StockSharp.AdvancedBacktest.LauncherTemplate.BacktestMode;
+using StockSharp.AdvancedBacktest.LauncherTemplate.Configuration.Models;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.PreviousWeekRangeBreakout;
+using StockSharp.AdvancedBacktest.LauncherTemplate.Utilities;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Strategies.Modules;
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate;
 
-// Entry point for the LauncherTemplate console application.
-// Uses CustomParams pattern for configuration instead of Dependency Injection.
 public class Program
 {
-    public static int Main(string[] args)
+    public static async Task<int> Main(string[] args)
     {
         Console.WriteLine("StockSharp Advanced Backtest - Launcher Template");
+        Console.WriteLine();
 
-        // Determine mode
-        var mode = args.Length > 0 && args[0] == "--live" ? "live" : "optimization";
-        Console.WriteLine($"Running in {mode} mode");
-
-        if (mode == "live")
+        try
         {
-            RunLiveMode();
-        }
-        else
-        {
-            RunOptimizationMode();
-        }
+            if (args.Length == 0)
+            {
+                var configPath = FindDefaultConfigFile();
+                if (configPath == null)
+                {
+                    ConsoleLogger.LogError("No configuration file found");
+                    ConsoleLogger.LogError("Tried: config.json, backtest.json, ConfigFiles/config.json");
+                    ConsoleLogger.LogInfo("Use --config <path> to specify a configuration file");
+                    return 1;
+                }
 
-        return 0;
+                return await RunBacktestMode(configPath);
+            }
+
+            var mode = args[0].ToLowerInvariant();
+
+            return mode switch
+            {
+                "--live" => RunLiveMode(),
+                "--validate-data" => await RunValidationMode(args),
+                "--config" when args.Length > 1 => await RunBacktestMode(args[1]),
+                "--help" or "-h" => ShowHelpAndExit(),
+                _ => ShowHelpAndExit()
+            };
+        }
+        catch (Exception ex)
+        {
+            ConsoleLogger.LogError($"Fatal error: {ex.Message}");
+            return 1;
+        }
     }
 
-    private static void RunLiveMode()
+    private static async Task<int> RunBacktestMode(string configPath)
+    {
+        ConsoleLogger.LogInfo($"Loading configuration from: {configPath}");
+
+        if (!File.Exists(configPath))
+        {
+            ConsoleLogger.LogError($"Configuration file not found: {configPath}");
+            return 1;
+        }
+
+        var configJson = await File.ReadAllTextAsync(configPath);
+        var config = JsonSerializer.Deserialize<BacktestConfiguration>(configJson);
+
+        if (config == null)
+        {
+            ConsoleLogger.LogError("Failed to parse configuration file");
+            return 1;
+        }
+
+        var runner = new BacktestRunner<PreviousWeekRangeBreakoutStrategy>(config)
+        {
+            VerboseLogging = true
+        };
+
+        return await runner.RunAsync();
+    }
+
+    private static async Task<int> RunValidationMode(string[] args)
+    {
+        var configPath = args.Length > 1 && !args[1].StartsWith("--")
+            ? args[1]
+            : "ConfigFiles/test-backtest-btcusdt.json";
+
+        ConsoleLogger.LogInfo($"Validating history data");
+        ConsoleLogger.LogInfo($"Configuration: {configPath}");
+
+        if (!File.Exists(configPath))
+        {
+            ConsoleLogger.LogError($"Configuration file not found: {configPath}");
+            return 1;
+        }
+
+        var configJson = await File.ReadAllTextAsync(configPath);
+        var config = JsonSerializer.Deserialize<BacktestConfiguration>(configJson);
+
+        if (config == null)
+        {
+            ConsoleLogger.LogError("Failed to parse configuration");
+            return 1;
+        }
+
+        var validator = new HistoryDataValidator(config.HistoryPath);
+        var timeFrames = config.TimeFrames.Select(tf => ParseTimeFrame(tf)).ToList();
+        var report = validator.Validate(config.Securities, timeFrames);
+
+        report.PrintToConsole();
+
+        return report.IsSuccess ? 0 : 1;
+    }
+
+    private static int RunLiveMode()
     {
         Console.WriteLine("Live trading mode - creating strategy instance");
 
-        // Build configuration using type-safe builder
         var config = new PreviousWeekRangeBreakoutConfigBuilder()
             .WithTrendFilter(IndicatorType.SMA, 20)
             .WithATRPeriod(14)
@@ -42,100 +122,92 @@ public class Program
             .WithRiskRewardTakeProfit(2m)
             .Build();
 
-        // Create strategy instance using CustomStrategyBase factory method
         var strategy = CustomStrategyBase.Create<PreviousWeekRangeBreakoutStrategy>(config);
-
-        // TODO: Configure connector, portfolio, security, etc.
-        // TODO: Start strategy
 
         Console.WriteLine("Strategy created successfully");
         Console.WriteLine($"  Position Sizing: ATRBased");
         Console.WriteLine($"  Stop Loss Method: ATR");
         Console.WriteLine($"  Take Profit Method: RiskReward");
+        Console.WriteLine();
+        Console.WriteLine("NOTE: Live trading mode is not fully implemented yet.");
+        Console.WriteLine("      This is a placeholder for future live trading integration.");
+
+        return 0;
     }
 
-    private static void RunOptimizationMode()
+    private static int ShowHelpAndExit()
     {
-        Console.WriteLine("Optimization mode - demonstrating parameter iteration");
+        Console.WriteLine("Usage:");
+        Console.WriteLine("  dotnet run                                    Run backtest (searches for config file)");
+        Console.WriteLine("  dotnet run --config <path>                    Run backtest with specified config");
+        Console.WriteLine("  dotnet run --validate-data [config]           Validate history data availability");
+        Console.WriteLine("  dotnet run --live                             Run live trading mode (not implemented)");
+        Console.WriteLine("  dotnet run --help                             Show this help message");
+        Console.WriteLine();
+        Console.WriteLine("Default Config Search:");
+        Console.WriteLine("  When no --config argument is provided, the following files are searched in order:");
+        Console.WriteLine("    1. config.json (current directory)");
+        Console.WriteLine("    2. backtest.json (current directory)");
+        Console.WriteLine("    3. ConfigFiles/config.json (project structure)");
+        Console.WriteLine();
+        Console.WriteLine("Testing:");
+        Console.WriteLine("  dotnet test                                   Run all unit and integration tests");
+        Console.WriteLine("  dotnet test --filter Category!=E2E            Run only fast tests (skip E2E)");
+        Console.WriteLine("  dotnet test --filter Category=Integration     Run integration tests");
+        Console.WriteLine();
+        Console.WriteLine("Examples:");
+        Console.WriteLine("  dotnet run --config ConfigFiles/test-backtest-btcusdt.json");
+        Console.WriteLine("  dotnet run --validate-data");
+        Console.WriteLine("  dotnet test");
 
-        // Define parameter combinations to test
-        var positionSizingMethods = new[]
+        return 0;
+    }
+
+    private static TimeSpan ParseTimeFrame(string timeFrameStr)
+    {
+        if (string.IsNullOrWhiteSpace(timeFrameStr))
+            throw new ArgumentException("Timeframe string cannot be empty");
+
+        var timeFrameLower = timeFrameStr.ToLowerInvariant().Trim();
+
+        if (timeFrameLower.Length < 2)
+            throw new ArgumentException($"Invalid timeframe format: {timeFrameStr}");
+
+        var unitChar = timeFrameLower[^1];
+        var valueStr = timeFrameLower[..^1];
+
+        if (!int.TryParse(valueStr, out var value) || value <= 0)
+            throw new ArgumentException($"Invalid timeframe value: {timeFrameStr}");
+
+        return unitChar switch
         {
-            PositionSizingMethod.Fixed,
-            PositionSizingMethod.PercentOfEquity,
-            PositionSizingMethod.ATRBased
+            's' => TimeSpan.FromSeconds(value),
+            'm' => TimeSpan.FromMinutes(value),
+            'h' => TimeSpan.FromHours(value),
+            'd' => TimeSpan.FromDays(value),
+            'w' => TimeSpan.FromDays(value * 7),
+            _ => throw new ArgumentException($"Invalid timeframe unit '{unitChar}' in: {timeFrameStr}")
+        };
+    }
+
+    private static string? FindDefaultConfigFile()
+    {
+        var candidates = new[]
+        {
+            "config.json",
+            "backtest.json",
+            "ConfigFiles/config.json"
         };
 
-        var stopLossMethods = new[]
+        foreach (var candidate in candidates)
         {
-            StopLossMethod.Percentage,
-            StopLossMethod.ATR
-        };
-
-        int iteration = 0;
-
-        foreach (var posMethod in positionSizingMethods)
-        {
-            foreach (var slMethod in stopLossMethods)
+            if (File.Exists(candidate))
             {
-                iteration++;
-                Console.WriteLine($"\nIteration {iteration}:");
-                Console.WriteLine($"  Position Sizing: {posMethod}");
-                Console.WriteLine($"  Stop Loss: {slMethod}");
-
-                // Build configuration for this iteration
-                var configBuilder = new PreviousWeekRangeBreakoutConfigBuilder()
-                    .WithTrendFilter(IndicatorType.SMA, 20)
-                    .WithATRPeriod(14);
-
-                // Configure position sizing based on method
-                configBuilder = posMethod switch
-                {
-                    PositionSizingMethod.Fixed =>
-                        configBuilder.WithFixedPositionSizing(1m),
-
-                    PositionSizingMethod.PercentOfEquity =>
-                        configBuilder.WithPercentEquityPositionSizing(2m),
-
-                    PositionSizingMethod.ATRBased =>
-                        configBuilder.WithATRBasedPositionSizing(equityPercent: 2m, atrMultiplier: 2m),
-
-                    _ => throw new InvalidOperationException($"Unknown position sizing method: {posMethod}")
-                };
-
-                // Configure stop loss based on method
-                configBuilder = slMethod switch
-                {
-                    StopLossMethod.Percentage =>
-                        configBuilder.WithPercentageStopLoss(2m),
-
-                    StopLossMethod.ATR =>
-                        configBuilder.WithATRStopLoss(2m),
-
-                    _ => throw new InvalidOperationException($"Unknown stop loss method: {slMethod}")
-                };
-
-                // Always use RiskReward take profit for this example
-                var config = configBuilder
-                    .WithRiskRewardTakeProfit(2m)
-                    .Build();
-
-                // Create strategy instance with current parameters
-                var strategy = CustomStrategyBase.Create<PreviousWeekRangeBreakoutStrategy>(config);
-
-                // TODO: Configure connector, portfolio, security for backtest
-                // TODO: Run backtest with this strategy configuration
-                // TODO: Collect metrics (Sharpe ratio, drawdown, etc.)
-
-                Console.WriteLine($"  Strategy instance created for iteration {iteration}");
+                ConsoleLogger.LogInfo($"Using configuration file: {candidate}");
+                return candidate;
             }
         }
 
-        Console.WriteLine("\nOptimization complete - would collect and rank results by metrics");
-        Console.WriteLine("Next steps:");
-        Console.WriteLine("  - Run each strategy instance through backtester");
-        Console.WriteLine("  - Collect performance metrics");
-        Console.WriteLine("  - Rank configurations by Sharpe ratio / drawdown");
-        Console.WriteLine("  - Export results to JSON for web visualization");
+        return null;
     }
 }
