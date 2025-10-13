@@ -24,7 +24,7 @@ public class ParameterContainerBuilderTests
             ValidationStartDate = new DateTimeOffset(2024, 7, 1, 0, 0, 0, TimeSpan.Zero),
             ValidationEndDate = new DateTimeOffset(2024, 12, 31, 0, 0, 0, TimeSpan.Zero),
             Securities = ["BTCUSDT@BNB"],
-            TimeFrames = ["1d"],
+            TimeFrames = [TimeSpan.FromDays(1)],
             HistoryPath = Path.Combine(Path.GetTempPath(), "test-data"),
             OptimizableParameters = new Dictionary<string, ParameterDefinition>()
         };
@@ -36,7 +36,7 @@ public class ParameterContainerBuilderTests
         // Arrange
         var config = CreateBasicConfiguration();
         config.Securities = ["BTCUSDT@BNB", "ETHUSDT@BNB"];
-        config.TimeFrames = ["1h", "1d"];
+        config.TimeFrames = [TimeSpan.FromHours(1), TimeSpan.FromDays(1)];
 
         var runner = new BacktestRunner<MockStrategy>(config);
 
@@ -166,7 +166,7 @@ public class ParameterContainerBuilderTests
         // Arrange
         var config = CreateBasicConfiguration();
         config.Securities = ["BTCUSDT@BNB"];
-        config.TimeFrames = ["1h"];
+        config.TimeFrames = [TimeSpan.FromHours(1)];
         config.OptimizableParameters = new Dictionary<string, ParameterDefinition>
         {
             ["Period"] = new ParameterDefinition
@@ -199,43 +199,6 @@ public class ParameterContainerBuilderTests
         Assert.Contains(container.CustomParams, p => p is ClassParam<string>);
     }
 
-    [Fact]
-    public void ParseTimeFrame_WithValidFormats_ReturnsCorrectTimeSpan()
-    {
-        // Arrange
-        var config = CreateBasicConfiguration();
-        var runner = new BacktestRunner<MockStrategy>(config);
-        var parseMethod = typeof(BacktestRunner<MockStrategy>)
-            .GetMethod("ParseTimeFrame", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-        // Act & Assert
-        Assert.Equal(TimeSpan.FromSeconds(30), parseMethod!.Invoke(runner, new object[] { "30s" }));
-        Assert.Equal(TimeSpan.FromMinutes(5), parseMethod!.Invoke(runner, new object[] { "5m" }));
-        Assert.Equal(TimeSpan.FromHours(1), parseMethod!.Invoke(runner, new object[] { "1h" }));
-        Assert.Equal(TimeSpan.FromDays(1), parseMethod!.Invoke(runner, new object[] { "1d" }));
-        Assert.Equal(TimeSpan.FromDays(7), parseMethod!.Invoke(runner, new object[] { "1w" }));
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("  ")]
-    [InlineData("x")]
-    [InlineData("1x")]
-    [InlineData("abc")]
-    [InlineData("-5m")]
-    public void ParseTimeFrame_WithInvalidFormats_ThrowsArgumentException(string invalidFormat)
-    {
-        // Arrange
-        var config = CreateBasicConfiguration();
-        var runner = new BacktestRunner<MockStrategy>(config);
-        var parseMethod = typeof(BacktestRunner<MockStrategy>)
-            .GetMethod("ParseTimeFrame", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-        // Act & Assert
-        var ex = Assert.ThrowsAny<Exception>(() => parseMethod!.Invoke(runner, new object[] { invalidFormat }));
-        Assert.IsType<System.Reflection.TargetInvocationException>(ex);
-        Assert.IsType<ArgumentException>(ex.InnerException);
-    }
 
     [Fact]
     public void ValidateParameterDefinition_WithValidNumericParam_DoesNotThrow()
@@ -345,7 +308,7 @@ public class ParameterContainerBuilderTests
         // Arrange
         var config = CreateBasicConfiguration();
         config.Securities = ["BTCUSDT@BNB", "ETHUSDT@BNB"];
-        config.TimeFrames = ["1h", "1d"];
+        config.TimeFrames = [TimeSpan.FromHours(1), TimeSpan.FromDays(1)];
         config.OptimizableParameters = new Dictionary<string, ParameterDefinition>
         {
             ["Period"] = new ParameterDefinition

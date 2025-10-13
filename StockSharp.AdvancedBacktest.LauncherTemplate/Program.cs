@@ -137,8 +137,7 @@ public class Program
         }
 
         var validator = new HistoryDataValidator(config.HistoryPath);
-        var timeFrames = config.TimeFrames.Select(tf => ParseTimeFrame(tf)).ToList();
-        var report = validator.Validate(config.Securities, timeFrames);
+        var report = validator.Validate(config.Securities, config.TimeFrames);
 
         report.PrintToConsole();
 
@@ -198,33 +197,6 @@ public class Program
         Console.WriteLine("  dotnet test");
 
         return 0;
-    }
-
-    private static TimeSpan ParseTimeFrame(string timeFrameStr)
-    {
-        if (string.IsNullOrWhiteSpace(timeFrameStr))
-            throw new ArgumentException("Timeframe string cannot be empty");
-
-        var timeFrameLower = timeFrameStr.ToLowerInvariant().Trim();
-
-        if (timeFrameLower.Length < 2)
-            throw new ArgumentException($"Invalid timeframe format: {timeFrameStr}");
-
-        var unitChar = timeFrameLower[^1];
-        var valueStr = timeFrameLower[..^1];
-
-        if (!int.TryParse(valueStr, out var value) || value <= 0)
-            throw new ArgumentException($"Invalid timeframe value: {timeFrameStr}");
-
-        return unitChar switch
-        {
-            's' => TimeSpan.FromSeconds(value),
-            'm' => TimeSpan.FromMinutes(value),
-            'h' => TimeSpan.FromHours(value),
-            'd' => TimeSpan.FromDays(value),
-            'w' => TimeSpan.FromDays(value * 7),
-            _ => throw new ArgumentException($"Invalid timeframe unit '{unitChar}' in: {timeFrameStr}")
-        };
     }
 
     private static string? FindDefaultConfigFile()

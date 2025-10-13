@@ -10,7 +10,7 @@
     "AAPL@NASDAQ"
   ],
   "TimeFrames": [
-    "1d"
+    "1.00:00:00"
   ],
   "OptimizableParameters": {
     "TrendFilter.Period": {

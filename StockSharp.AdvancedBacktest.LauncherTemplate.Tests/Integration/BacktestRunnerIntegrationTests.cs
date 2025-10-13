@@ -26,7 +26,7 @@ public class BacktestRunnerIntegrationTests
             ValidationStartDate = new DateTimeOffset(2024, 2, 1, 0, 0, 0, TimeSpan.Zero),
             ValidationEndDate = new DateTimeOffset(2024, 2, 28, 0, 0, 0, TimeSpan.Zero),
             Securities = new List<string> { "BTCUSDT@BNB" },
-            TimeFrames = new List<string> { "1d" },
+            TimeFrames = new List<TimeSpan> { TimeSpan.FromDays(1) },
             OptimizableParameters = new Dictionary<string, ParameterDefinition>
             {
                 ["TestParam"] = new ParameterDefinition
@@ -46,51 +46,6 @@ public class BacktestRunnerIntegrationTests
         };
     }
 
-    [Theory]
-    [InlineData("1s", 1)]
-    [InlineData("5m", 5 * 60)]
-    [InlineData("1h", 3600)]
-    [InlineData("1d", 86400)]
-    [InlineData("1w", 7 * 86400)]
-    public void ParseTimeFrame_WithValidFormat_ReturnsCorrectTimeSpan(string input, int expectedSeconds)
-    {
-        var config = CreateMinimalConfig();
-        config.TimeFrames = new List<string> { input };
-
-        var runner = new BacktestRunner<PreviousWeekRangeBreakoutStrategy>(config);
-
-        var type = runner.GetType();
-        var method = type.GetMethod("ParseTimeFrame", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-        Assert.NotNull(method);
-
-        var result = (TimeSpan)method!.Invoke(runner, new object[] { input })!;
-
-        Assert.Equal(TimeSpan.FromSeconds(expectedSeconds), result);
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("5")]
-    [InlineData("x")]
-    [InlineData("5x")]
-    [InlineData("-5m")]
-    [InlineData("0m")]
-    public void ParseTimeFrame_WithInvalidFormat_ThrowsArgumentException(string input)
-    {
-        var config = CreateMinimalConfig();
-        var runner = new BacktestRunner<PreviousWeekRangeBreakoutStrategy>(config);
-
-        var type = runner.GetType();
-        var method = type.GetMethod("ParseTimeFrame", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-        Assert.NotNull(method);
-
-        Assert.Throws<System.Reflection.TargetInvocationException>(() =>
-        {
-            method!.Invoke(runner, new object[] { input });
-        });
-    }
 
     [Fact]
     public void Constructor_WithNullConfig_ThrowsArgumentNullException()

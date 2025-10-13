@@ -317,8 +317,7 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
             ConsoleLogger.LogInfo("Validating history data availability...");
 
             var validator = new HistoryDataValidator(_config.HistoryPath);
-            var timeFrames = _config.TimeFrames.Select(ParseTimeFrame).ToList();
-            var report = validator.Validate(_config.Securities, timeFrames);
+            var report = validator.Validate(_config.Securities, _config.TimeFrames);
 
             if (!report.IsSuccess)
             {
@@ -389,8 +388,7 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         foreach (var securityId in _config.Securities)
         {
             var security = new Security { Id = securityId };
-            var timeFrames = _config.TimeFrames.Select(ParseTimeFrame).ToList();
-            securityTimeframes.Add(new SecurityTimeframes(security, timeFrames));
+            securityTimeframes.Add(new SecurityTimeframes(security, _config.TimeFrames));
 
             if (VerboseLogging)
             {
@@ -405,40 +403,6 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         };
 
         customParams.Add(securityParam);
-    }
-
-    private TimeSpan ParseTimeFrame(string timeFrameStr)
-    {
-        if (string.IsNullOrWhiteSpace(timeFrameStr))
-        {
-            throw new ArgumentException("Timeframe string cannot be empty");
-        }
-
-        var timeFrameLower = timeFrameStr.ToLowerInvariant().Trim();
-
-        // Parse formats like "1m", "5m", "1h", "1d", "1w"
-        if (timeFrameLower.Length < 2)
-        {
-            throw new ArgumentException($"Invalid timeframe format: {timeFrameStr}");
-        }
-
-        var unitChar = timeFrameLower[^1];
-        var valueStr = timeFrameLower[..^1];
-
-        if (!int.TryParse(valueStr, out var value) || value <= 0)
-        {
-            throw new ArgumentException($"Invalid timeframe value: {timeFrameStr}");
-        }
-
-        return unitChar switch
-        {
-            's' => TimeSpan.FromSeconds(value),
-            'm' => TimeSpan.FromMinutes(value),
-            'h' => TimeSpan.FromHours(value),
-            'd' => TimeSpan.FromDays(value),
-            'w' => TimeSpan.FromDays(value * 7),
-            _ => throw new ArgumentException($"Invalid timeframe unit '{unitChar}' in: {timeFrameStr}. Valid units: s, m, h, d, w")
-        };
     }
 
     private long CalculateTotalCombinations(CustomParamsContainer container)

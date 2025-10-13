@@ -39,7 +39,7 @@ public class BacktestPipelineIntegrationTests
             ValidationStartDate = new DateTimeOffset(2024, 2, 1, 0, 0, 0, TimeSpan.Zero),
             ValidationEndDate = new DateTimeOffset(2024, 2, 28, 0, 0, 0, TimeSpan.Zero),
             Securities = new List<string> { "BTCUSDT@BNB" },
-            TimeFrames = new List<string> { "1d", "4h" },
+            TimeFrames = new List<TimeSpan> { TimeSpan.FromDays(1), TimeSpan.FromHours(4) },
             HistoryPath = "C:/Data/History",
             InitialCapital = 10000,
             CommissionPercentage = 0.1m,
@@ -61,51 +61,6 @@ public class BacktestPipelineIntegrationTests
         File.Delete(tempPath);
     }
 
-    [Theory]
-    [InlineData("1s", 1)]
-    [InlineData("30s", 30)]
-    [InlineData("1m", 60)]
-    [InlineData("5m", 300)]
-    [InlineData("15m", 900)]
-    [InlineData("30m", 1800)]
-    [InlineData("1h", 3600)]
-    [InlineData("4h", 14400)]
-    [InlineData("1d", 86400)]
-    [InlineData("1w", 604800)]
-    public void TimeFrameParsing_WithMultipleFormats_WorksCorrectly(string timeFrame, int expectedSeconds)
-    {
-        var expected = TimeSpan.FromSeconds(expectedSeconds);
-
-        Assert.True(TryParseTimeFrame(timeFrame, out var result));
-        Assert.Equal(expected, result);
-    }
-
-    private bool TryParseTimeFrame(string timeFrameStr, out TimeSpan result)
-    {
-        result = TimeSpan.Zero;
-
-        if (string.IsNullOrWhiteSpace(timeFrameStr) || timeFrameStr.Length < 2)
-            return false;
-
-        var timeFrameLower = timeFrameStr.ToLowerInvariant().Trim();
-        var unitChar = timeFrameLower[^1];
-        var valueStr = timeFrameLower[..^1];
-
-        if (!int.TryParse(valueStr, out var value) || value <= 0)
-            return false;
-
-        result = unitChar switch
-        {
-            's' => TimeSpan.FromSeconds(value),
-            'm' => TimeSpan.FromMinutes(value),
-            'h' => TimeSpan.FromHours(value),
-            'd' => TimeSpan.FromDays(value),
-            'w' => TimeSpan.FromDays(value * 7),
-            _ => TimeSpan.Zero
-        };
-
-        return result != TimeSpan.Zero;
-    }
 
     [Fact]
     public void ConfigurationValidation_DetectsInvalidDateRanges()
@@ -158,7 +113,7 @@ public class BacktestPipelineIntegrationTests
             ValidationStartDate = DateTimeOffset.UtcNow.AddDays(31),
             ValidationEndDate = DateTimeOffset.UtcNow.AddDays(60),
             Securities = new List<string> { "BTCUSDT@BNB" },
-            TimeFrames = new List<string>(),
+            TimeFrames = new List<TimeSpan>(),
             HistoryPath = "/path/to/data",
             OptimizableParameters = new Dictionary<string, ParameterDefinition>()
         };
