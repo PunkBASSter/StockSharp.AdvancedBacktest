@@ -557,7 +557,7 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         if (name.EndsWith(".Type") && name.StartsWith("TrendFilter."))
         {
             var enumValue = Enum.Parse<IndicatorType>(value.GetString() ?? string.Empty);
-            return new StructParam<IndicatorType>(name, [enumValue]) { CanOptimize = false };
+            return new StructParam<IndicatorType>(name, [enumValue]) { CanOptimize = true };
         }
 
         if (name.EndsWith(".Method"))
@@ -565,17 +565,17 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
             if (name.StartsWith("PositionSizing."))
             {
                 var enumValue = Enum.Parse<PositionSizingMethod>(value.GetString() ?? string.Empty);
-                return new StructParam<PositionSizingMethod>(name, [enumValue]) { CanOptimize = false };
+                return new StructParam<PositionSizingMethod>(name, [enumValue]) { CanOptimize = true };
             }
             else if (name.StartsWith("StopLoss."))
             {
                 var enumValue = Enum.Parse<StopLossMethod>(value.GetString() ?? string.Empty);
-                return new StructParam<StopLossMethod>(name, [enumValue]) { CanOptimize = false };
+                return new StructParam<StopLossMethod>(name, [enumValue]) { CanOptimize = true };
             }
             else if (name.StartsWith("TakeProfit."))
             {
                 var enumValue = Enum.Parse<TakeProfitMethod>(value.GetString() ?? string.Empty);
-                return new StructParam<TakeProfitMethod>(name, [enumValue]) { CanOptimize = false };
+                return new StructParam<TakeProfitMethod>(name, [enumValue]) { CanOptimize = true };
             }
         }
 
@@ -584,26 +584,26 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
             case JsonValueKind.Number:
                 if (value.TryGetInt32(out int intValue))
                 {
-                    return new NumberParam<int>(name, intValue, intValue, intValue, 1) { CanOptimize = false };
+                    return new NumberParam<int>(name, intValue, intValue, intValue, 1) { CanOptimize = true };
                 }
                 else if (value.TryGetDecimal(out decimal decimalValue))
                 {
-                    return new NumberParam<decimal>(name, decimalValue, decimalValue, decimalValue, 0.01m) { CanOptimize = false };
+                    return new NumberParam<decimal>(name, decimalValue, decimalValue, decimalValue, 0.01m) { CanOptimize = true };
                 }
                 else if (value.TryGetDouble(out double doubleValue))
                 {
-                    return new NumberParam<double>(name, doubleValue, doubleValue, doubleValue, 0.01) { CanOptimize = false };
+                    return new NumberParam<double>(name, doubleValue, doubleValue, doubleValue, 0.01) { CanOptimize = true };
                 }
                 break;
 
             case JsonValueKind.String:
                 string stringValue = value.GetString() ?? string.Empty;
-                return new ClassParam<string>(name, [stringValue]) { CanOptimize = false };
+                return new ClassParam<string>(name, [stringValue]) { CanOptimize = true };
 
             case JsonValueKind.True:
             case JsonValueKind.False:
                 bool boolValue = value.GetBoolean();
-                return new ClassParam<string>(name, [boolValue.ToString()]) { CanOptimize = false };
+                return new ClassParam<string>(name, [boolValue.ToString()]) { CanOptimize = true };
         }
 
         throw new InvalidOperationException($"Unable to infer parameter type for '{name}' with value kind: {value.ValueKind}");
