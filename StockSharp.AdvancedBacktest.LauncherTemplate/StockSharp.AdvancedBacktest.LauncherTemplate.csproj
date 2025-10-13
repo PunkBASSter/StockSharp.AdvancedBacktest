@@ -21,4 +21,10 @@
     <PackageReference Include="StockSharp.Binance" Version="5.*" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="single-run-btcusdt.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

@@ -203,6 +203,7 @@ public class Program
     {
         var candidates = new[]
         {
+            "single-run-btcusdt.json",
             "config.json",
             "backtest.json",
             "ConfigFiles/config.json"
