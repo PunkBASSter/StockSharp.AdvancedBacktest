@@ -1,9 +1,5 @@
 namespace StockSharp.AdvancedBacktest.Parameters;
 
-/// <summary>
-/// Immutable container for managing strategy parameters with efficient lookup and validation.
-/// All parameters must be provided at construction time.
-/// </summary>
 public class CustomParamsContainer
 {
     private readonly IReadOnlyDictionary<string, ICustomParam> _params;
@@ -11,9 +7,6 @@ public class CustomParamsContainer
     public IReadOnlyList<ICustomParam> CustomParams { get; }
     public List<Func<IDictionary<string, ICustomParam>, bool>> ValidationRules { get; init; } = [];
 
-    /// <summary>
-    /// Creates an immutable parameter container.
-    /// </summary>
     public CustomParamsContainer(IEnumerable<ICustomParam> parameters)
     {
         ArgumentNullException.ThrowIfNull(parameters);
@@ -47,20 +40,10 @@ public class CustomParamsContainer
         return false;
     }
 
-    public bool Contains(string id) => _params.ContainsKey(id);
-
-    public int Count => _params.Count;
-
     public string GenerateHash()
     {
         return string.Join(";", CustomParams
             .OrderBy(p => p.Id)  // Deterministic ordering
             .Select(p => $"{p.Id}={p.Value}"));
-    }
-
-    public bool Validate()
-    {
-        var paramsDict = _params.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-        return ValidationRules.All(rule => rule(paramsDict));
     }
 }
