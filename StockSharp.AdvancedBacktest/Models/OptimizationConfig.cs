@@ -1,27 +1,18 @@
-using System;
-using System.Collections.Generic;
-using StockSharp.Algo.Commissions;
-using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.AdvancedBacktest.Statistics;
 
 namespace StockSharp.AdvancedBacktest.Models;
 
-public class OptimizationConfig
+public class OptimizationConfig : BacktestConfig
 {
-    public required CustomParamsContainer ParamsContainer { get; set; }
-    public required OptimizationPeriodConfig TrainingPeriod { get; set; }
+    public required PeriodConfig TrainingPeriod { get; set; }
     public List<Func<PerformanceMetrics, bool>> MetricFilters { get; set; } = [];
-    public decimal InitialCapital { get; set; } = 10000m;
-    public IEnumerable<ICommissionRule> CommissionRules { get; set; }
-        = [new CommissionTradeRule { Value = 0.1m }];
-    public decimal TradeVolume { get; set; } = 0.01m;
+
     public bool IsBruteForce { get; set; } = true;
 #if DEBUG
     public int ParallelWorkers { get; set; } = 1;
 #else
 	public int ParallelWorkers { get; set; } = Environment.ProcessorCount;
 #endif
-    public required string HistoryPath { get; set; }
     public GeneticConfig GeneticSettings { get; set; } = new GeneticConfig();
 }
 

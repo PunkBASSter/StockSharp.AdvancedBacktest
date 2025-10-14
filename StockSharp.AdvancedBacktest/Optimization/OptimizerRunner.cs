@@ -97,7 +97,7 @@ public class OptimizerRunner<TStrategy> where TStrategy : CustomStrategyBase, ne
             .Select(pair => pair.strategy as TStrategy)
             .Where(s => s != null)
             .ToList()!;
-        _optimizer.Start(_config.TrainingPeriod.TrainingStartDate.DateTime, _config.TrainingPeriod.TrainingEndDate.DateTime,
+        _optimizer.Start(_config.TrainingPeriod.StartDate.DateTime, _config.TrainingPeriod.EndDate.DateTime,
                 optimizationPairs, optimizationPairs.Count);
 
         WaitForCompletion(); //TODO handle possible cancellation
@@ -128,7 +128,7 @@ public class OptimizerRunner<TStrategy> where TStrategy : CustomStrategyBase, ne
             return optimizationResults;
         }
 
-        _optimizer.Start(_config.TrainingPeriod.ValidationStartDate.DateTime, _config.TrainingPeriod.ValidationEndDate.DateTime,
+        _optimizer.Start(_config.TrainingPeriod.StartDate.DateTime, _config.TrainingPeriod.EndDate.DateTime,
                 validationPairs, validationPairs.Count);
 
         WaitForCompletion(); //TODO handle possible cancellation
