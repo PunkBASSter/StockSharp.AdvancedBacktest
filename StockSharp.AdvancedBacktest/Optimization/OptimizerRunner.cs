@@ -110,7 +110,13 @@ public class OptimizerRunner<TStrategy> where TStrategy : CustomStrategyBase, ne
                 Config = _config,
                 StartTime = startTime,
                 TrainedStrategy = strategy,
-                TrainingMetrics = trainMetrics
+                TrainingMetrics = trainMetrics,
+                LaunchMode = Pipeline.LaunchMode.Optimization,
+                ParamsHash = strategy.Hash,
+                TrainingPeriodStart = _config.TrainingPeriod.TrainingStartDate,
+                TrainingPeriodEnd = _config.TrainingPeriod.TrainingEndDate,
+                ValidationPeriodStart = _config.TrainingPeriod.TrainingEndDate,
+                ValidationPeriodEnd = _config.TrainingPeriod.TrainingEndDate
             };
         }).ToDictionary(x => x.TrainedStrategy.Hash);
 
