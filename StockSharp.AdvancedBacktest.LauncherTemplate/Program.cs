@@ -62,7 +62,7 @@ public class Program
         }
 
         var configJson = await File.ReadAllTextAsync(configPath);
-        var config = JsonSerializer.Deserialize<BacktestConfiguration>(configJson);
+        var config = JsonSerializationHelper.Deserialize<BacktestConfiguration>(configJson);
 
         if (config == null)
         {
@@ -89,7 +89,7 @@ public class Program
         }
 
         var configJson = await File.ReadAllTextAsync(configPath);
-        var config = JsonSerializer.Deserialize<BacktestConfiguration>(configJson);
+        var config = JsonSerializationHelper.Deserialize<BacktestConfiguration>(configJson);
 
         if (config == null)
         {
@@ -128,7 +128,7 @@ public class Program
         }
 
         var configJson = await File.ReadAllTextAsync(configPath);
-        var config = JsonSerializer.Deserialize<BacktestConfiguration>(configJson);
+        var config = JsonSerializationHelper.Deserialize<BacktestConfiguration>(configJson);
 
         if (config == null)
         {
@@ -137,8 +137,7 @@ public class Program
         }
 
         var validator = new HistoryDataValidator(config.HistoryPath);
-        var timeFrames = config.TimeFrames.Select(tf => ParseTimeFrame(tf)).ToList();
-        var report = validator.Validate(config.Securities, timeFrames);
+        var report = validator.Validate(config.Securities, config.TimeFrames);
 
         report.PrintToConsole();
 
@@ -200,37 +199,11 @@ public class Program
         return 0;
     }
 
-    private static TimeSpan ParseTimeFrame(string timeFrameStr)
-    {
-        if (string.IsNullOrWhiteSpace(timeFrameStr))
-            throw new ArgumentException("Timeframe string cannot be empty");
-
-        var timeFrameLower = timeFrameStr.ToLowerInvariant().Trim();
-
-        if (timeFrameLower.Length < 2)
-            throw new ArgumentException($"Invalid timeframe format: {timeFrameStr}");
-
-        var unitChar = timeFrameLower[^1];
-        var valueStr = timeFrameLower[..^1];
-
-        if (!int.TryParse(valueStr, out var value) || value <= 0)
-            throw new ArgumentException($"Invalid timeframe value: {timeFrameStr}");
-
-        return unitChar switch
-        {
-            's' => TimeSpan.FromSeconds(value),
-            'm' => TimeSpan.FromMinutes(value),
-            'h' => TimeSpan.FromHours(value),
-            'd' => TimeSpan.FromDays(value),
-            'w' => TimeSpan.FromDays(value * 7),
-            _ => throw new ArgumentException($"Invalid timeframe unit '{unitChar}' in: {timeFrameStr}")
-        };
-    }
-
     private static string? FindDefaultConfigFile()
     {
         var candidates = new[]
         {
+            "single-run-btcusdt.json",
             "config.json",
             "backtest.json",
             "ConfigFiles/config.json"

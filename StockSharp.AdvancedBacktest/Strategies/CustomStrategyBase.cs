@@ -22,8 +22,9 @@ public abstract class CustomStrategyBase : Strategy
     {
         get
         {
-            var hash = string.Join(";", Securities.Select(s => $"{s.Key.Id}={string.Join(",", s.Value)}"));
-            return hash.GetHashCode().ToString("X");
+            return string.Join(";", Securities
+                .OrderBy(s => s.Key.Id)  // Deterministic ordering
+                .Select(s => $"{s.Key.Id}={string.Join(",", s.Value)}"));
         }
     }
 

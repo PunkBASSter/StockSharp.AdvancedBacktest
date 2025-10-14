@@ -46,7 +46,7 @@ public class BacktestConfiguration
     public required List<string> Securities { get; set; }
 
     [Required(ErrorMessage = "At least one timeframe must be specified")]
-    public List<string> TimeFrames { get; set; } = ["1d"];
+    public List<TimeSpan> TimeFrames { get; set; } = [TimeSpan.FromDays(1)];
 
     /// <summary>
     /// Execution mode: Optimization (default) or Single run

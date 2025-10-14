@@ -12,6 +12,10 @@ using StockSharp.AdvancedBacktest.Optimization;
 using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.AdvancedBacktest.Statistics;
 using StockSharp.AdvancedBacktest.Strategies;
+using StockSharp.AdvancedBacktest.Strategies.Modules;
+using StockSharp.AdvancedBacktest.Strategies.Modules.PositionSizing;
+using StockSharp.AdvancedBacktest.Strategies.Modules.StopLoss;
+using StockSharp.AdvancedBacktest.Strategies.Modules.TakeProfit;
 using StockSharp.AdvancedBacktest.PerformanceValidation;
 using StockSharp.AdvancedBacktest.Utilities;
 using StockSharp.BusinessEntities;
@@ -67,13 +71,9 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
     {
         try
         {
-            // Step 1: Validate configuration
-            ConsoleLogger.LogSection("Step 1: Validating Configuration");
-            ValidateConfiguration();
-            ConsoleLogger.LogSuccess("Configuration validated successfully");
+            ConsoleLogger.LogSection("Running Optimization Mode");
 
-            // Step 2: Build parameter container
-            ConsoleLogger.LogSection("Step 2: Building Parameter Container");
+            ValidateConfiguration();
             var paramContainer = BuildParameterContainer();
             var totalCombinations = CalculateTotalCombinations(paramContainer);
             ConsoleLogger.LogInfo($"Total parameter combinations: {totalCombinations:N0}");
@@ -82,15 +82,10 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
                 ConsoleLogger.LogWarning($"Large parameter space ({totalCombinations:N0} combinations) may take significant time");
             }
 
-            // Step 3: Create optimization config
-            ConsoleLogger.LogSection("Step 3: Creating Optimization Configuration");
             var optimizationConfig = CreateOptimizationConfig(paramContainer);
-            ConsoleLogger.LogSuccess("Optimization configuration created");
 
-            // Step 4: Execute optimization
-            ConsoleLogger.LogSection("Step 4: Executing Optimization");
             var optimizer = new OptimizerRunner<TStrategy>();
-            var baseOptimizer = optimizer.CreateOptimizer(optimizationConfig);
+            optimizer.CreateOptimizer(optimizationConfig);
 
             ConsoleLogger.LogInfo($"Running optimization with {ParallelThreads} parallel workers");
             var results = optimizer.Optimize();
@@ -103,33 +98,19 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
 
             ConsoleLogger.LogSuccess($"Optimization completed: {results.Count} strategy configurations evaluated");
 
-            // Step 5: Run walk-forward validation (if enabled)
             WalkForwardResult? walkForwardResult = null;
             if (_config.WalkForwardConfig != null)
             {
-                ConsoleLogger.LogSection("Step 5: Running Walk-Forward Validation");
                 walkForwardResult = await RunWalkForwardValidationAsync(optimizer, optimizationConfig);
                 ConsoleLogger.LogSuccess($"Walk-forward validation completed: {walkForwardResult.TotalWindows} windows processed");
                 ConsoleLogger.LogInfo($"Walk-Forward Efficiency: {walkForwardResult.WalkForwardEfficiency:F4}");
                 ConsoleLogger.LogInfo($"Consistency (Std Dev): {walkForwardResult.Consistency:F4}");
             }
-            else
-            {
-                ConsoleLogger.LogInfo("Step 5: Walk-forward validation disabled (skipped)");
-            }
 
-            // Step 6: Generate reports
-            ConsoleLogger.LogSection("Step 6: Generating Reports");
             await GenerateReportsAsync(results, optimizationConfig, walkForwardResult);
-            ConsoleLogger.LogSuccess("Reports generated successfully");
-
-            // Step 7: Export top strategies
-            ConsoleLogger.LogSection("Step 7: Exporting Top Strategies");
             await ExportTopStrategiesAsync(results);
-            ConsoleLogger.LogSuccess("Top strategies exported");
 
-            // Step 8: Log summary
-            ConsoleLogger.LogSection("Backtest Workflow Complete");
+            ConsoleLogger.LogSection("Optimization Complete");
             LogSummary(results, walkForwardResult);
 
             return 0;
@@ -149,34 +130,14 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
     {
         try
         {
-            ConsoleLogger.LogSection("Running Single Mode (No Optimization)");
+            ConsoleLogger.LogSection("Running Single Mode");
 
-            // Step 1: Validate single-mode configuration
-            ConsoleLogger.LogSection("Step 1: Validating Single Mode Configuration");
             ValidateSingleModeConfiguration();
-            ConsoleLogger.LogSuccess("Single mode configuration validated successfully");
-
-            // Step 2: Build parameter container from fixed parameters
-            ConsoleLogger.LogSection("Step 2: Building Parameter Container from Fixed Parameters");
             var paramContainer = BuildParameterContainerFromFixed();
-            ConsoleLogger.LogSuccess($"Created parameter container with {_config.FixedParameters.Count} fixed parameters");
-
-            // Step 3: Create single strategy instance
-            ConsoleLogger.LogSection("Step 3: Creating Strategy Instance");
-            var strategyParams = paramContainer.CustomParams.ToList();
-            var trainingStrategy = CustomStrategyBase.Create<TStrategy>(strategyParams);
-            trainingStrategy.ParamsBackup = strategyParams;
-            ConsoleLogger.LogSuccess("Strategy instance created");
-
-            // Step 4-5: Run backtest using OptimizerRunner (simpler and more reliable)
-            ConsoleLogger.LogSection("Step 4: Creating Optimization Config for Single Run");
             var optimizationConfig = CreateOptimizationConfig(paramContainer);
-            ConsoleLogger.LogSuccess("Configuration created");
 
-            // Run as "optimization" with single parameter set
-            ConsoleLogger.LogSection("Step 5: Executing Single Backtest");
             var optimizer = new OptimizerRunner<TStrategy>();
-            var baseOptimizer = optimizer.CreateOptimizer(optimizationConfig);
+            optimizer.CreateOptimizer(optimizationConfig);
 
             ConsoleLogger.LogInfo("Running backtest on training and validation periods...");
             var results = optimizer.Optimize();
@@ -191,28 +152,18 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
             var trainingResult = result.TrainingMetrics;
             var validationResult = result.ValidationMetrics;
 
-            ConsoleLogger.LogSuccess($"Training completed - Net Profit: {trainingResult?.NetProfit:C2}");
-            ConsoleLogger.LogSuccess($"Validation completed - Net Profit: {validationResult?.NetProfit:C2}");
+            ConsoleLogger.LogSuccess($"Training: Net Profit {trainingResult?.NetProfit:C2}");
+            ConsoleLogger.LogSuccess($"Validation: Net Profit {validationResult?.NetProfit:C2}");
 
-            // Step 6: Generate reports
-            ConsoleLogger.LogSection("Step 6: Generating Reports");
             await GenerateSingleModeReportAsync(trainingResult, validationResult);
-            ConsoleLogger.LogSuccess("Report generated successfully");
 
-            // Step 7: Export results
             if (!string.IsNullOrWhiteSpace(_config.ExportPath))
             {
-                ConsoleLogger.LogSection("Step 7: Exporting Results");
                 await ExportSingleModeResultsAsync(result.TrainedStrategy!, result.ValidatedStrategy!, trainingResult, validationResult);
-                ConsoleLogger.LogSuccess($"Results exported to: {_config.ExportPath}");
-            }
-            else
-            {
-                ConsoleLogger.LogInfo("Step 7: Export skipped (ExportPath not configured)");
+                ConsoleLogger.LogInfo($"Results exported to: {_config.ExportPath}");
             }
 
-            // Step 8: Log summary
-            ConsoleLogger.LogSection("Single Mode Backtest Complete");
+            ConsoleLogger.LogSection("Single Mode Complete");
             LogSingleModeSummary(trainingResult, validationResult);
 
             return 0;
@@ -220,6 +171,14 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         catch (Exception ex)
         {
             ConsoleLogger.LogError($"Single mode failed: {ex.Message}");
+            if (ex.InnerException != null)
+            {
+                ConsoleLogger.LogError($"Inner exception: {ex.InnerException.Message}");
+                if (VerboseLogging && ex.InnerException.StackTrace != null)
+                {
+                    ConsoleLogger.LogError($"Inner stack trace: {ex.InnerException.StackTrace}");
+                }
+            }
             if (VerboseLogging)
             {
                 ConsoleLogger.LogError($"Stack trace: {ex.StackTrace}");
@@ -250,14 +209,6 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         if (_config.Securities.Count == 0)
         {
             throw new InvalidOperationException("At least one security must be specified");
-        }
-
-        if (VerboseLogging)
-        {
-            ConsoleLogger.LogInfo($"Configuration validation passed:");
-            ConsoleLogger.LogInfo($"  - Parameters: {_config.OptimizableParameters.Count}");
-            ConsoleLogger.LogInfo($"  - Securities: {string.Join(", ", _config.Securities)}");
-            ConsoleLogger.LogInfo($"  - Parallel workers: {ParallelThreads}");
         }
 
         ValidateHistoryDataAccess();
@@ -309,8 +260,7 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
             ConsoleLogger.LogInfo("Validating history data availability...");
 
             var validator = new HistoryDataValidator(_config.HistoryPath);
-            var timeFrames = _config.TimeFrames.Select(ParseTimeFrame).ToList();
-            var report = validator.Validate(_config.Securities, timeFrames);
+            var report = validator.Validate(_config.Securities, _config.TimeFrames);
 
             if (!report.IsSuccess)
             {
@@ -345,22 +295,14 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
     {
         var parameters = new List<ICustomParam>();
 
-        // Add security parameters
         AddSecurityParameters(parameters);
 
-        // Add optimizable parameters using factory
         if (_config.OptimizableParameters != null)
         {
             parameters.AddRange(
                 ParameterFactory.CreateFromDictionary(_config.OptimizableParameters));
         }
 
-        if (VerboseLogging)
-        {
-            ConsoleLogger.LogInfo($"Created {parameters.Count} parameters total");
-        }
-
-        // Immutable container - no initialization needed!
         return new CustomParamsContainer(parameters);
     }
 
@@ -381,14 +323,7 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         foreach (var securityId in _config.Securities)
         {
             var security = new Security { Id = securityId };
-            var timeFrames = _config.TimeFrames.Select(ParseTimeFrame).ToList();
-            securityTimeframes.Add(new SecurityTimeframes(security, timeFrames));
-
-            if (VerboseLogging)
-            {
-                var timeFrameStr = string.Join(", ", _config.TimeFrames);
-                ConsoleLogger.LogInfo($"  - Security: {securityId} with timeframes: {timeFrameStr}");
-            }
+            securityTimeframes.Add(new SecurityTimeframes(security, _config.TimeFrames));
         }
 
         var securityParam = new SecurityParam("Security", securityTimeframes)
@@ -397,40 +332,6 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         };
 
         customParams.Add(securityParam);
-    }
-
-    private TimeSpan ParseTimeFrame(string timeFrameStr)
-    {
-        if (string.IsNullOrWhiteSpace(timeFrameStr))
-        {
-            throw new ArgumentException("Timeframe string cannot be empty");
-        }
-
-        var timeFrameLower = timeFrameStr.ToLowerInvariant().Trim();
-
-        // Parse formats like "1m", "5m", "1h", "1d", "1w"
-        if (timeFrameLower.Length < 2)
-        {
-            throw new ArgumentException($"Invalid timeframe format: {timeFrameStr}");
-        }
-
-        var unitChar = timeFrameLower[^1];
-        var valueStr = timeFrameLower[..^1];
-
-        if (!int.TryParse(valueStr, out var value) || value <= 0)
-        {
-            throw new ArgumentException($"Invalid timeframe value: {timeFrameStr}");
-        }
-
-        return unitChar switch
-        {
-            's' => TimeSpan.FromSeconds(value),
-            'm' => TimeSpan.FromMinutes(value),
-            'h' => TimeSpan.FromHours(value),
-            'd' => TimeSpan.FromDays(value),
-            'w' => TimeSpan.FromDays(value * 7),
-            _ => throw new ArgumentException($"Invalid timeframe unit '{unitChar}' in: {timeFrameStr}. Valid units: s, m, h, d, w")
-        };
     }
 
     private long CalculateTotalCombinations(CustomParamsContainer container)
@@ -486,18 +387,8 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
     {
         var filters = new List<Func<PerformanceMetrics, bool>>();
 
-        // Default filters - minimum trade count and positive return
         filters.Add(metrics => metrics.TotalTrades >= 10);
         filters.Add(metrics => metrics.NetProfit > 0);
-
-        // TODO: Parse MetricFilterExpressions from config and convert to lambda expressions
-        // This would require a simple expression parser or using Dynamic LINQ
-        // For MVP, we use hardcoded reasonable defaults
-
-        if (VerboseLogging)
-        {
-            ConsoleLogger.LogInfo($"Applied {filters.Count} metric filters");
-        }
 
         return filters;
     }
@@ -516,25 +407,9 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         var startDate = _config.TrainingStartDate;
         var endDate = _config.ValidationEndDate;
 
-        ConsoleLogger.LogInfo($"Mode: {wfConfig.Mode}");
-        ConsoleLogger.LogInfo($"Window Size: {wfConfig.WindowSize.TotalDays} days");
-        ConsoleLogger.LogInfo($"Step Size: {wfConfig.StepSize.TotalDays} days");
-        ConsoleLogger.LogInfo($"Validation Size: {wfConfig.ValidationSize.TotalDays} days");
+        ConsoleLogger.LogInfo($"Mode: {wfConfig.Mode}, Window: {wfConfig.WindowSize.TotalDays}d, Step: {wfConfig.StepSize.TotalDays}d, Validation: {wfConfig.ValidationSize.TotalDays}d");
 
         var result = validator.Validate(wfConfig, startDate, endDate);
-
-        if (VerboseLogging)
-        {
-            ConsoleLogger.LogInfo($"\nWalk-forward windows processed:");
-            for (int i = 0; i < result.Windows.Count; i++)
-            {
-                var window = result.Windows[i];
-                ConsoleLogger.LogInfo($"  Window {i + 1}:");
-                ConsoleLogger.LogInfo($"    Training: {window.TrainingMetrics.TotalReturn:F4} return, {window.TrainingMetrics.TotalTrades} trades");
-                ConsoleLogger.LogInfo($"    Testing:  {window.TestingMetrics.TotalReturn:F4} return, {window.TestingMetrics.TotalTrades} trades");
-                ConsoleLogger.LogInfo($"    Testing Sortino: {window.TestingMetrics.SortinoRatio:F4}");
-            }
-        }
 
         return await Task.FromResult(result);
     }
@@ -632,8 +507,6 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
         ConsoleLogger.LogInfo($"\nResults saved to: {OutputDirectory}");
     }
 
-    // ========== Single Mode Helper Methods ==========
-
     private void ValidateSingleModeConfiguration()
     {
         if (_config.TrainingEndDate <= _config.TrainingStartDate)
@@ -658,13 +531,6 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
             throw new InvalidOperationException("At least one security must be specified");
         }
 
-        if (VerboseLogging)
-        {
-            ConsoleLogger.LogInfo($"Single mode validation passed:");
-            ConsoleLogger.LogInfo($"  - Fixed Parameters: {_config.FixedParameters.Count}");
-            ConsoleLogger.LogInfo($"  - Securities: {string.Join(", ", _config.Securities)}");
-        }
-
         ValidateHistoryDataAccess();
     }
 
@@ -672,23 +538,15 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
     {
         var parameters = new List<ICustomParam>();
 
-        // Add security parameters
         AddSecurityParameters(parameters);
 
-        // Convert fixed parameters to ICustomParam instances
         foreach (var fixedParam in _config.FixedParameters)
         {
             var paramName = fixedParam.Key;
             var paramValue = fixedParam.Value;
 
-            // Create a parameter definition from the fixed value
             ICustomParam param = InferParameterTypeAndCreate(paramName, paramValue);
             parameters.Add(param);
-
-            if (VerboseLogging)
-            {
-                ConsoleLogger.LogInfo($"  - {paramName}: {paramValue}");
-            }
         }
 
         return new CustomParamsContainer(parameters);
@@ -696,33 +554,56 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
 
     private ICustomParam InferParameterTypeAndCreate(string name, JsonElement value)
     {
-        // Try to infer the type from the JsonElement
+        if (name.EndsWith(".Type") && name.StartsWith("TrendFilter."))
+        {
+            var enumValue = Enum.Parse<IndicatorType>(value.GetString() ?? string.Empty);
+            return new StructParam<IndicatorType>(name, [enumValue]) { CanOptimize = true };
+        }
+
+        if (name.EndsWith(".Method"))
+        {
+            if (name.StartsWith("PositionSizing."))
+            {
+                var enumValue = Enum.Parse<PositionSizingMethod>(value.GetString() ?? string.Empty);
+                return new StructParam<PositionSizingMethod>(name, [enumValue]) { CanOptimize = true };
+            }
+            else if (name.StartsWith("StopLoss."))
+            {
+                var enumValue = Enum.Parse<StopLossMethod>(value.GetString() ?? string.Empty);
+                return new StructParam<StopLossMethod>(name, [enumValue]) { CanOptimize = true };
+            }
+            else if (name.StartsWith("TakeProfit."))
+            {
+                var enumValue = Enum.Parse<TakeProfitMethod>(value.GetString() ?? string.Empty);
+                return new StructParam<TakeProfitMethod>(name, [enumValue]) { CanOptimize = true };
+            }
+        }
+
         switch (value.ValueKind)
         {
             case JsonValueKind.Number:
-                // Check if it's an integer or decimal
                 if (value.TryGetInt32(out int intValue))
                 {
-                    return new NumberParam<int>(name, intValue, intValue, intValue, 1) { CanOptimize = false };
+                    return new NumberParam<int>(name, intValue, intValue, intValue, 1) { CanOptimize = true };
                 }
                 else if (value.TryGetDecimal(out decimal decimalValue))
                 {
-                    return new NumberParam<decimal>(name, decimalValue, decimalValue, decimalValue, 0.01m) { CanOptimize = false };
+                    return new NumberParam<decimal>(name, decimalValue, decimalValue, decimalValue, 0.01m) { CanOptimize = true };
                 }
                 else if (value.TryGetDouble(out double doubleValue))
                 {
-                    return new NumberParam<double>(name, doubleValue, doubleValue, doubleValue, 0.01) { CanOptimize = false };
+                    return new NumberParam<double>(name, doubleValue, doubleValue, doubleValue, 0.01) { CanOptimize = true };
                 }
                 break;
 
             case JsonValueKind.String:
                 string stringValue = value.GetString() ?? string.Empty;
-                return new ClassParam<string>(name, [stringValue]) { CanOptimize = false };
+                return new ClassParam<string>(name, [stringValue]) { CanOptimize = true };
 
             case JsonValueKind.True:
             case JsonValueKind.False:
                 bool boolValue = value.GetBoolean();
-                return new ClassParam<string>(name, [boolValue.ToString()]) { CanOptimize = false };
+                return new ClassParam<string>(name, [boolValue.ToString()]) { CanOptimize = true };
         }
 
         throw new InvalidOperationException($"Unable to infer parameter type for '{name}' with value kind: {value.ValueKind}");

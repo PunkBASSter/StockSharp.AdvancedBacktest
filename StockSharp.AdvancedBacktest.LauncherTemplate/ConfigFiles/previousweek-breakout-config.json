@@ -10,11 +10,11 @@
     "AAPL@NASDAQ"
   ],
   "TimeFrames": [
-    "1d"
+    "1.00:00:00"
   ],
   "OptimizableParameters": {
-    "TrendFilterPeriod": {
-      "Name": "TrendFilterPeriod",
+    "TrendFilter.Period": {
+      "Name": "TrendFilter.Period",
       "Type": "int",
       "MinValue": 20,
       "MaxValue": 100,
@@ -22,8 +22,8 @@
       "DefaultValue": 50,
       "Description": "Period for the trend filter indicator (SMA or EMA)"
     },
-    "TrendFilterType": {
-      "Name": "TrendFilterType",
+    "TrendFilter.Type": {
+      "Name": "TrendFilter.Type",
       "Type": "enum",
       "Values": [
         "SMA",
@@ -32,8 +32,8 @@
       "DefaultValue": "SMA",
       "Description": "Type of moving average to use for trend filtering"
     },
-    "StopLossMethodValue": {
-      "Name": "StopLossMethodValue",
+    "StopLoss.Method": {
+      "Name": "StopLoss.Method",
       "Type": "enum",
       "Values": [
         "Percentage",
@@ -42,8 +42,8 @@
       "DefaultValue": "Percentage",
       "Description": "Method for calculating stop-loss (Percentage or ATR-based)"
     },
-    "StopLossPercentage": {
-      "Name": "StopLossPercentage",
+    "StopLoss.Percentage": {
+      "Name": "StopLoss.Percentage",
       "Type": "decimal",
       "MinValue": 0.5,
       "MaxValue": 5.0,
@@ -51,8 +51,8 @@
       "DefaultValue": 2.0,
       "Description": "Stop-loss percentage when using Percentage method"
     },
-    "StopLossATRMultiplier": {
-      "Name": "StopLossATRMultiplier",
+    "StopLoss.ATRMultiplier": {
+      "Name": "StopLoss.ATRMultiplier",
       "Type": "decimal",
       "MinValue": 1.0,
       "MaxValue": 4.0,
@@ -60,8 +60,8 @@
       "DefaultValue": 2.0,
       "Description": "ATR multiplier for stop-loss when using ATR method"
     },
-    "ATRPeriod": {
-      "Name": "ATRPeriod",
+    "ATR.Period": {
+      "Name": "ATR.Period",
       "Type": "int",
       "MinValue": 7,
       "MaxValue": 28,
@@ -69,8 +69,8 @@
       "DefaultValue": 14,
       "Description": "Period for Average True Range (ATR) indicator"
     },
-    "TakeProfitMethodValue": {
-      "Name": "TakeProfitMethodValue",
+    "TakeProfit.Method": {
+      "Name": "TakeProfit.Method",
       "Type": "enum",
       "Values": [
         "Percentage",
@@ -80,8 +80,8 @@
       "DefaultValue": "Percentage",
       "Description": "Method for calculating take-profit target"
     },
-    "TakeProfitPercentage": {
-      "Name": "TakeProfitPercentage",
+    "TakeProfit.Percentage": {
+      "Name": "TakeProfit.Percentage",
       "Type": "decimal",
       "MinValue": 2.0,
       "MaxValue": 10.0,
@@ -89,8 +89,8 @@
       "DefaultValue": 4.0,
       "Description": "Take-profit percentage when using Percentage method"
     },
-    "TakeProfitATRMultiplier": {
-      "Name": "TakeProfitATRMultiplier",
+    "TakeProfit.ATRMultiplier": {
+      "Name": "TakeProfit.ATRMultiplier",
       "Type": "decimal",
       "MinValue": 1.5,
       "MaxValue": 5.0,
@@ -98,8 +98,8 @@
       "DefaultValue": 3.0,
       "Description": "ATR multiplier for take-profit when using ATR method"
     },
-    "RiskRewardRatio": {
-      "Name": "RiskRewardRatio",
+    "TakeProfit.RiskRewardRatio": {
+      "Name": "TakeProfit.RiskRewardRatio",
       "Type": "decimal",
       "MinValue": 1.0,
       "MaxValue": 5.0,
@@ -107,8 +107,8 @@
       "DefaultValue": 2.0,
       "Description": "Risk-to-reward ratio when using RiskReward method for take-profit"
     },
-    "SizingMethod": {
-      "Name": "SizingMethod",
+    "PositionSizing.Method": {
+      "Name": "PositionSizing.Method",
       "Type": "enum",
       "Values": [
         "Fixed",
@@ -118,8 +118,8 @@
       "DefaultValue": "Fixed",
       "Description": "Method for calculating position size"
     },
-    "FixedPositionSize": {
-      "Name": "FixedPositionSize",
+    "PositionSizing.FixedSize": {
+      "Name": "PositionSizing.FixedSize",
       "Type": "decimal",
       "MinValue": 0.01,
       "MaxValue": 1.0,
@@ -127,14 +127,23 @@
       "DefaultValue": 0.01,
       "Description": "Fixed position size when using Fixed sizing method"
     },
-    "EquityPercentage": {
-      "Name": "EquityPercentage",
+    "PositionSizing.EquityPercent": {
+      "Name": "PositionSizing.EquityPercent",
       "Type": "decimal",
       "MinValue": 0.5,
       "MaxValue": 10.0,
       "StepValue": 0.5,
       "DefaultValue": 2.0,
       "Description": "Percentage of equity to risk per trade (used by PercentOfEquity and ATRBased methods)"
+    },
+    "PositionSizing.ATRMultiplier": {
+      "Name": "PositionSizing.ATRMultiplier",
+      "Type": "decimal",
+      "MinValue": 0.5,
+      "MaxValue": 5.0,
+      "StepValue": 0.25,
+      "DefaultValue": 2.0,
+      "Description": "ATR multiplier for position sizing when using ATRBased method"
     }
   },
   "FixedParameters": {},
@@ -145,11 +154,10 @@
     "SharpeRatio >= 0.5"
   ],
   "WalkForwardConfig": {
-    "InSampleMonths": 12,
-    "OutOfSampleMonths": 3,
-    "StepMonths": 3,
-    "MinimumTrades": 5,
-    "ReoptimizationMode": "Rolling"
+    "WindowSize": "365.00:00:00",
+    "StepSize": "90.00:00:00",
+    "ValidationSize": "90.00:00:00",
+    "Mode": "Rolling"
   },
   "HistoryPath": "C:/StockSharpData/",
   "InitialCapital": 100000,

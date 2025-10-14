@@ -53,8 +53,9 @@ public class CustomParamsContainer
 
     public string GenerateHash()
     {
-        var hash = string.Join(";", CustomParams.Select(p => $"{p.Id}={p.Value}"));
-        return hash.GetHashCode().ToString("X");
+        return string.Join(";", CustomParams
+            .OrderBy(p => p.Id)  // Deterministic ordering
+            .Select(p => $"{p.Id}={p.Value}"));
     }
 
     public bool Validate()

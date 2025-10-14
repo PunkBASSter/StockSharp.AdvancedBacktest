@@ -19,8 +19,12 @@
     <PackageReference Include="System.Text.Json" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.0" />
     <PackageReference Include="StockSharp.Binance" Version="5.*" />
-    <PackageReference Include="StockSharp.Algo" Version="5.*" />
-    <PackageReference Include="StockSharp.BusinessEntities" Version="5.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="single-run-btcusdt.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
