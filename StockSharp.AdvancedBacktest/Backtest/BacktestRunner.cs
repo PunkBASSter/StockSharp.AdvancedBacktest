@@ -1,8 +1,3 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Ecng.Common;
 using Ecng.Logging;
 using StockSharp.Algo;
 using StockSharp.Algo.Storages;
@@ -10,29 +5,31 @@ using StockSharp.Algo.Strategies;
 using StockSharp.Algo.Testing;
 using StockSharp.AdvancedBacktest.Models;
 using StockSharp.AdvancedBacktest.Statistics;
-using StockSharp.BusinessEntities;
 using StockSharp.Messages;
+using StockSharp.BusinessEntities;
 
 namespace StockSharp.AdvancedBacktest.Backtest;
 
 /// <summary>
-/// Single backtest runner for executing a strategy with a specific set of parameters
+/// Single backtest runner for executing a strategy with a specific set of parameters.
+/// The strategy must be pre-configured with Security and any custom parameters before passing to the runner.
 /// </summary>
 /// <typeparam name="TStrategy">The strategy type to backtest</typeparam>
-public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy, new()
+public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
 {
     private readonly BacktestConfig _config;
+    private readonly TStrategy _strategy;
     private HistoryEmulationConnector? _connector;
-    private TStrategy? _strategy;
     private TaskCompletionSource<BacktestResult<TStrategy>>? _completionSource;
     private DateTimeOffset _startTime;
     private bool _disposed;
 
     public ILogReceiver? Logger { get; set; }
 
-    public BacktestRunner(BacktestConfig config)
+    public BacktestRunner(BacktestConfig config, TStrategy strategy)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
+        _strategy = strategy ?? throw new ArgumentNullException(nameof(strategy));
 
         if (!_config.ValidationPeriod.IsValid())
             throw new ArgumentException("Invalid validation period", nameof(config));
@@ -54,8 +51,8 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy,
                 Cleanup();
             });
 
+            ValidateStrategy();
             ConfigureConnector();
-            _strategy = ConfigureStrategy();
             SubscribeToEvents();
 
             Logger?.AddInfoLog("Starting backtest...");
@@ -72,99 +69,82 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy,
         }
     }
 
+    private void ValidateStrategy()
+    {
+        var workingSecurities = _strategy.GetWorkingSecurities()?.ToList();
+        var hasSecurities = (workingSecurities?.Count > 0) || (_strategy.Security is not null);
+
+        if (!hasSecurities)
+        {
+            throw new InvalidOperationException(
+                "Strategy must have at least one security. Set Strategy.Security or override GetWorkingSecurities()");
+        }
+
+        var securityInfo = workingSecurities?.Count > 0
+            ? $"{workingSecurities.Count} securities via GetWorkingSecurities()"
+            : $"Security={_strategy.Security!.Id}";
+
+        Logger?.AddInfoLog($"Strategy validated: {securityInfo}, Portfolio={_strategy.Portfolio.Name}");
+    }
+
     private void ConfigureConnector()
     {
-        // Parse security ID
-        var securityId = _config.SecurityId.ToSecurityId();
+        var workingSecurities = _strategy.GetWorkingSecurities()?.ToList();
+        var securities = workingSecurities?.Select(s => s.sec).ToArray() ?? [];
 
-        // Create security
-        var security = new Security
+        if (securities.Length == 0 && _strategy.Security != null)
         {
-            Id = _config.SecurityId,
-            Code = securityId.SecurityCode,
-            Board = ExchangeBoard.Associated,
-        };
+            securities = [_strategy.Security];
+        }
 
-        // Create portfolio
-        var portfolio = Portfolio.CreateSimulator();
-        portfolio.Name = _config.PortfolioName;
-        portfolio.BeginValue = _config.InitialCapital;
+        if (securities.Length == 0)
+        {
+            throw new InvalidOperationException(
+                "No securities found. Either set Strategy.Security or override GetWorkingSecurities()");
+        }
 
-        // Setup storage registry
+        Logger?.AddInfoLog($"Configuring connector with {securities.Length} security(ies): {string.Join(", ", securities.Select(s => s.Id))}");
+
+        _strategy.Portfolio ??= Portfolio.CreateSimulator();
+        if (_strategy.Portfolio.BeginValue == 0)
+        {
+            _strategy.Portfolio.BeginValue = 10000m;
+        }
+
+        if (string.IsNullOrEmpty(_strategy.Portfolio.Name))
+        {
+            _strategy.Portfolio.Name = "Simulator";
+            Logger?.AddInfoLog("Portfolio Name not set, defaulting to 'Simulator'");
+        }
+
         var storageRegistry = new StorageRegistry
         {
             DefaultDrive = new LocalMarketDataDrive(_config.HistoryPath)
         };
 
-        var securityProvider = new CollectionSecurityProvider(new[] { security });
-        var portfolioProvider = new CollectionPortfolioProvider(new[] { portfolio });
+        var securityProvider = new CollectionSecurityProvider(securities);
+        var portfolioProvider = new CollectionPortfolioProvider([_strategy.Portfolio]);
 
-        // Create the connector
         _connector = new HistoryEmulationConnector(
             securityProvider,
             portfolioProvider,
             storageRegistry);
 
-        // Configure emulation settings
         _connector.EmulationAdapter.Settings.MatchOnTouch = _config.MatchOnTouch;
         _connector.EmulationAdapter.Settings.CommissionRules = _config.CommissionRules.ToArray();
 
-        // Set date range
         _connector.HistoryMessageAdapter.StartDate = _config.ValidationPeriod.StartDate.UtcDateTime;
         _connector.HistoryMessageAdapter.StopDate = _config.ValidationPeriod.EndDate.UtcDateTime;
 
-        // Configure logging
-        if (Logger != null)
+        _strategy.Connector = _connector;
+
+        if (Logger is null)
         {
             ((ILogSource)_connector).LogLevel = LogLevels.Info;
+            ((ILogSource)_strategy).LogLevel = LogLevels.Info;
         }
 
-        Logger?.AddInfoLog($"Connector configured: {_config.SecurityId} from {_config.ValidationPeriod.StartDate:yyyy-MM-dd} to {_config.ValidationPeriod.EndDate:yyyy-MM-dd}");
-    }
-
-    private TStrategy ConfigureStrategy()
-    {
-        if (_connector == null)
-            throw new InvalidOperationException("Connector must be configured first");
-
-        var strategy = new TStrategy
-        {
-            Security = _connector.Securities.First(),
-            Portfolio = _connector.Portfolios.First(),
-            Connector = _connector,
-        };
-
-        // Apply custom parameters from config
-        ApplyParameters(strategy);
-
-        if (Logger != null)
-        {
-            ((ILogSource)strategy).LogLevel = LogLevels.Info;
-        }
-
-        Logger?.AddInfoLog($"Strategy configured with {_config.ParamsContainer.CustomParams.Count} parameters");
-        return strategy;
-    }
-
-    private void ApplyParameters(TStrategy strategy)
-    {
-        // Apply parameters from ParamsContainer to strategy
-        // This assumes the strategy has properties matching the parameter IDs
-        foreach (var param in _config.ParamsContainer.CustomParams)
-        {
-            var property = typeof(TStrategy).GetProperty(param.Id);
-            if (property != null && property.CanWrite)
-            {
-                try
-                {
-                    property.SetValue(strategy, Convert.ChangeType(param.Value, property.PropertyType));
-                }
-                catch (Exception ex)
-                {
-                    Logger?.AddWarningLog($"Failed to set parameter {param.Id}: {ex.Message}");
-                }
-            }
-        }
+        Logger?.AddInfoLog($"Connector configured for period {_config.ValidationPeriod.StartDate:yyyy-MM-dd} to {_config.ValidationPeriod.EndDate:yyyy-MM-dd}");
     }
 
     private void SubscribeToEvents()
@@ -241,7 +221,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy,
     {
         return new BacktestResult<TStrategy>
         {
-            Strategy = _strategy ?? new TStrategy(),
+            Strategy = _strategy,
             Metrics = new PerformanceMetrics(),
             Config = _config,
             IsSuccessful = false,

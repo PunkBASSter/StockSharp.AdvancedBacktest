@@ -31,4 +31,12 @@
     <ProjectReference Include="..\StockSharp.AdvancedBacktest\StockSharp.AdvancedBacktest.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Copy StorageMock folder to output directory for tests -->
+    <None Include="StorageMock\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>StorageMock\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </None>
+  </ItemGroup>
+
 </Project>
