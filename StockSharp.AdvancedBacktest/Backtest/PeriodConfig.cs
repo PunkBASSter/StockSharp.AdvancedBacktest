@@ -1,4 +1,4 @@
-namespace StockSharp.AdvancedBacktest.Models
+namespace StockSharp.AdvancedBacktest.Backtest
 {
     public class PeriodConfig
     {

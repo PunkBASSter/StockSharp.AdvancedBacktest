@@ -4,6 +4,7 @@ using StockSharp.AdvancedBacktest.Statistics;
 using StockSharp.AdvancedBacktest.PerformanceValidation;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Parameters;
+using StockSharp.AdvancedBacktest.Backtest;
 
 namespace StockSharp.AdvancedBacktest.Tests;
 

@@ -1,3 +1,4 @@
+using StockSharp.AdvancedBacktest.Backtest;
 using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.AdvancedBacktest.Statistics;
 

@@ -1,3 +1,4 @@
+using StockSharp.AdvancedBacktest.Backtest;
 using StockSharp.AdvancedBacktest.Models;
 using StockSharp.AdvancedBacktest.Optimization;
 using StockSharp.AdvancedBacktest.Strategies;

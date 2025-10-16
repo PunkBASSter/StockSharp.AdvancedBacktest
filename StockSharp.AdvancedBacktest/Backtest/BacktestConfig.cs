@@ -1,6 +1,6 @@
 using StockSharp.Algo.Commissions;
 
-namespace StockSharp.AdvancedBacktest.Models;
+namespace StockSharp.AdvancedBacktest.Backtest;
 
 public class BacktestConfig
 {
