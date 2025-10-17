@@ -23,12 +23,13 @@ public class DeltaZigZag : BaseIndicator
     {
     }
 
-    private decimal _delta = 0.001m;
+    private decimal _delta = 0.5m;
+    private decimal? _minimumThreshold;
 
     [Display(
         ResourceType = typeof(LocalizedStrings),
         Name = "Delta",
-        Description = "Price change.",
+        Description = "Price change percentage (e.g., 0.5 = 50% retracement).",
         GroupName = LocalizedStrings.GeneralKey)]
     public decimal Delta
     {
@@ -42,6 +43,29 @@ public class DeltaZigZag : BaseIndicator
                 return;
 
             _delta = value;
+            Reset();
+        }
+    }
+
+    /// <summary>
+    /// Minimum absolute threshold used when no swing history exists.
+    /// If not set, uses Delta as absolute value (not recommended for dynamic pricing).
+    /// Should be set based on security's price step (e.g., PriceStep * 10).
+    /// </summary>
+    [Display(
+        ResourceType = typeof(LocalizedStrings),
+        Name = "Minimum Threshold",
+        Description = "Minimum absolute threshold for initial swings.",
+        GroupName = LocalizedStrings.GeneralKey)]
+    public decimal? MinimumThreshold
+    {
+        get => _minimumThreshold;
+        set
+        {
+            if (value.HasValue && value.Value <= 0)
+                throw new ArgumentOutOfRangeException(nameof(value), "Minimum threshold must be positive");
+
+            _minimumThreshold = value;
             Reset();
         }
     }
@@ -76,7 +100,10 @@ public class DeltaZigZag : BaseIndicator
         var isUpTrend = _isUpTrend ?? price >= _buffer[^2];
 
         // Use dynamic threshold based on last swing size (like Python DeltaZigZag)
-        var threshold = _lastSwingSize > 0 ? _lastSwingSize * Delta : Delta;
+        // Fallback to MinimumThreshold if set, otherwise use Delta as absolute value
+        var threshold = _lastSwingSize > 0
+            ? _lastSwingSize * Delta
+            : (_minimumThreshold ?? Delta);
         var changeTrend = false;
 
         if (isUpTrend)
@@ -130,6 +157,7 @@ public class DeltaZigZag : BaseIndicator
         base.Load(storage);
 
         Delta = storage.GetValue<decimal>(nameof(Delta));
+        MinimumThreshold = storage.GetValue<decimal?>(nameof(MinimumThreshold));
     }
 
     public override void Save(SettingsStorage storage)
@@ -137,7 +165,14 @@ public class DeltaZigZag : BaseIndicator
         base.Save(storage);
 
         storage.SetValue(nameof(Delta), Delta);
+        storage.SetValue(nameof(MinimumThreshold), MinimumThreshold);
     }
 
-    public override string ToString() => base.ToString() + $" D={Delta}";
+    public override string ToString()
+    {
+        var str = base.ToString() + $" D={Delta}";
+        if (MinimumThreshold.HasValue)
+            str += $" MinT={MinimumThreshold.Value}";
+        return str;
+    }
 }

@@ -1,6 +1,7 @@
 using StockSharp.Algo.Indicators;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.ZigZagBreakout.TrendFiltering;
 using StockSharp.AdvancedBacktest.Strategies;
+using StockSharp.AdvancedBacktest.Utilities;
 using StockSharp.BusinessEntities;
 using StockSharp.Messages;
 
@@ -37,7 +38,9 @@ public class ZigZagBreakout : CustomStrategyBase
 
         _dzz = new DeltaZigZag
         {
-            Delta = _config.DzzDepth / 10m  // Divide by 10 like Python (5 -> 0.5)
+            Delta = _config.DzzDepth / 10m,  // Divide by 10 like Python (5 -> 0.5)
+            // Set minimum threshold based on price step for initial swings
+            MinimumThreshold = PriceStepHelper.GetDefaultDelta(Security, multiplier: 10)
         };
 
         _jma = new Jma
@@ -85,7 +88,7 @@ public class ZigZagBreakout : CustomStrategyBase
         if (_currentBuyOrder != null && _currentBuyOrder.State == OrderStates.Active)
         {
             // Cancel existing order if price changed
-            if (Math.Abs(_currentBuyOrder.Price - price) > 0.001m) // TODO: use security's price step
+            if (Math.Abs(_currentBuyOrder.Price - price) > PriceStepHelper.GetPriceStep(Security))
             {
                 this.LogInfo("Canceling existing order due to price change");
                 CancelOrder(_currentBuyOrder);
