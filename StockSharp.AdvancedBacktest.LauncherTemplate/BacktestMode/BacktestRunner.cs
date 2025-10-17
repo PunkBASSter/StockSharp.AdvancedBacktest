@@ -20,6 +20,7 @@ using StockSharp.AdvancedBacktest.PerformanceValidation;
 using StockSharp.AdvancedBacktest.Utilities;
 using StockSharp.BusinessEntities;
 using StockSharp.Messages;
+using StockSharp.AdvancedBacktest.Backtest;
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate.BacktestMode;
 
@@ -352,16 +353,23 @@ public class BacktestRunner<TStrategy> where TStrategy : CustomStrategyBase, new
 
     private OptimizationConfig CreateOptimizationConfig(CustomParamsContainer paramContainer)
     {
+        var trainingPeriod = new PeriodConfig
+        {
+            StartDate = _config.TrainingStartDate,
+            EndDate = _config.TrainingEndDate
+        };
+
+        var validationPeriod = new PeriodConfig
+        {
+            StartDate = _config.ValidationStartDate,
+            EndDate = _config.ValidationEndDate
+        };
+
         return new OptimizationConfig
         {
             ParamsContainer = paramContainer,
-            TrainingPeriod = new OptimizationPeriodConfig
-            {
-                TrainingStartDate = _config.TrainingStartDate,
-                TrainingEndDate = _config.TrainingEndDate,
-                ValidationStartDate = _config.ValidationStartDate,
-                ValidationEndDate = _config.ValidationEndDate
-            },
+            TrainingPeriod = trainingPeriod,
+            ValidationPeriod = validationPeriod,
             HistoryPath = _config.HistoryPath,
             InitialCapital = _config.InitialCapital,
             TradeVolume = _config.TradeVolume,

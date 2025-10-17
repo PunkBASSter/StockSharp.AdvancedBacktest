@@ -4,6 +4,7 @@ using StockSharp.AdvancedBacktest.Statistics;
 using StockSharp.AdvancedBacktest.PerformanceValidation;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Parameters;
+using StockSharp.AdvancedBacktest.Backtest;
 
 namespace StockSharp.AdvancedBacktest.Tests;
 
@@ -20,18 +21,23 @@ public class WalkForwardIntegrationTests
     {
         var paramsContainer = new CustomParamsContainer(Enumerable.Empty<ICustomParam>());
 
-        var periodConfig = new OptimizationPeriodConfig
+        var trainingPeriod = new PeriodConfig
         {
-            TrainingStartDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
-            TrainingEndDate = new DateTimeOffset(2024, 3, 31, 0, 0, 0, TimeSpan.Zero),
-            ValidationStartDate = new DateTimeOffset(2024, 3, 31, 0, 0, 0, TimeSpan.Zero),
-            ValidationEndDate = new DateTimeOffset(2024, 4, 30, 0, 0, 0, TimeSpan.Zero)
+            StartDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            EndDate = new DateTimeOffset(2024, 3, 31, 0, 0, 0, TimeSpan.Zero)
+        };
+
+        var validationPeriod = new PeriodConfig
+        {
+            StartDate = new DateTimeOffset(2024, 3, 31, 0, 0, 0, TimeSpan.Zero),
+            EndDate = new DateTimeOffset(2024, 4, 30, 0, 0, 0, TimeSpan.Zero)
         };
 
         return new OptimizationConfig
         {
             ParamsContainer = paramsContainer,
-            TrainingPeriod = periodConfig,
+            TrainingPeriod = trainingPeriod,
+            ValidationPeriod = validationPeriod,
             HistoryPath = "C:\\Data\\History",
             InitialCapital = 10000m,
             TradeVolume = 0.01m

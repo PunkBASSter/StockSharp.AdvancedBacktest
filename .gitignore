@@ -68,3 +68,6 @@ ConnectorFile.json
 **/ConfigFiles/*apikey*
 **/ConfigFiles/*secret*
 **/ConfigFiles/*.key
+
+# Testing storage files
+**/StorageMock/**/*BinaryDates2.bin

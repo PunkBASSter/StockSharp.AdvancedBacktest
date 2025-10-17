@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading;
 using Ecng.Logging;
 using StockSharp.Algo.Commissions;
 using StockSharp.Algo.Strategies.Optimization;
@@ -14,13 +9,18 @@ using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Statistics;
 using StockSharp.AdvancedBacktest.Export;
 using StockSharp.AdvancedBacktest.PerformanceValidation;
+using StockSharp.AdvancedBacktest.Backtest;
 
 namespace StockSharp.AdvancedBacktest.Optimization;
 
+
+/// <summary>
+/// Most likely broken now, needs to be decomposed into smaller parts.
+/// </summary>
 public class OptimizationLauncher<TStrategy> : LauncherBase<TStrategy>
     where TStrategy : CustomStrategyBase, new()
 {
-    private readonly OptimizationPeriodConfig _trainingPeriod;
+    private readonly PeriodConfig _trainingPeriod;
     private List<ICommissionRule> _commissionRules = new();
     private WalkForwardConfig? _walkForwardConfig;
     private WalkForwardResult? _walkForwardResult;
@@ -44,7 +44,7 @@ public class OptimizationLauncher<TStrategy> : LauncherBase<TStrategy>
     public new OptimizationLauncher<TStrategy>? WithParamValidation(Func<IDictionary<string, ICustomParam>, bool> filter)
         => base.WithParamValidation(filter) as OptimizationLauncher<TStrategy>;
 
-    public OptimizationLauncher(OptimizationPeriodConfig trainingPeriod, OptimizerRunner<TStrategy> customOptimizer)
+    public OptimizationLauncher(PeriodConfig trainingPeriod, OptimizerRunner<TStrategy> customOptimizer)
         : base()
     {
         _optimizer = customOptimizer;
@@ -87,6 +87,7 @@ public class OptimizationLauncher<TStrategy> : LauncherBase<TStrategy>
             HistoryPath = HistoryPath,
             ParamsContainer = ParamsContainer,
             TrainingPeriod = _trainingPeriod,
+            ValidationPeriod = _trainingPeriod,//dummy, not used in the current optimization
             InitialCapital = InitialCapital,
             CommissionRules = _commissionRules,
             IsBruteForce = _bruteForce,
@@ -102,43 +103,13 @@ public class OptimizationLauncher<TStrategy> : LauncherBase<TStrategy>
 
         DisplayDetailedMetricsComparison(bestSortino.Value);
 
-        // Execute walk-forward validation if configured
-        if (_walkForwardConfig != null)
-        {
-            Console.WriteLine("\n=== Starting Walk-Forward Validation ===");
-            var baseConfig = new OptimizationConfig
-            {
-                ParamsContainer = ParamsContainer,
-                TrainingPeriod = _trainingPeriod,
-                HistoryPath = HistoryPath,
-                InitialCapital = InitialCapital,
-                CommissionRules = _commissionRules,
-                IsBruteForce = _bruteForce,
-                ParallelWorkers = _optimizationThreads,
-            };
-
-            var validator = new WalkForwardValidator<TStrategy>(_optimizer, baseConfig);
-            var wfStartDate = _trainingPeriod.TrainingStartDate;
-            var wfEndDate = _trainingPeriod.ValidationEndDate;
-
-            _walkForwardResult = validator.Validate(_walkForwardConfig, wfStartDate, wfEndDate);
-
-            Console.WriteLine($"\n=== Walk-Forward Results ===");
-            Console.WriteLine($"Total Windows: {_walkForwardResult.TotalWindows}");
-            Console.WriteLine($"WF Efficiency: {_walkForwardResult.WalkForwardEfficiency:F4}");
-            Console.WriteLine($"Consistency (Std Dev): {_walkForwardResult.Consistency:F4}");
-
-            // Attach WF result to the best optimization result
-            bestSortino.Value.WalkForwardResult = _walkForwardResult;
-        }
-
         var resToChart = bestSortino.Value; //VALIDATED STRATEGY IS NULL HERE
 
         if (resToChart.ValidatedStrategy == null)
             throw new InvalidOperationException("Validated strategy is null");
 
-        var startDate = _trainingPeriod.TrainingStartDate.DateTime;
-        var endDate = _trainingPeriod.TrainingEndDate.DateTime;
+        var startDate = _trainingPeriod.StartDate.DateTime;
+        var endDate = _trainingPeriod.EndDate.DateTime;
         var chartModel = new StrategySecurityChartModel
         {
             StartDate = startDate,

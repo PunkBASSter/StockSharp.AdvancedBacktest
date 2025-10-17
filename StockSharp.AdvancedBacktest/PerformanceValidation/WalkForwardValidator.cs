@@ -1,3 +1,4 @@
+using StockSharp.AdvancedBacktest.Backtest;
 using StockSharp.AdvancedBacktest.Models;
 using StockSharp.AdvancedBacktest.Optimization;
 using StockSharp.AdvancedBacktest.Strategies;
@@ -113,18 +114,23 @@ public class WalkForwardValidator<TStrategy> where TStrategy : CustomStrategyBas
         DateTimeOffset testStart,
         DateTimeOffset testEnd)
     {
-        var newPeriodConfig = new OptimizationPeriodConfig
+        var trainingPeriodConfig = new PeriodConfig
         {
-            TrainingStartDate = trainStart,
-            TrainingEndDate = trainEnd,
-            ValidationStartDate = testStart,
-            ValidationEndDate = testEnd
+            StartDate = trainStart,
+            EndDate = trainEnd,
+        };
+
+        var validationPeriodConfig = new PeriodConfig
+        {
+            StartDate = testStart,
+            EndDate = testEnd
         };
 
         return new OptimizationConfig
         {
             ParamsContainer = _baseConfig.ParamsContainer,
-            TrainingPeriod = newPeriodConfig,
+            TrainingPeriod = trainingPeriodConfig,
+            ValidationPeriod = validationPeriodConfig,
             MetricFilters = _baseConfig.MetricFilters,
             InitialCapital = _baseConfig.InitialCapital,
             CommissionRules = _baseConfig.CommissionRules,

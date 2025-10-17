@@ -4,6 +4,7 @@ using StockSharp.AdvancedBacktest.Statistics;
 using StockSharp.AdvancedBacktest.PerformanceValidation;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Parameters;
+using StockSharp.AdvancedBacktest.Backtest;
 
 namespace StockSharp.AdvancedBacktest.Tests;
 
@@ -20,12 +21,10 @@ public class OptimizationLauncherWalkForwardTests
     public void WithWalkForward_ValidConfig_StoresConfiguration()
     {
         // Arrange
-        var periodConfig = new OptimizationPeriodConfig
+        var periodConfig = new PeriodConfig
         {
-            TrainingStartDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
-            TrainingEndDate = new DateTimeOffset(2024, 1, 30, 0, 0, 0, TimeSpan.Zero),
-            ValidationStartDate = new DateTimeOffset(2024, 1, 31, 0, 0, 0, TimeSpan.Zero),
-            ValidationEndDate = new DateTimeOffset(2024, 2, 10, 0, 0, 0, TimeSpan.Zero)
+            StartDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            EndDate = new DateTimeOffset(2024, 1, 30, 0, 0, 0, TimeSpan.Zero)
         };
 
         var mockOptimizerRunner = new OptimizerRunner<MockStrategy>();
@@ -51,12 +50,10 @@ public class OptimizationLauncherWalkForwardTests
     public void WithWalkForward_NullConfig_ThrowsArgumentNullException()
     {
         // Arrange
-        var periodConfig = new OptimizationPeriodConfig
+        var periodConfig = new PeriodConfig
         {
-            TrainingStartDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
-            TrainingEndDate = new DateTimeOffset(2024, 1, 30, 0, 0, 0, TimeSpan.Zero),
-            ValidationStartDate = new DateTimeOffset(2024, 1, 31, 0, 0, 0, TimeSpan.Zero),
-            ValidationEndDate = new DateTimeOffset(2024, 2, 10, 0, 0, 0, TimeSpan.Zero)
+            StartDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            EndDate = new DateTimeOffset(2024, 1, 30, 0, 0, 0, TimeSpan.Zero)
         };
 
         var mockOptimizerRunner = new OptimizerRunner<MockStrategy>();
@@ -70,12 +67,10 @@ public class OptimizationLauncherWalkForwardTests
     public void WithWalkForward_SupportsFluentChaining()
     {
         // Arrange
-        var periodConfig = new OptimizationPeriodConfig
+        var periodConfig = new PeriodConfig
         {
-            TrainingStartDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
-            TrainingEndDate = new DateTimeOffset(2024, 1, 30, 0, 0, 0, TimeSpan.Zero),
-            ValidationStartDate = new DateTimeOffset(2024, 1, 31, 0, 0, 0, TimeSpan.Zero),
-            ValidationEndDate = new DateTimeOffset(2024, 2, 10, 0, 0, 0, TimeSpan.Zero)
+            StartDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            EndDate = new DateTimeOffset(2024, 1, 30, 0, 0, 0, TimeSpan.Zero)
         };
 
         var mockOptimizerRunner = new OptimizerRunner<MockStrategy>();
@@ -106,12 +101,15 @@ public class OptimizationLauncherWalkForwardTests
         var config = new OptimizationConfig
         {
             ParamsContainer = new CustomParamsContainer(Enumerable.Empty<ICustomParam>()),
-            TrainingPeriod = new OptimizationPeriodConfig
+            TrainingPeriod = new PeriodConfig
             {
-                TrainingStartDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
-                TrainingEndDate = new DateTimeOffset(2024, 1, 31, 0, 0, 0, TimeSpan.Zero),
-                ValidationStartDate = new DateTimeOffset(2024, 1, 31, 0, 0, 0, TimeSpan.Zero),
-                ValidationEndDate = new DateTimeOffset(2024, 2, 10, 0, 0, 0, TimeSpan.Zero)
+                StartDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
+                EndDate = new DateTimeOffset(2024, 1, 31, 0, 0, 0, TimeSpan.Zero)
+            },
+            ValidationPeriod = new PeriodConfig
+            {
+                StartDate = new DateTimeOffset(2024, 1, 31, 0, 0, 0, TimeSpan.Zero),
+                EndDate = new DateTimeOffset(2024, 2, 10, 0, 0, 0, TimeSpan.Zero)
             },
             HistoryPath = "C:\\Data\\History",
             InitialCapital = 10000m
@@ -154,12 +152,15 @@ public class OptimizationLauncherWalkForwardTests
         var config = new OptimizationConfig
         {
             ParamsContainer = new CustomParamsContainer(Enumerable.Empty<ICustomParam>()),
-            TrainingPeriod = new OptimizationPeriodConfig
+            TrainingPeriod = new PeriodConfig
             {
-                TrainingStartDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
-                TrainingEndDate = new DateTimeOffset(2024, 1, 31, 0, 0, 0, TimeSpan.Zero),
-                ValidationStartDate = new DateTimeOffset(2024, 1, 31, 0, 0, 0, TimeSpan.Zero),
-                ValidationEndDate = new DateTimeOffset(2024, 2, 10, 0, 0, 0, TimeSpan.Zero)
+                StartDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
+                EndDate = new DateTimeOffset(2024, 1, 31, 0, 0, 0, TimeSpan.Zero)
+            },
+            ValidationPeriod = new PeriodConfig
+            {
+                StartDate = new DateTimeOffset(2024, 1, 31, 0, 0, 0, TimeSpan.Zero),
+                EndDate = new DateTimeOffset(2024, 2, 10, 0, 0, 0, TimeSpan.Zero)
             },
             HistoryPath = "C:\\Data\\History",
             InitialCapital = 10000m
