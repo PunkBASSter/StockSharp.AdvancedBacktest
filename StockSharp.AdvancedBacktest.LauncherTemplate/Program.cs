@@ -1,7 +1,7 @@
-using StockSharp.Algo.Strategies;
 using StockSharp.AdvancedBacktest.Backtest;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.ZigZagBreakout;
 using StockSharp.AdvancedBacktest.Models;
+using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.BusinessEntities;
 using StockSharp.Messages;
 
@@ -33,6 +33,8 @@ public class Program
                 Id = "BTCUSDT@BNB",
                 Code = "BTCUSDT",
                 Board = ExchangeBoard.Binance,
+                PriceStep = 0.01m,  // BTCUSDT typically trades with 2 decimal places
+                Decimals = 2
             };
 
             // Create Portfolio
@@ -59,11 +61,18 @@ public class Program
                 Portfolio = portfolio
             };
 
-            // Set Strategy Parameters
-            strategy.Parameters.Add("DzzDepth", new StrategyParam<decimal>("DzzDepth", 5m));
-            strategy.Parameters.Add("JmaLength", new StrategyParam<int>("JmaLength", 7));
-            strategy.Parameters.Add("JmaPhase", new StrategyParam<int>("JmaPhase", 0));
-            strategy.Parameters.Add("JmaUsage", new StrategyParam<int>("JmaUsage", -1));
+            // Set timeframe - using 1 hour candles for this backtest
+            strategy.Securities[security] = new[] { TimeSpan.FromHours(1) };
+
+            // Set Strategy Parameters using CustomParams
+            var parameters = new List<ICustomParam>
+            {
+                new NumberParam<decimal>("DzzDepth", 5m),
+                new NumberParam<int>("JmaLength", 7),
+                new NumberParam<int>("JmaPhase", 0),
+                new NumberParam<int>("JmaUsage", -1)
+            };
+            strategy.ParamsContainer = new CustomParamsContainer(parameters);
 
             Console.WriteLine("Strategy Parameters:");
             Console.WriteLine($"  DzzDepth: 5");
