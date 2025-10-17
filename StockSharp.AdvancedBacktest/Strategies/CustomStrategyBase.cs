@@ -34,8 +34,6 @@ public abstract class CustomStrategyBase : Strategy
 
     protected T GetParam<T>(string id) => ParamsContainer.Get<T>(id);
 
-    protected bool TryGetParam<T>(string id, out T value) => ParamsContainer.TryGet(id, out value);
-
     public static T Create<T>(List<ICustomParam> paramSet) where T : CustomStrategyBase, new()
     {
         var strategy = new T();

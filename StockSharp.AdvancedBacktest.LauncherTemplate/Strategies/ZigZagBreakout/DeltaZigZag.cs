@@ -17,6 +17,7 @@ public class DeltaZigZag : BaseIndicator
     private decimal? _lastExtremum;
     private int _shift;
     private bool? _isUpTrend;
+    private decimal _lastSwingSize;
 
     public DeltaZigZag()
     {
@@ -55,6 +56,7 @@ public class DeltaZigZag : BaseIndicator
         _lastExtremum = default;
         _shift = default;
         _isUpTrend = default;
+        _lastSwingSize = default;
 
         base.Reset();
     }
@@ -73,7 +75,8 @@ public class DeltaZigZag : BaseIndicator
         var lastExtremum = _lastExtremum ?? price;
         var isUpTrend = _isUpTrend ?? price >= _buffer[^2];
 
-        var threshold = Delta;
+        // Use dynamic threshold based on last swing size (like Python DeltaZigZag)
+        var threshold = _lastSwingSize > 0 ? _lastSwingSize * Delta : Delta;
         var changeTrend = false;
 
         if (isUpTrend)
@@ -104,6 +107,8 @@ public class DeltaZigZag : BaseIndicator
                     _isUpTrend = !isUpTrend;
                     _lastExtremum = price;
                     _shift = 1;
+                    // Track swing size for dynamic threshold calculation
+                    _lastSwingSize = Math.Abs(lastExtremum - price);
                 }
             }
         }
