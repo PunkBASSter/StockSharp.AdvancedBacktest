@@ -1,9 +1,7 @@
 using StockSharp.AdvancedBacktest.Backtest;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.ZigZagBreakout;
-using StockSharp.AdvancedBacktest.Models;
 using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.BusinessEntities;
-using StockSharp.Messages;
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate;
 

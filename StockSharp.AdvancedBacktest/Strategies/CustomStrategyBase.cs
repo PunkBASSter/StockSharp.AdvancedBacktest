@@ -51,10 +51,4 @@ public abstract class CustomStrategyBase : Strategy
 
     //TODO handle more elegantly, now it serves as a temp param storage
     public List<ICustomParam> ParamsBackup { get; set; } = [];
-
-    protected override void OnStopping()
-    {
-        PerformanceMetrics = MetricsCalculator.CalculateMetrics(this, MetricWindowStart, MetricWindowEnd);
-        base.OnStopping();
-    }
 }
