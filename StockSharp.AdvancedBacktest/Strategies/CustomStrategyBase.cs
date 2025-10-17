@@ -4,6 +4,8 @@ using StockSharp.BusinessEntities;
 using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.AdvancedBacktest.Statistics;
 using StockSharp.AdvancedBacktest.Utilities;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace StockSharp.AdvancedBacktest.Strategies;
 
@@ -16,7 +18,19 @@ public abstract class CustomStrategyBase : Strategy
 
     public virtual string Version { get; set; } = "1.0.0";
 
-    public virtual string ParamsHash => ParamsContainer.GenerateHash();
+    public virtual string ParamsHash
+    {
+        get
+        {
+            // Get deterministic string representation of parameters
+            var paramsString = ParamsContainer.GenerateHash();
+
+            // Generate SHA256 hash and take first 8 characters
+            using var sha256 = SHA256.Create();
+            var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(paramsString));
+            return Convert.ToHexString(hashBytes)[..8].ToLower();
+        }
+    }
 
     public virtual string SecuritiesHash
     {

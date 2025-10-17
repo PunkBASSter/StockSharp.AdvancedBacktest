@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node fix-paths.mjs",
+    "build:next": "next build",
+    "postbuild": "node fix-paths.mjs",
     "start": "next start",
     "lint": "next lint",
     "format": "prettier --write .",

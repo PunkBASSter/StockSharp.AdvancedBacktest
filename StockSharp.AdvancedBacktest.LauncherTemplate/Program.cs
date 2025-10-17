@@ -1,4 +1,5 @@
 using StockSharp.AdvancedBacktest.Backtest;
+using StockSharp.AdvancedBacktest.Export;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.ZigZagBreakout;
 using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.BusinessEntities;
@@ -132,6 +133,48 @@ public class Program
                 Console.WriteLine($"  Initial Capital: ${metrics.InitialCapital:N2}");
                 Console.WriteLine($"  Final Value: ${metrics.FinalValue:N2}");
                 Console.WriteLine($"  Trading Period: {metrics.TradingPeriodDays} days");
+                Console.WriteLine();
+
+                // Generate HTML Report
+                Console.WriteLine("Generating HTML report...");
+
+                // Build hierarchical folder structure
+                var strategyVersion = strategy.Version; // Uses strategy's Version property
+                var paramsHash = strategy.ParamsHash; // Uses SHA256-based hash from CustomStrategyBase
+                var securityCode = security.Code; // "BTCUSDT"
+                var fromDate = startDate.ToString("yyyyMMdd");
+                var toDate = endDate.ToString("yyyyMMdd");
+
+                var reportPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                    "StockSharp",
+                    "Reports",
+                    $"{strategy.GetType().Name}_v{strategyVersion}",
+                    paramsHash,
+                    $"backtest_{securityCode}_{fromDate}_{toDate}");
+
+                Console.WriteLine($"Report path: {reportPath}");
+
+                var chartModel = new StrategySecurityChartModel
+                {
+                    Strategy = strategy,
+                    HistoryPath = historyPath,
+                    Security = security,
+                    OutputPath = reportPath,
+                    Metrics = result.Metrics,
+                    StartDate = startDate,
+                    EndDate = endDate,
+                    WalkForwardResult = null  // No walk-forward in this basic backtest
+                };
+
+                var reportBuilder = new ReportBuilder<ZigZagBreakout>();
+                await reportBuilder.GenerateReportAsync(chartModel, reportPath);
+
+                Console.WriteLine();
+                Console.WriteLine("=== Report Generated Successfully ===");
+                Console.WriteLine($"Location: {Path.Combine(reportPath, "index.html")}");
+                Console.WriteLine("Open in browser to view interactive charts");
+                Console.WriteLine();
 
                 return 0;
             }

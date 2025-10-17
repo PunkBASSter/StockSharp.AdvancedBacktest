@@ -19,7 +19,11 @@ export default function Home() {
         try {
             setLoading(true);
             setError(null);
-            const data = await loadChartData('/mock-data.json');
+
+            // Add a small delay to ensure window.__CHART_DATA__ is available
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            const data = await loadChartData('./chartData.json');
             setChartData(data);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load chart data');

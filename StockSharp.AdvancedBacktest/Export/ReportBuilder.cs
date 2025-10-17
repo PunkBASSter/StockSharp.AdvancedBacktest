@@ -85,6 +85,10 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
                     $"Web report generation failed: index.html not found at {indexPath}");
             }
 
+            // 6. Run fix-paths.mjs to fix Next.js paths and embed chartData.json
+            await RunFixPathsScript(outputPath);
+            _logger?.LogDebug("Fixed paths and embedded chart data via fix-paths.mjs");
+
             _logger?.LogInformation("Report generated successfully at {OutputPath}", outputPath);
         }
         catch (Exception ex)
@@ -139,9 +143,15 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
                 lowestTimeFrame,
                 format: StorageFormats.Binary);
 
-            var dates = candleStorage.Dates.ToArray();
+            // Filter dates to only include those within the StartDate to EndDate range
+            var startDate = model.StartDate.Date;
+            var endDate = model.EndDate.Date;
+            var dates = candleStorage.Dates
+                .Where(d => d >= startDate && d <= endDate)
+                .ToArray();
 
             candles = dates.SelectMany(date => candleStorage.Load(date))
+                .Where(c => c.OpenTime >= model.StartDate && c.OpenTime <= model.EndDate)
                 .Select(c => new CandleDataPoint
                 {
                     Time = c.OpenTime.ToUnixTimeSeconds(),
@@ -311,6 +321,64 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
         {
             var targetSubDir = Path.Combine(destinationDir, subDir.Name);
             CopyDirectory(subDir.FullName, targetSubDir, overwrite);
+        }
+    }
+
+    /// <summary>
+    /// Runs the fix-paths.mjs Node.js script to fix Next.js paths and embed chartData.json
+    /// </summary>
+    /// <param name="reportPath">Path to the report directory containing index.html and chartData.json</param>
+    private async Task RunFixPathsScript(string reportPath)
+    {
+        // Path to fix-paths.mjs in the Web project
+        var fixPathsScript = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory,
+            "..", "..", "..", "..",
+            "StockSharp.AdvancedBacktest.Web", "fix-paths.mjs");
+
+        if (!File.Exists(fixPathsScript))
+        {
+            throw new InvalidOperationException(
+                $"fix-paths.mjs not found at {fixPathsScript}. " +
+                "Ensure StockSharp.AdvancedBacktest.Web project is in the expected location.");
+        }
+
+        _logger?.LogDebug("Running fix-paths.mjs from {ScriptPath}", fixPathsScript);
+
+        var processInfo = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = "node",
+            Arguments = $"\"{fixPathsScript}\"",
+            WorkingDirectory = reportPath,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+
+        using var process = System.Diagnostics.Process.Start(processInfo);
+        if (process == null)
+        {
+            throw new InvalidOperationException("Failed to start Node.js process for fix-paths.mjs");
+        }
+
+        // Capture output for logging
+        var output = await process.StandardOutput.ReadToEndAsync();
+        var error = await process.StandardError.ReadToEndAsync();
+
+        await process.WaitForExitAsync();
+
+        if (process.ExitCode != 0)
+        {
+            _logger?.LogError("fix-paths.mjs failed with exit code {ExitCode}", process.ExitCode);
+            _logger?.LogError("STDERR: {Error}", error);
+            throw new InvalidOperationException(
+                $"fix-paths.mjs failed with exit code {process.ExitCode}. Error: {error}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(output))
+        {
+            _logger?.LogDebug("fix-paths.mjs output: {Output}", output.Trim());
         }
     }
 }
