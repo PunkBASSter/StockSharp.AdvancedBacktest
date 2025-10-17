@@ -13,6 +13,8 @@ public class ZigZagBreakout : CustomStrategyBase
     private Jma? _jma;
     private ZigZagBreakoutConfig? _config;
     private Order? _currentBuyOrder;
+    private Order? _currentStopLoss;
+    private Order? _currentTakeProfit;
     private readonly List<decimal> _dzzHistory = [];
     private readonly List<decimal> _jmaHistory = [];
 
@@ -20,6 +22,8 @@ public class ZigZagBreakout : CustomStrategyBase
     {
         base.OnReseted();
         _currentBuyOrder = null;
+        _currentStopLoss = null;
+        _currentTakeProfit = null;
         _dzzHistory.Clear();
         _jmaHistory.Clear();
     }
@@ -176,12 +180,40 @@ public class ZigZagBreakout : CustomStrategyBase
                 var (_, sl, tp) = signal.Value;
 
                 // Create stop-loss order
-                var slOrder = SellLimit(sl, Math.Abs(Position));
+                _currentStopLoss = SellLimit(sl, Math.Abs(Position));
                 this.LogInfo("Stop-Loss order created at {0:F2}", sl);
 
                 // Create take-profit order
-                var tpOrder = SellLimit(tp, Math.Abs(Position));
+                _currentTakeProfit = SellLimit(tp, Math.Abs(Position));
                 this.LogInfo("Take-Profit order created at {0:F2}", tp);
+            }
+        }
+        // Check if stop-loss was filled
+        else if (order == _currentStopLoss)
+        {
+            this.LogInfo("Stop-Loss filled at {0:F2}, Position: {1}", trade.Trade.Price, Position);
+            _currentStopLoss = null;
+
+            // Cancel the take-profit order
+            if (_currentTakeProfit != null && _currentTakeProfit.State == OrderStates.Active)
+            {
+                this.LogInfo("Canceling Take-Profit order");
+                CancelOrder(_currentTakeProfit);
+                _currentTakeProfit = null;
+            }
+        }
+        // Check if take-profit was filled
+        else if (order == _currentTakeProfit)
+        {
+            this.LogInfo("Take-Profit filled at {0:F2}, Position: {1}", trade.Trade.Price, Position);
+            _currentTakeProfit = null;
+
+            // Cancel the stop-loss order
+            if (_currentStopLoss != null && _currentStopLoss.State == OrderStates.Active)
+            {
+                this.LogInfo("Canceling Stop-Loss order");
+                CancelOrder(_currentStopLoss);
+                _currentStopLoss = null;
             }
         }
     }

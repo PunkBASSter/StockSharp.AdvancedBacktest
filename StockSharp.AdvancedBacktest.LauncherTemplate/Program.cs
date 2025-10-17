@@ -70,7 +70,7 @@ public class Program
                 new NumberParam<decimal>("DzzDepth", 5m),
                 new NumberParam<int>("JmaLength", 7),
                 new NumberParam<int>("JmaPhase", 0),
-                new NumberParam<int>("JmaUsage", -1)
+                new NumberParam<int>("JmaUsage", 0)  // Bearish trend filter
             };
             strategy.ParamsContainer = new CustomParamsContainer(parameters);
 
