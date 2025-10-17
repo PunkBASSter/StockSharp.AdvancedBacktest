@@ -19,6 +19,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
 {
     private readonly BacktestConfig _config;
     private readonly TStrategy _strategy;
+    private readonly IPerformanceMetricsCalculator _metricsCalculator;
     private HistoryEmulationConnector? _connector;
     private TaskCompletionSource<BacktestResult<TStrategy>>? _completionSource;
     private DateTimeOffset _startTime;
@@ -26,10 +27,11 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
 
     public ILogReceiver? Logger { get; set; }
 
-    public BacktestRunner(BacktestConfig config, TStrategy strategy)
+    public BacktestRunner(BacktestConfig config, TStrategy strategy, IPerformanceMetricsCalculator? metricsCalculator = null)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _strategy = strategy ?? throw new ArgumentNullException(nameof(strategy));
+        _metricsCalculator = metricsCalculator ?? new PerformanceMetricsCalculator();
 
         if (!_config.ValidationPeriod.IsValid())
             throw new ArgumentException("Invalid validation period", nameof(config));
@@ -198,7 +200,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
         if (_strategy == null)
             throw new InvalidOperationException("Strategy is null");
 
-        var metrics = MetricsCalculator.CalculateMetrics(
+        var metrics = _metricsCalculator.CalculateMetrics(
             _strategy,
             _config.ValidationPeriod.StartDate,
             _config.ValidationPeriod.EndDate);

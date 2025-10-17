@@ -83,7 +83,8 @@ public class Program
             Console.WriteLine("Starting backtest...");
             Console.WriteLine();
 
-            using var runner = new BacktestRunner<ZigZagBreakout>(config, strategy);
+            var metricsCalculator = new Statistics.PerformanceMetricsCalculator();
+            using var runner = new BacktestRunner<ZigZagBreakout>(config, strategy, metricsCalculator);
             var result = await runner.RunAsync();
 
             // Print Results
