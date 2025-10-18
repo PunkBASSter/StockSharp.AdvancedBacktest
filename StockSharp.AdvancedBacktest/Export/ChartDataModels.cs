@@ -40,14 +40,6 @@ public class TradeDataPoint
 	public double Volume { get; set; }
 	public string Side { get; set; } = string.Empty;
 	public double PnL { get; set; }
-
-	// Trade levels and protective orders
-	public double? EntryPrice { get; set; }
-	public double? StopLoss { get; set; }
-	public double? TakeProfit { get; set; }
-	public long? ExitTime { get; set; }
-	public double? ExitPrice { get; set; }
-	public string? TriggeredExit { get; set; }  // "sl", "tp", or null
 }
 
 public class WalkForwardDataModel
