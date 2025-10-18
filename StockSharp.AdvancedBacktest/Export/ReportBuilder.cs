@@ -52,11 +52,15 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
                 _logger?.LogDebug("Created output directory: {OutputPath}", outputPath);
             }
 
-            // 2. Export chartData.json
+            // 2. Export indicators to separate files
+            var indicatorSeries = ExtractIndicatorData(model.Strategy);
+            var indicatorFiles = await ExportIndicatorsToFilesAsync(indicatorSeries, outputPath);
+
+            // 3. Export chartData.json (with indicator file references)
             var chartData = new ChartDataModel
             {
                 Candles = ExtractCandleData(model),
-                Indicators = ExtractIndicatorData(model.Strategy),
+                IndicatorFiles = indicatorFiles,
                 Trades = ExtractTradeData(model.Strategy),
                 WalkForward = ExtractWalkForwardData(model.WalkForwardResult)
             };
@@ -191,6 +195,34 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
 
         _logger?.LogDebug("Strategy {StrategyType} does not implement IIndicatorExportable", strategy.GetType().Name);
         return new List<IndicatorDataSeries>();
+    }
+
+    private async Task<List<string>> ExportIndicatorsToFilesAsync(List<IndicatorDataSeries> indicators, string outputPath)
+    {
+        var indicatorFiles = new List<string>();
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = true
+        };
+
+        foreach (var indicator in indicators)
+        {
+            // Create safe filename from indicator name
+            var safeFileName = string.Join("_", indicator.Name.Split(Path.GetInvalidFileNameChars()));
+            var fileName = $"indicator_{safeFileName}.json";
+            var filePath = Path.Combine(outputPath, fileName);
+
+            // Write indicator data to file
+            await File.WriteAllTextAsync(filePath, JsonSerializer.Serialize(indicator, jsonOptions));
+
+            indicatorFiles.Add(fileName);
+            _logger?.LogDebug("Exported indicator {Name} to {FileName} ({ValueCount} values)",
+                indicator.Name, fileName, indicator.Values.Count);
+        }
+
+        _logger?.LogInformation("Exported {Count} indicators to separate files", indicators.Count);
+        return indicatorFiles;
     }
 
     private List<TradeDataPoint> ExtractTradeData(Strategy strategy)
