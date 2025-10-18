@@ -89,6 +89,10 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
             await RunFixPathsScript(outputPath);
             _logger?.LogDebug("Fixed paths and embedded chart data via fix-paths.mjs");
 
+            // 7. Export trades to CSV
+            await ExportTradesToCsvAsync(chartData.Trades, outputPath);
+            _logger?.LogDebug("Exported trades to CSV");
+
             _logger?.LogInformation("Report generated successfully at {OutputPath}", outputPath);
         }
         catch (Exception ex)
@@ -380,5 +384,30 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
         {
             _logger?.LogDebug("fix-paths.mjs output: {Output}", output.Trim());
         }
+    }
+
+    /// <summary>
+    /// Exports trade data to a CSV file
+    /// </summary>
+    /// <param name="trades">List of trade data points</param>
+    /// <param name="outputPath">Directory where the CSV file should be saved</param>
+    private async Task ExportTradesToCsvAsync(List<TradeDataPoint> trades, string outputPath)
+    {
+        var csvPath = Path.Combine(outputPath, "trades.csv");
+
+        using var writer = new StreamWriter(csvPath, false, System.Text.Encoding.UTF8);
+
+        // Write header
+        await writer.WriteLineAsync("Timestamp,DateTime,Price,Volume,Side,PnL");
+
+        // Write trade data
+        foreach (var trade in trades)
+        {
+            var dateTime = DateTimeOffset.FromUnixTimeSeconds(trade.Time).ToString("yyyy-MM-dd HH:mm:ss");
+            await writer.WriteLineAsync(
+                $"{trade.Time},{dateTime},{trade.Price},{trade.Volume},{trade.Side},{trade.PnL}");
+        }
+
+        _logger?.LogDebug("Exported {TradeCount} trades to {CsvPath}", trades.Count, csvPath);
     }
 }
