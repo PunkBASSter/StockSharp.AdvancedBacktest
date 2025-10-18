@@ -1,11 +1,9 @@
 'use client';
 import { TradeDataPoint } from '@/types/chart-data';
 import {
-    AreaSeries,
     ColorType,
     createChart,
     IChartApi,
-    LineSeries,
     LineStyle,
     UTCTimestamp
 } from 'lightweight-charts';
@@ -66,8 +64,8 @@ export default function EquityCurveChart({ trades }: Props) {
             };
         });
 
-        // Add line series for equity curve using v5 API
-        const lineSeries = chart.addSeries(LineSeries, {
+        // Add line series for equity curve using v4 API
+        const lineSeries = chart.addLineSeries({
             color: '#2196F3',
             lineWidth: 2,
             title: 'Equity',
@@ -105,9 +103,9 @@ export default function EquityCurveChart({ trades }: Props) {
             }
         });
 
-        // Add area series for drawdown visualization using v5 API
+        // Add area series for drawdown visualization using v4 API
         if (drawdownData.length > 0) {
-            const areaSeries = chart.addSeries(AreaSeries, {
+            const areaSeries = chart.addAreaSeries({
                 topColor: 'rgba(244, 67, 54, 0.3)',
                 bottomColor: 'rgba(244, 67, 54, 0.1)',
                 lineColor: 'rgba(244, 67, 54, 0.8)',
