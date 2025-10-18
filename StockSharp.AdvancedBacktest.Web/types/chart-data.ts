@@ -36,6 +36,14 @@ export interface TradeDataPoint {
   volume: number;
   side: 'buy' | 'sell';
   pnL: number;
+
+  // Trade levels and protective orders
+  entryPrice?: number;
+  stopLoss?: number;
+  takeProfit?: number;
+  exitTime?: number;      // Unix timestamp (seconds)
+  exitPrice?: number;
+  triggeredExit?: 'sl' | 'tp';  // Which protective order was triggered
 }
 
 /**

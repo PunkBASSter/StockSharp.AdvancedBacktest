@@ -68,6 +68,83 @@ export default function CandlestickChart({ data }: Props) {
                 };
             });
             candlestickSeries.setMarkers(markers);
+
+            // Add price level lines for trades with SL/TP data
+            data.trades.forEach(trade => {
+                if (!trade.entryPrice || !trade.exitTime || !trade.exitPrice) {
+                    return; // Skip trades without complete level data
+                }
+
+                const entryTime = trade.time as UTCTimestamp;
+                const exitTime = trade.exitTime as UTCTimestamp;
+
+                // Add entry price line (blue solid)
+                const entryLine = chart.addLineSeries({
+                    color: '#2196F3',
+                    lineWidth: 2,
+                    priceLineVisible: false,
+                    lastValueVisible: false,
+                    crosshairMarkerVisible: false,
+                });
+                entryLine.setData([
+                    { time: entryTime, value: trade.entryPrice },
+                    { time: exitTime, value: trade.entryPrice },
+                ]);
+
+                // Add stop-loss line (red solid or dotted if triggered)
+                if (trade.stopLoss) {
+                    const slLine = chart.addLineSeries({
+                        color: '#F44336',
+                        lineWidth: 2,
+                        lineStyle: trade.triggeredExit === 'sl' ? 2 : 0, // 2 = dotted, 0 = solid
+                        priceLineVisible: false,
+                        lastValueVisible: false,
+                        crosshairMarkerVisible: false,
+                    });
+                    slLine.setData([
+                        { time: entryTime, value: trade.stopLoss },
+                        { time: exitTime, value: trade.stopLoss },
+                    ]);
+                }
+
+                // Add take-profit line (green solid or dotted if triggered)
+                if (trade.takeProfit) {
+                    const tpLine = chart.addLineSeries({
+                        color: '#4CAF50',
+                        lineWidth: 2,
+                        lineStyle: trade.triggeredExit === 'tp' ? 2 : 0, // 2 = dotted, 0 = solid
+                        priceLineVisible: false,
+                        lastValueVisible: false,
+                        crosshairMarkerVisible: false,
+                    });
+                    tpLine.setData([
+                        { time: entryTime, value: trade.takeProfit },
+                        { time: exitTime, value: trade.takeProfit },
+                    ]);
+                }
+
+                // Add triggered exit line (dotted line showing actual exit path)
+                if (trade.triggeredExit) {
+                    const exitColor = trade.triggeredExit === 'sl' ? '#F44336' : '#4CAF50';
+                    const exitLevel = trade.triggeredExit === 'sl' ? trade.stopLoss : trade.takeProfit;
+
+                    if (exitLevel) {
+                        const exitLine = chart.addLineSeries({
+                            color: exitColor,
+                            lineWidth: 2,
+                            lineStyle: 2, // dotted
+                            priceLineVisible: false,
+                            lastValueVisible: false,
+                            crosshairMarkerVisible: false,
+                        });
+                        // Draw from entry price at entry time to exit level at exit time
+                        exitLine.setData([
+                            { time: entryTime, value: trade.entryPrice },
+                            { time: exitTime, value: trade.exitPrice },
+                        ]);
+                    }
+                }
+            });
         }
 
         // Add volume series if volume data exists using v4 API
@@ -168,6 +245,7 @@ export default function CandlestickChart({ data }: Props) {
 
             {/* Trade Markers Legend */}
             <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg shadow-md p-3 space-y-2">
+                <h3 className="text-sm font-semibold text-gray-800 mb-2">Trade Markers</h3>
                 <div className="flex items-center gap-2">
                     <div className="marker marker-buy" />
                     <span className="text-sm font-medium text-gray-700">Buy Orders</span>
@@ -176,6 +254,30 @@ export default function CandlestickChart({ data }: Props) {
                     <div className="marker marker-sell" />
                     <span className="text-sm font-medium text-gray-700">Sell Orders</span>
                 </div>
+
+                {/* Show price levels legend only if trades have level data */}
+                {data.trades?.some(t => t.entryPrice) && (
+                    <>
+                        <hr className="my-2 border-gray-300" />
+                        <h3 className="text-sm font-semibold text-gray-800 mb-1">Price Levels</h3>
+                        <div className="flex items-center gap-2">
+                            <div className="w-6 h-0.5 bg-blue-500" />
+                            <span className="text-sm font-medium text-gray-700">Entry Price</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-6 h-0.5 bg-red-500" />
+                            <span className="text-sm font-medium text-gray-700">Stop Loss</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-6 h-0.5 bg-green-500" />
+                            <span className="text-sm font-medium text-gray-700">Take Profit</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-6 h-0.5 border-t-2 border-dashed border-gray-600" />
+                            <span className="text-sm font-medium text-gray-700">Triggered Exit</span>
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Indicator Legend */}

@@ -170,32 +170,106 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
     private List<TradeDataPoint> ExtractTradeData(Strategy strategy)
     {
         var trades = new List<TradeDataPoint>();
+        var myTrades = strategy.MyTrades.OrderBy(t => t.Trade.ServerTime).ToList();
 
-        foreach (var myTrade in strategy.MyTrades)
+        // Group trades into position cycles (entry + exit pairs)
+        TradeDataPoint? currentEntry = null;
+        var exitOrders = new List<(DateTimeOffset time, decimal price, string type)>();
+
+        for (int i = 0; i < myTrades.Count; i++)
         {
-            // Determine trade side from order side or volume sign
-            var side = "buy"; // Default
-            if (myTrade.Order?.Side != null)
-            {
-                side = myTrade.Order.Side == Sides.Buy ? "buy" : "sell";
-            }
-            else if (myTrade.Trade.Volume != 0)
-            {
-                // If no order side, infer from volume (positive = buy, negative = sell)
-                side = myTrade.Trade.Volume > 0 ? "buy" : "sell";
-            }
+            var myTrade = myTrades[i];
+            var side = myTrade.Order?.Side == Sides.Buy ? "buy" : "sell";
 
-            trades.Add(new TradeDataPoint
+            if (side == "buy" && currentEntry == null)
             {
-                Time = ((DateTimeOffset)myTrade.Trade.ServerTime).ToUnixTimeSeconds(),
-                Price = (double)myTrade.Trade.Price,
-                Volume = (double)Math.Abs(myTrade.Trade.Volume),
-                Side = side,
-                PnL = (double)(myTrade.PnL ?? 0)
-            });
+                // This is an entry trade
+                currentEntry = new TradeDataPoint
+                {
+                    Time = myTrade.Trade.ServerTime.ToUnixTimeSeconds(),
+                    Price = (double)myTrade.Trade.Price,
+                    Volume = (double)Math.Abs(myTrade.Trade.Volume),
+                    Side = side,
+                    PnL = (double)(myTrade.PnL ?? 0),
+                    EntryPrice = (double)myTrade.Trade.Price
+                };
+
+                // Look ahead for potential SL/TP orders (next 2 trades should be protective orders)
+                if (i + 1 < myTrades.Count)
+                {
+                    var nextTrade1 = myTrades[i + 1];
+                    if (nextTrade1.Order?.Side == Sides.Sell)
+                    {
+                        exitOrders.Add((
+                            nextTrade1.Order.ServerTime,
+                            nextTrade1.Order.Price,
+                            "protective1"
+                        ));
+                    }
+                }
+                if (i + 2 < myTrades.Count)
+                {
+                    var nextTrade2 = myTrades[i + 2];
+                    if (nextTrade2.Order?.Side == Sides.Sell)
+                    {
+                        exitOrders.Add((
+                            nextTrade2.Order.ServerTime,
+                            nextTrade2.Order.Price,
+                            "protective2"
+                        ));
+                    }
+                }
+
+                // Infer SL/TP from protective order prices relative to entry
+                if (exitOrders.Count >= 2)
+                {
+                    var entryPrice = myTrade.Trade.Price;
+                    var price1 = exitOrders[0].price;
+                    var price2 = exitOrders[1].price;
+
+                    // SL should be lower than entry, TP higher than entry
+                    if (price1 < entryPrice && price2 > entryPrice)
+                    {
+                        currentEntry.StopLoss = (double)price1;
+                        currentEntry.TakeProfit = (double)price2;
+                    }
+                    else if (price2 < entryPrice && price1 > entryPrice)
+                    {
+                        currentEntry.StopLoss = (double)price2;
+                        currentEntry.TakeProfit = (double)price1;
+                    }
+                }
+            }
+            else if (side == "sell" && currentEntry != null)
+            {
+                // This is an exit trade - complete the current entry
+                currentEntry.ExitTime = myTrade.Trade.ServerTime.ToUnixTimeSeconds();
+                currentEntry.ExitPrice = (double)myTrade.Trade.Price;
+
+                // Determine which protective order was triggered based on exit price
+                if (currentEntry.StopLoss.HasValue && currentEntry.TakeProfit.HasValue)
+                {
+                    var exitPrice = (double)myTrade.Trade.Price;
+                    var slDistance = Math.Abs(exitPrice - currentEntry.StopLoss.Value);
+                    var tpDistance = Math.Abs(exitPrice - currentEntry.TakeProfit.Value);
+
+                    // Determine which was triggered (closer price match)
+                    currentEntry.TriggeredExit = slDistance < tpDistance ? "sl" : "tp";
+                }
+
+                trades.Add(currentEntry);
+                currentEntry = null;
+                exitOrders.Clear();
+            }
         }
 
-        return trades.OrderBy(t => t.Time).ToList();
+        // If there's an unclosed entry, add it anyway
+        if (currentEntry != null)
+        {
+            trades.Add(currentEntry);
+        }
+
+        return trades;
     }
 
     private WalkForwardDataModel? ExtractWalkForwardData(WalkForwardResult? wfResult)
