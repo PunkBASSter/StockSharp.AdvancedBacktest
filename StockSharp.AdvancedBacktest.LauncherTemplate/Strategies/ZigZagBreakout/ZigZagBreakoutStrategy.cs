@@ -15,8 +15,6 @@ public class ZigZagBreakout : CustomStrategyBase
     private Order? _currentBuyOrder;
     private Order? _currentStopLoss;
     private Order? _currentTakeProfit;
-    private readonly List<decimal> _dzzHistory = [];
-    private readonly List<decimal> _jmaHistory = [];
 
     protected override void OnReseted()
     {
@@ -24,8 +22,6 @@ public class ZigZagBreakout : CustomStrategyBase
         _currentBuyOrder = null;
         _currentStopLoss = null;
         _currentTakeProfit = null;
-        _dzzHistory.Clear();
-        _jmaHistory.Clear();
     }
 
     protected override void OnStarted(DateTimeOffset time)
@@ -74,12 +70,6 @@ public class ZigZagBreakout : CustomStrategyBase
         if (candle.State != CandleStates.Finished)
             return;
 
-        if (_dzz!.IsFormed)
-            _dzzHistory.Add(dzzValue);
-
-        if (_jma!.IsFormed)
-            _jmaHistory.Add(jmaValue);
-
         var signal = TryGetBuyOrder();
         if (signal == null)
         {
@@ -117,12 +107,21 @@ public class ZigZagBreakout : CustomStrategyBase
             return null;
 
         // Need at least 20 values to extract pattern
-        if (_dzzHistory.Count < 20)
+        if (_dzz.Container.Count < 20)
             return null;
 
         // Extract last 3 non-zero zigzag points from last 20 values
-        var last20 = _dzzHistory.Skip(Math.Max(0, _dzzHistory.Count - 20)).ToList();
-        var nonZeroPoints = last20
+        var last20Values = new List<decimal>();
+        for (int i = Math.Min(19, _dzz.Container.Count - 1); i >= 0; i--)
+        {
+            var (_, output) = _dzz.Container.GetValue(i);
+            if (!output.IsEmpty)
+            {
+                last20Values.Add(output.GetValue<decimal>());
+            }
+        }
+
+        var nonZeroPoints = last20Values
             .Where(v => v != 0)
             .TakeLast(3)
             .ToArray();
@@ -135,10 +134,13 @@ public class ZigZagBreakout : CustomStrategyBase
         var l1 = nonZeroPoints[2];
 
         // JMA trend filtering
-        if (_config.JmaUsage != 0 && _jmaHistory.Count >= 2)
+        if (_config.JmaUsage != 0 && _jma.Container.Count >= 2)
         {
-            var jma1 = _jmaHistory[^1];
-            var jma2 = _jmaHistory[^2];
+            var (_, jma1Output) = _jma.Container.GetValue(0);
+            var (_, jma2Output) = _jma.Container.GetValue(1);
+
+            var jma1 = jma1Output.GetValue<decimal>();
+            var jma2 = jma2Output.GetValue<decimal>();
 
             bool trendOk = _config.JmaUsage switch
             {

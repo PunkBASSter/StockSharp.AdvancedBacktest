@@ -17,10 +17,15 @@ namespace StockSharp.AdvancedBacktest.Export;
 public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new()
 {
     private readonly ILogger<ReportBuilder<TStrategy>>? _logger;
+    private readonly IIndicatorExporter _indicatorExporter;
     private readonly string _webTemplatePath;
 
-    public ReportBuilder(ILogger<ReportBuilder<TStrategy>>? logger = null, string? webTemplatePath = null)
+    public ReportBuilder(
+        IIndicatorExporter? indicatorExporter = null,
+        ILogger<ReportBuilder<TStrategy>>? logger = null,
+        string? webTemplatePath = null)
     {
+        _indicatorExporter = indicatorExporter ?? new IndicatorExporter(logger: null);
         _logger = logger;
         _webTemplatePath = webTemplatePath ?? Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory,
@@ -51,6 +56,7 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
             var chartData = new ChartDataModel
             {
                 Candles = ExtractCandleData(model),
+                Indicators = ExtractIndicatorData(model.Strategy),
                 Trades = ExtractTradeData(model.Strategy),
                 WalkForward = ExtractWalkForwardData(model.WalkForwardResult)
             };
@@ -169,6 +175,22 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
                 .ToList();
         }
         return candles;
+    }
+
+    private List<IndicatorDataSeries> ExtractIndicatorData(CustomStrategyBase strategy)
+    {
+        if (strategy is IIndicatorExportable exportable)
+        {
+            _logger?.LogDebug("Extracting indicator data from {StrategyType}", strategy.GetType().Name);
+
+            // Inject the indicator exporter into the strategy
+            strategy.IndicatorExporter = _indicatorExporter;
+
+            return exportable.GetIndicatorSeries();
+        }
+
+        _logger?.LogDebug("Strategy {StrategyType} does not implement IIndicatorExportable", strategy.GetType().Name);
+        return new List<IndicatorDataSeries>();
     }
 
     private List<TradeDataPoint> ExtractTradeData(Strategy strategy)

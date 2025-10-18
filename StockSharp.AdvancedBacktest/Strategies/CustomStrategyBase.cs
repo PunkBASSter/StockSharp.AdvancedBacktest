@@ -4,12 +4,24 @@ using StockSharp.BusinessEntities;
 using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.AdvancedBacktest.Statistics;
 using StockSharp.AdvancedBacktest.Utilities;
+using StockSharp.AdvancedBacktest.Export;
 using System.Security.Cryptography;
 using System.Text;
 
 namespace StockSharp.AdvancedBacktest.Strategies;
 
-public abstract class CustomStrategyBase : Strategy
+/// <summary>
+/// Interface for strategies that can export indicator data for visualization
+/// </summary>
+public interface IIndicatorExportable
+{
+    /// <summary>
+    /// Returns list of indicator series with their complete calculation history
+    /// </summary>
+    List<IndicatorDataSeries> GetIndicatorSeries();
+}
+
+public abstract class CustomStrategyBase : Strategy, IIndicatorExportable
 {
     public string Hash => $"{GetType().Name}V{Version}_{SecuritiesHash}_{ParamsHash}";
     public PerformanceMetrics? PerformanceMetrics { get; protected set; }
@@ -17,6 +29,42 @@ public abstract class CustomStrategyBase : Strategy
     public DateTimeOffset MetricWindowEnd { get; set; }
 
     public virtual string Version { get; set; } = "1.0.0";
+
+    /// <summary>
+    /// Indicator exporter service for extracting indicator data
+    /// Set this property before calling GetIndicatorSeries()
+    /// </summary>
+    public IIndicatorExporter? IndicatorExporter { get; set; }
+
+    /// <summary>
+    /// Default implementation: automatically extracts all indicators from Strategy.Indicators collection
+    /// Override this method to provide custom indicator export logic
+    /// </summary>
+    public virtual List<IndicatorDataSeries> GetIndicatorSeries()
+    {
+        var seriesList = new List<IndicatorDataSeries>();
+
+        // Use injected exporter or create a default one
+        var exporter = IndicatorExporter ?? new IndicatorExporter();
+
+        // Automatically discover all indicators registered with the strategy
+        foreach (var indicator in Indicators)
+        {
+            try
+            {
+                // Handle complex indicators (with multiple sub-indicators)
+                var series = exporter.ExtractComplexIndicator(indicator);
+                seriesList.AddRange(series);
+            }
+            catch (Exception ex)
+            {
+                // Log warning but don't fail the entire export
+                this.LogWarning($"Failed to export indicator {indicator.Name}: {ex.Message}");
+            }
+        }
+
+        return seriesList;
+    }
 
     public virtual string ParamsHash
     {
