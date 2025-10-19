@@ -1,4 +1,4 @@
-import { ChartDataModel } from '@/types/chart-data';
+import { ChartDataModel, IndicatorDataSeries } from '@/types/chart-data';
 
 /**
  * Loads chart data from embedded window object or JSON file
@@ -20,6 +20,12 @@ export async function loadChartData(jsonPath: string): Promise<ChartDataModel> {
         try {
             const data = window.__CHART_DATA__;
             validateChartData(data);
+
+            // Load indicator files if specified
+            if (data.indicatorFiles && data.indicatorFiles.length > 0) {
+                data.indicators = await loadIndicatorFiles(data.indicatorFiles);
+            }
+
             return Promise.resolve(data as ChartDataModel);
         } catch (error) {
             // Log the specific error for debugging
@@ -33,11 +39,17 @@ export async function loadChartData(jsonPath: string): Promise<ChartDataModel> {
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
 
-        xhr.onload = function () {
+        xhr.onload = async function () {
             try {
                 if (xhr.status === 200 || xhr.status === 0) {
                     const data = JSON.parse(xhr.responseText);
                     validateChartData(data);
+
+                    // Load indicator files if specified
+                    if (data.indicatorFiles && data.indicatorFiles.length > 0) {
+                        data.indicators = await loadIndicatorFiles(data.indicatorFiles);
+                    }
+
                     resolve(data as ChartDataModel);
                 } else {
                     reject(new Error(`Failed to load chart data: HTTP ${xhr.status}`));
@@ -61,6 +73,45 @@ export async function loadChartData(jsonPath: string): Promise<ChartDataModel> {
         xhr.open('GET', jsonPath, true);
         xhr.send();
     });
+}
+
+/**
+ * Loads indicator data from separate JSON files
+ * @param fileNames - Array of indicator file names relative to current directory
+ * @returns Promise resolving to array of IndicatorDataSeries
+ */
+export async function loadIndicatorFiles(fileNames: string[]): Promise<IndicatorDataSeries[]> {
+    const loadPromises = fileNames.map(fileName => {
+        return new Promise<IndicatorDataSeries>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+
+            xhr.onload = function () {
+                try {
+                    if (xhr.status === 200 || xhr.status === 0) {
+                        const indicator = JSON.parse(xhr.responseText) as IndicatorDataSeries;
+                        console.log(`Loaded indicator: ${indicator.name} (${indicator.values.length} values)`);
+                        resolve(indicator);
+                    } else {
+                        reject(new Error(`Failed to load ${fileName}: HTTP ${xhr.status}`));
+                    }
+                } catch (error) {
+                    reject(error);
+                }
+            };
+
+            xhr.onerror = function () {
+                console.warn(`Failed to load indicator file: ${fileName}`);
+                // Resolve with empty indicator instead of rejecting to allow partial loading
+                resolve({ name: fileName, color: '#999', values: [] });
+            };
+
+            // Load from same directory as chartData.json
+            xhr.open('GET', `./${fileName}`, true);
+            xhr.send();
+        });
+    });
+
+    return Promise.all(loadPromises);
 }
 
 /**

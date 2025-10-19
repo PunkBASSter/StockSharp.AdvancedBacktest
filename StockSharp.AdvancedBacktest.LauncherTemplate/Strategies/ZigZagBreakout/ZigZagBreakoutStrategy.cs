@@ -1,4 +1,5 @@
 using StockSharp.Algo.Indicators;
+using StockSharp.AdvancedBacktest.Export;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.ZigZagBreakout.TrendFiltering;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Utilities;
@@ -15,9 +16,9 @@ public class ZigZagBreakout : CustomStrategyBase
     private Order? _currentBuyOrder;
     private Order? _currentStopLoss;
     private Order? _currentTakeProfit;
-    // Manual history for trading logic (Container limited to 100 values)
-    private readonly List<decimal> _dzzHistory = [];
-    private readonly List<decimal> _jmaHistory = [];
+    // Manual history for trading logic and visualization export (Container limited to 100 values)
+    private readonly List<(DateTimeOffset Time, decimal Value)> _dzzHistory = [];
+    private readonly List<(DateTimeOffset Time, decimal Value)> _jmaHistory = [];
 
     protected override void OnReseted()
     {
@@ -77,10 +78,10 @@ public class ZigZagBreakout : CustomStrategyBase
 
         // Store in manual history for trading logic (Container is limited to 100 values)
         if (_dzz!.IsFormed)
-            _dzzHistory.Add(dzzValue);
+            _dzzHistory.Add((candle.OpenTime, dzzValue));
 
         if (_jma!.IsFormed)
-            _jmaHistory.Add(jmaValue);
+            _jmaHistory.Add((candle.OpenTime, jmaValue));
 
         var signal = TryGetBuyOrder();
         if (signal == null)
@@ -123,7 +124,10 @@ public class ZigZagBreakout : CustomStrategyBase
             return null;
 
         // Extract last 3 non-zero zigzag points from last 20 values
-        var last20 = _dzzHistory.Skip(Math.Max(0, _dzzHistory.Count - 20)).ToList();
+        var last20 = _dzzHistory
+            .Skip(Math.Max(0, _dzzHistory.Count - 20))
+            .Select(h => h.Value)
+            .ToList();
         var nonZeroPoints = last20
             .Where(v => v != 0)
             .TakeLast(3)
@@ -139,8 +143,8 @@ public class ZigZagBreakout : CustomStrategyBase
         // JMA trend filtering
         if (_config.JmaUsage != 0 && _jmaHistory.Count >= 2)
         {
-            var jma1 = _jmaHistory[^1];
-            var jma2 = _jmaHistory[^2];
+            var jma1 = _jmaHistory[^1].Value;
+            var jma2 = _jmaHistory[^2].Value;
 
             bool trendOk = _config.JmaUsage switch
             {
@@ -218,5 +222,42 @@ public class ZigZagBreakout : CustomStrategyBase
                 _currentStopLoss = null;
             }
         }
+    }
+
+    public override List<IndicatorDataSeries> GetIndicatorSeries()
+    {
+        var seriesList = new List<IndicatorDataSeries>();
+
+        // Export DZZ from manual history with timestamps
+        if (_dzzHistory.Count > 0)
+        {
+            seriesList.Add(new IndicatorDataSeries
+            {
+                Name = _dzz?.Name ?? "Delta ZigZag",
+                Color = "#FF6B35", // Orange for DZZ
+                Values = _dzzHistory.Select(h => new IndicatorDataPoint
+                {
+                    Time = h.Time.ToUnixTimeSeconds(),
+                    Value = (double)h.Value
+                }).ToList()
+            });
+        }
+
+        // Export JMA from manual history with timestamps
+        if (_jmaHistory.Count > 0)
+        {
+            seriesList.Add(new IndicatorDataSeries
+            {
+                Name = _jma?.Name ?? "JMA",
+                Color = "#4ECDC4", // Turquoise for JMA
+                Values = _jmaHistory.Select(h => new IndicatorDataPoint
+                {
+                    Time = h.Time.ToUnixTimeSeconds(),
+                    Value = (double)h.Value
+                }).ToList()
+            });
+        }
+
+        return seriesList;
     }
 }

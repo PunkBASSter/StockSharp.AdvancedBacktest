@@ -43,9 +43,29 @@ async function fixHtmlPaths(dir) {
                 const chartDataPath = join(dir, 'chartData.json');
                 try {
                     const chartDataContent = await readFile(chartDataPath, 'utf-8');
+                    const chartData = JSON.parse(chartDataContent);
+
+                    // Load and embed indicator files if they exist
+                    if (chartData.indicatorFiles && chartData.indicatorFiles.length > 0) {
+                        chartData.indicators = [];
+                        for (const indicatorFile of chartData.indicatorFiles) {
+                            try {
+                                const indicatorPath = join(dir, indicatorFile);
+                                const indicatorContent = await readFile(indicatorPath, 'utf-8');
+                                const indicatorData = JSON.parse(indicatorContent);
+                                chartData.indicators.push(indicatorData);
+                                console.log(`  ✓ Loaded indicator: ${indicatorFile}`);
+                            } catch (err) {
+                                console.warn(`  ⚠ Failed to load indicator file: ${indicatorFile}`, err.message);
+                            }
+                        }
+                        // Remove indicatorFiles array since we've embedded the data
+                        delete chartData.indicatorFiles;
+                    }
+
                     // Inject chart data as inline script right after <head> tag
                     // This ensures it's available before React hydration
-                    const scriptTag = `<script>window.__CHART_DATA__ = ${chartDataContent};</script>`;
+                    const scriptTag = `<script>window.__CHART_DATA__ = ${JSON.stringify(chartData)};</script>`;
                     content = content.replace('<head>', `<head>${scriptTag}`);
                     console.log(`✓ Embedded chartData.json into: ${entry.name}`);
                 } catch {

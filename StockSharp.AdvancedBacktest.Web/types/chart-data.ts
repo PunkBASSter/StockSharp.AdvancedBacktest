@@ -5,7 +5,8 @@
 
 export interface ChartDataModel {
   candles: CandleDataPoint[];
-  indicators?: IndicatorDataSeries[];
+  indicatorFiles?: string[];           // List of indicator file paths to load
+  indicators?: IndicatorDataSeries[];  // Loaded indicator data (populated at runtime)
   trades: TradeDataPoint[];
   walkForward?: WalkForwardDataModel;
 }
