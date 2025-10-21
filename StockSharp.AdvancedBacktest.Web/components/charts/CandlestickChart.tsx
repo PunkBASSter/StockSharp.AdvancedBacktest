@@ -1,14 +1,6 @@
 'use client';
 import { ChartDataModel } from '@/types/chart-data';
-import {
-    CandlestickSeries,
-    ColorType,
-    HistogramSeries,
-    LineSeries,
-    UTCTimestamp,
-    createChart,
-    createSeriesMarkers
-} from 'lightweight-charts';
+import { createChart, ColorType, UTCTimestamp } from 'lightweight-charts';
 import { useEffect, useRef } from 'react';
 
 interface Props {
@@ -43,8 +35,8 @@ export default function CandlestickChart({ data }: Props) {
             },
         });
 
-        // Add candlestick series using v5 API
-        const candlestickSeries = chart.addSeries(CandlestickSeries, {
+        // Add candlestick series using v4 API
+        const candlestickSeries = chart.addCandlestickSeries({
             upColor: '#26a69a',
             downColor: '#ef5350',
             borderVisible: false,
@@ -63,24 +55,24 @@ export default function CandlestickChart({ data }: Props) {
 
         candlestickSeries.setData(candleData);
 
-        // Add trade markers to candlestick series using v5 API
+        // Add trade markers using v4 setMarkers API
         if (data.trades && data.trades.length > 0) {
             const markers = data.trades.map(trade => {
                 const isBuy = trade.side === 'buy';
                 return {
                     time: trade.time as UTCTimestamp,
-                    position: isBuy ? ('belowBar' as const) : ('aboveBar' as const),
+                    position: (isBuy ? 'belowBar' : 'aboveBar') as 'belowBar' | 'aboveBar',
                     color: isBuy ? '#2196F3' : '#F44336',
-                    shape: isBuy ? ('arrowUp' as const) : ('arrowDown' as const),
-                    text: '',
+                    shape: (isBuy ? 'arrowUp' : 'arrowDown') as 'arrowUp' | 'arrowDown',
+                    text: `${isBuy ? 'BUY' : 'SELL'} @ ${trade.price.toFixed(2)}`,
                 };
             });
-            createSeriesMarkers(candlestickSeries, markers);
+            candlestickSeries.setMarkers(markers);
         }
 
-        // Add volume series if volume data exists using v5 API
+        // Add volume series if volume data exists using v4 API
         if (data.candles.length > 0 && data.candles[0].volume !== undefined) {
-            const volumeSeries = chart.addSeries(HistogramSeries, {
+            const volumeSeries = chart.addHistogramSeries({
                 color: '#26a69a',
                 priceFormat: {
                     type: 'volume',
@@ -106,10 +98,10 @@ export default function CandlestickChart({ data }: Props) {
             });
         }
 
-        // Add indicator line series if indicators exist using v5 API
+        // Add indicator line series if indicators exist using v4 API
         if (data.indicators && data.indicators.length > 0) {
             data.indicators.forEach(indicator => {
-                const lineSeries = chart.addSeries(LineSeries, {
+                const lineSeries = chart.addLineSeries({
                     color: indicator.color || '#2196F3',
                     lineWidth: 2,
                     title: indicator.name,
@@ -126,8 +118,31 @@ export default function CandlestickChart({ data }: Props) {
             });
         }
 
-        // Fit content to show all data
-        chart.timeScale().fitContent();
+        // Set visible range to show first 6 months or where trades are
+        // This makes trade markers more visible than fitContent() which zooms too far out
+        if (data.trades && data.trades.length > 0) {
+            // Find the time range of trades
+            const tradeTimes = data.trades.map(t => t.time);
+            const minTradeTime = Math.min(...tradeTimes);
+            const maxTradeTime = Math.max(...tradeTimes);
+
+            // Add some padding (30 days before first trade, 30 days after last trade)
+            const padding = 30 * 24 * 60 * 60; // 30 days in seconds
+            chart.timeScale().setVisibleRange({
+                from: (minTradeTime - padding) as UTCTimestamp,
+                to: (maxTradeTime + padding) as UTCTimestamp,
+            });
+        } else {
+            // No trades, show first 6 months of data
+            if (candleData.length > 0) {
+                const firstTime = candleData[0].time as number;
+                const sixMonths = 180 * 24 * 60 * 60; // 180 days in seconds
+                chart.timeScale().setVisibleRange({
+                    from: firstTime as UTCTimestamp,
+                    to: (firstTime + sixMonths) as UTCTimestamp,
+                });
+            }
+        }
 
         // Handle window resize
         const handleResize = () => {

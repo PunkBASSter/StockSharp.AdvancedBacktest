@@ -1,4 +1,5 @@
 using StockSharp.Algo.Indicators;
+using StockSharp.AdvancedBacktest.Export;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.ZigZagBreakout.TrendFiltering;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Utilities;
@@ -13,13 +14,18 @@ public class ZigZagBreakout : CustomStrategyBase
     private Jma? _jma;
     private ZigZagBreakoutConfig? _config;
     private Order? _currentBuyOrder;
-    private readonly List<decimal> _dzzHistory = [];
-    private readonly List<decimal> _jmaHistory = [];
+    private Order? _currentStopLoss;
+    private Order? _currentTakeProfit;
+    // Manual history for trading logic and visualization export (Container limited to 100 values)
+    private readonly List<(DateTimeOffset Time, decimal Value)> _dzzHistory = [];
+    private readonly List<(DateTimeOffset Time, decimal Value)> _jmaHistory = [];
 
     protected override void OnReseted()
     {
         base.OnReseted();
         _currentBuyOrder = null;
+        _currentStopLoss = null;
+        _currentTakeProfit = null;
         _dzzHistory.Clear();
         _jmaHistory.Clear();
     }
@@ -70,11 +76,12 @@ public class ZigZagBreakout : CustomStrategyBase
         if (candle.State != CandleStates.Finished)
             return;
 
+        // Store in manual history for trading logic (Container is limited to 100 values)
         if (_dzz!.IsFormed)
-            _dzzHistory.Add(dzzValue);
+            _dzzHistory.Add((candle.OpenTime, dzzValue));
 
         if (_jma!.IsFormed)
-            _jmaHistory.Add(jmaValue);
+            _jmaHistory.Add((candle.OpenTime, jmaValue));
 
         var signal = TryGetBuyOrder();
         if (signal == null)
@@ -117,7 +124,10 @@ public class ZigZagBreakout : CustomStrategyBase
             return null;
 
         // Extract last 3 non-zero zigzag points from last 20 values
-        var last20 = _dzzHistory.Skip(Math.Max(0, _dzzHistory.Count - 20)).ToList();
+        var last20 = _dzzHistory
+            .Skip(Math.Max(0, _dzzHistory.Count - 20))
+            .Select(h => h.Value)
+            .ToList();
         var nonZeroPoints = last20
             .Where(v => v != 0)
             .TakeLast(3)
@@ -133,8 +143,8 @@ public class ZigZagBreakout : CustomStrategyBase
         // JMA trend filtering
         if (_config.JmaUsage != 0 && _jmaHistory.Count >= 2)
         {
-            var jma1 = _jmaHistory[^1];
-            var jma2 = _jmaHistory[^2];
+            var jma1 = _jmaHistory[^1].Value;
+            var jma2 = _jmaHistory[^2].Value;
 
             bool trendOk = _config.JmaUsage switch
             {
@@ -176,13 +186,78 @@ public class ZigZagBreakout : CustomStrategyBase
                 var (_, sl, tp) = signal.Value;
 
                 // Create stop-loss order
-                var slOrder = SellLimit(sl, Math.Abs(Position));
+                _currentStopLoss = SellLimit(sl, Math.Abs(Position));
                 this.LogInfo("Stop-Loss order created at {0:F2}", sl);
 
                 // Create take-profit order
-                var tpOrder = SellLimit(tp, Math.Abs(Position));
+                _currentTakeProfit = SellLimit(tp, Math.Abs(Position));
                 this.LogInfo("Take-Profit order created at {0:F2}", tp);
             }
         }
+        // Check if stop-loss was filled
+        else if (order == _currentStopLoss)
+        {
+            this.LogInfo("Stop-Loss filled at {0:F2}, Position: {1}", trade.Trade.Price, Position);
+            _currentStopLoss = null;
+
+            // Cancel the take-profit order
+            if (_currentTakeProfit != null && _currentTakeProfit.State == OrderStates.Active)
+            {
+                this.LogInfo("Canceling Take-Profit order");
+                CancelOrder(_currentTakeProfit);
+                _currentTakeProfit = null;
+            }
+        }
+        // Check if take-profit was filled
+        else if (order == _currentTakeProfit)
+        {
+            this.LogInfo("Take-Profit filled at {0:F2}, Position: {1}", trade.Trade.Price, Position);
+            _currentTakeProfit = null;
+
+            // Cancel the stop-loss order
+            if (_currentStopLoss != null && _currentStopLoss.State == OrderStates.Active)
+            {
+                this.LogInfo("Canceling Stop-Loss order");
+                CancelOrder(_currentStopLoss);
+                _currentStopLoss = null;
+            }
+        }
+    }
+
+    public override List<IndicatorDataSeries> GetIndicatorSeries()
+    {
+        var seriesList = new List<IndicatorDataSeries>();
+
+        // Export DZZ from manual history with timestamps
+        if (_dzzHistory.Count > 0)
+        {
+            seriesList.Add(new IndicatorDataSeries
+            {
+                Name = _dzz?.Name ?? "Delta ZigZag",
+                Color = "#FF6B35", // Orange for DZZ
+                Values = _dzzHistory.Select(h => new IndicatorDataPoint
+                {
+                    Time = h.Time.ToUnixTimeSeconds(),
+                    Value = (double)h.Value
+                }).ToList()
+            });
+        }
+
+        // Export JMA from manual history with timestamps
+        if (_jmaHistory.Count > 0)
+        {
+            seriesList.Add(new IndicatorDataSeries
+            {
+                Name = _jma?.Name ?? "JMA",
+                Color = "#4ECDC4", // Turquoise for JMA
+                Values = _jmaHistory.Select(h => new IndicatorDataPoint
+                {
+                    Time = h.Time.ToUnixTimeSeconds(),
+                    Value = (double)h.Value
+                }).ToList()
+            });
+        }
+
+        return seriesList;
     }
 }

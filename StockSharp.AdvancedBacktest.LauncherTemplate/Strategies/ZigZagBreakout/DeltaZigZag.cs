@@ -6,7 +6,6 @@ using StockSharp.Localization;
 namespace StockSharp.Algo.Indicators;
 
 [Display(
-    ResourceType = typeof(LocalizedStrings),
     Name = "Delta ZigZag",
     Description = "Delta ZigZag")]
 [IndicatorIn(typeof(CandleIndicatorValue))]
@@ -27,10 +26,9 @@ public class DeltaZigZag : BaseIndicator
     private decimal? _minimumThreshold;
 
     [Display(
-        ResourceType = typeof(LocalizedStrings),
         Name = "Delta",
         Description = "Price change percentage (e.g., 0.5 = 50% retracement).",
-        GroupName = LocalizedStrings.GeneralKey)]
+        GroupName = "General")]
     public decimal Delta
     {
         get => _delta;
@@ -53,10 +51,9 @@ public class DeltaZigZag : BaseIndicator
     /// Should be set based on security's price step (e.g., PriceStep * 10).
     /// </summary>
     [Display(
-        ResourceType = typeof(LocalizedStrings),
         Name = "Minimum Threshold",
         Description = "Minimum absolute threshold for initial swings.",
-        GroupName = LocalizedStrings.GeneralKey)]
+        GroupName = "General")]
     public decimal? MinimumThreshold
     {
         get => _minimumThreshold;

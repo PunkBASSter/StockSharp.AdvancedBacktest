@@ -1,8 +1,8 @@
-using Microsoft.Extensions.DependencyInjection;
-using StockSharp.AdvancedBacktest.LauncherTemplate.BacktestMode;
-using StockSharp.AdvancedBacktest.LauncherTemplate.Configuration.Models;
-using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies;
-using StockSharp.AdvancedBacktest.LauncherTemplate.Utilities;
+using StockSharp.AdvancedBacktest.Backtest;
+using StockSharp.AdvancedBacktest.Export;
+using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.ZigZagBreakout;
+using StockSharp.AdvancedBacktest.Parameters;
+using StockSharp.BusinessEntities;
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate;
 
@@ -10,69 +10,187 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        // Register global service collection (static?)
-        var services = new ServiceCollection();
-        //services.AddSingleton<ILogger, ConsoleLogger>();
-        //services.AddSingleton<IConfigurationLoader, JsonConfigurationLoader>();
-        //services.AddSingleton<IBacktestRunner, BacktestRunner>();
-        var serviceProvider = services.BuildServiceProvider();
+        Console.WriteLine("=== ZigZag Breakout Strategy Backtest ===");
+        Console.WriteLine();
 
-        return 0;
-    }
-
-    private static async Task<int> RunSingleMode(string configPath)
-    {
-        ConsoleLogger.LogInfo($"Loading single-run configuration from: {configPath}");
-
-        if (!File.Exists(configPath))
+        try
         {
-            ConsoleLogger.LogError($"Configuration file not found: {configPath}");
-            return 1;
-        }
+            // Configuration
+            const string historyPath = @"C:\Users\Andrew\OneDrive\Документы\StockSharp\Hydra\Storage";
+            var startDate = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var endDate = new DateTimeOffset(2023, 12, 31, 23, 59, 59, TimeSpan.Zero);
+            const decimal initialCapital = 10000m;
 
-        var configJson = await File.ReadAllTextAsync(configPath);
-        var config = JsonSerializationHelper.Deserialize<BacktestConfiguration>(configJson);
+            Console.WriteLine($"History Path: {historyPath}");
+            Console.WriteLine($"Period: {startDate:yyyy-MM-dd} to {endDate:yyyy-MM-dd}");
+            Console.WriteLine($"Initial Capital: {initialCapital:N2}");
+            Console.WriteLine();
 
-        if (config == null)
-        {
-            ConsoleLogger.LogError("Failed to parse configuration file");
-            return 1;
-        }
-
-        if (config.RunMode != Configuration.Models.RunMode.Single)
-        {
-            ConsoleLogger.LogWarning($"Configuration RunMode is set to '{config.RunMode}', but --single-run flag was specified.");
-            ConsoleLogger.LogInfo("Overriding RunMode to 'Single' to match CLI flag.");
-            config.RunMode = Configuration.Models.RunMode.Single;
-        }
-
-        var runner = new BacktestRunner<PreviousWeekRangeBreakoutStrategy>(config)
-        {
-            VerboseLogging = true
-        };
-
-        return await runner.RunAsync();
-    }
-
-    private static string? FindDefaultConfigFile()
-    {
-        var candidates = new[]
-        {
-            "single-run-btcusdt.json",
-            "config.json",
-            "backtest.json",
-            "ConfigFiles/config.json"
-        };
-
-        foreach (var candidate in candidates)
-        {
-            if (File.Exists(candidate))
+            // Create Security
+            var security = new Security
             {
-                ConsoleLogger.LogInfo($"Using configuration file: {candidate}");
-                return candidate;
+                Id = "BTCUSDT@BNB",
+                Code = "BTCUSDT",
+                Board = ExchangeBoard.Binance,
+                PriceStep = 0.01m,  // BTCUSDT typically trades with 2 decimal places
+                Decimals = 2
+            };
+
+            // Create Portfolio
+            var portfolio = Portfolio.CreateSimulator();
+            portfolio.BeginValue = initialCapital;
+            portfolio.Name = "ZigZagBreakout";
+
+            // Create Backtest Configuration
+            var config = new BacktestConfig
+            {
+                ValidationPeriod = new PeriodConfig
+                {
+                    StartDate = startDate,
+                    EndDate = endDate
+                },
+                HistoryPath = historyPath,
+                MatchOnTouch = false
+            };
+
+            // Create Strategy Instance
+            var strategy = new ZigZagBreakout
+            {
+                Security = security,
+                Portfolio = portfolio
+            };
+
+            // Set timeframe - using 1 hour candles for this backtest
+            strategy.Securities[security] = new[] { TimeSpan.FromHours(1) };
+
+            // Set Strategy Parameters using CustomParams
+            var parameters = new List<ICustomParam>
+            {
+                new NumberParam<decimal>("DzzDepth", 5m),
+                new NumberParam<int>("JmaLength", 7),
+                new NumberParam<int>("JmaPhase", 0),
+                new NumberParam<int>("JmaUsage", 0)  // Bearish trend filter
+            };
+            strategy.ParamsContainer = new CustomParamsContainer(parameters);
+
+            Console.WriteLine("Strategy Parameters:");
+            Console.WriteLine($"  DzzDepth: 5");
+            Console.WriteLine($"  JmaLength: 7");
+            Console.WriteLine($"  JmaPhase: 0");
+            Console.WriteLine($"  JmaUsage: -1 (Bearish trend filter)");
+            Console.WriteLine();
+
+            // Create and Run Backtest
+            Console.WriteLine("Starting backtest...");
+            Console.WriteLine();
+
+            var metricsCalculator = new Statistics.PerformanceMetricsCalculator();
+            using var runner = new BacktestRunner<ZigZagBreakout>(config, strategy, metricsCalculator);
+            var result = await runner.RunAsync();
+
+            // Print Results
+            Console.WriteLine();
+            Console.WriteLine("=== Backtest Results ===");
+            Console.WriteLine();
+
+            if (result.IsSuccessful)
+            {
+                var metrics = result.Metrics;
+
+                Console.WriteLine($"Status: SUCCESS");
+                Console.WriteLine($"Duration: {result.Duration.TotalSeconds:F2} seconds");
+                Console.WriteLine();
+
+                Console.WriteLine("Trading Performance:");
+                Console.WriteLine($"  Total Trades: {metrics.TotalTrades}");
+                Console.WriteLine($"  Winning Trades: {metrics.WinningTrades}");
+                Console.WriteLine($"  Losing Trades: {metrics.LosingTrades}");
+                Console.WriteLine($"  Win Rate: {metrics.WinRate:F1}%");
+                Console.WriteLine();
+
+                Console.WriteLine("Returns:");
+                Console.WriteLine($"  Total Return: {metrics.TotalReturn:F2}%");
+                Console.WriteLine($"  Annualized Return: {metrics.AnnualizedReturn:F2}%");
+                Console.WriteLine($"  Net Profit: ${metrics.NetProfit:N2}");
+                Console.WriteLine($"  Gross Profit: ${metrics.GrossProfit:N2}");
+                Console.WriteLine($"  Gross Loss: ${metrics.GrossLoss:N2}");
+                Console.WriteLine();
+
+                Console.WriteLine("Risk Metrics:");
+                Console.WriteLine($"  Sharpe Ratio: {metrics.SharpeRatio:F2}");
+                Console.WriteLine($"  Sortino Ratio: {metrics.SortinoRatio:F2}");
+                Console.WriteLine($"  Maximum Drawdown: {metrics.MaxDrawdown:F2}%");
+                Console.WriteLine($"  Profit Factor: {metrics.ProfitFactor:F2}");
+                Console.WriteLine();
+
+                Console.WriteLine("Trade Analysis:");
+                Console.WriteLine($"  Average Win: ${metrics.AverageWin:N2}");
+                Console.WriteLine($"  Average Loss: ${metrics.AverageLoss:N2}");
+                Console.WriteLine($"  Average Trades/Day: {metrics.AverageTradesPerDay:F2}");
+                Console.WriteLine();
+
+                Console.WriteLine("Capital:");
+                Console.WriteLine($"  Initial Capital: ${metrics.InitialCapital:N2}");
+                Console.WriteLine($"  Final Value: ${metrics.FinalValue:N2}");
+                Console.WriteLine($"  Trading Period: {metrics.TradingPeriodDays} days");
+                Console.WriteLine();
+
+                // Generate HTML Report
+                Console.WriteLine("Generating HTML report...");
+
+                // Build hierarchical folder structure
+                var strategyVersion = strategy.Version; // Uses strategy's Version property
+                var paramsHash = strategy.ParamsHash; // Uses SHA256-based hash from CustomStrategyBase
+                var securityCode = security.Code; // "BTCUSDT"
+                var fromDate = startDate.ToString("yyyyMMdd");
+                var toDate = endDate.ToString("yyyyMMdd");
+
+                var reportPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                    "StockSharp",
+                    "Reports",
+                    $"{strategy.GetType().Name}_v{strategyVersion}",
+                    paramsHash,
+                    $"backtest_{securityCode}_{fromDate}_{toDate}");
+
+                Console.WriteLine($"Report path: {reportPath}");
+
+                var chartModel = new StrategySecurityChartModel
+                {
+                    Strategy = strategy,
+                    HistoryPath = historyPath,
+                    Security = security,
+                    OutputPath = reportPath,
+                    Metrics = result.Metrics,
+                    StartDate = startDate,
+                    EndDate = endDate,
+                    WalkForwardResult = null  // No walk-forward in this basic backtest
+                };
+
+                var reportBuilder = new ReportBuilder<ZigZagBreakout>();
+                await reportBuilder.GenerateReportAsync(chartModel, reportPath);
+
+                Console.WriteLine();
+                Console.WriteLine("=== Report Generated Successfully ===");
+                Console.WriteLine($"Location: {Path.Combine(reportPath, "index.html")}");
+                Console.WriteLine("Open in browser to view interactive charts");
+                Console.WriteLine();
+
+                return 0;
+            }
+            else
+            {
+                Console.WriteLine($"Status: FAILED");
+                Console.WriteLine($"Error: {result.ErrorMessage}");
+                return 1;
             }
         }
-
-        return null;
+        catch (Exception ex)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"ERROR: {ex.Message}");
+            Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+            return 1;
+        }
     }
 }

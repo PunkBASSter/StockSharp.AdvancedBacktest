@@ -5,7 +5,7 @@ namespace StockSharp.AdvancedBacktest.Export;
 public class ChartDataModel
 {
 	public List<CandleDataPoint> Candles { get; set; } = [];
-	public List<IndicatorDataSeries> Indicators { get; set; } = [];
+	public List<string> IndicatorFiles { get; set; } = [];
 	public List<TradeDataPoint> Trades { get; set; } = [];
 	public WalkForwardDataModel? WalkForward { get; set; }
 }

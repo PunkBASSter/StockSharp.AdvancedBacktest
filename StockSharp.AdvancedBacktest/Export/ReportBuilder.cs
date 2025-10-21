@@ -17,10 +17,15 @@ namespace StockSharp.AdvancedBacktest.Export;
 public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new()
 {
     private readonly ILogger<ReportBuilder<TStrategy>>? _logger;
+    private readonly IIndicatorExporter _indicatorExporter;
     private readonly string _webTemplatePath;
 
-    public ReportBuilder(ILogger<ReportBuilder<TStrategy>>? logger = null, string? webTemplatePath = null)
+    public ReportBuilder(
+        IIndicatorExporter? indicatorExporter = null,
+        ILogger<ReportBuilder<TStrategy>>? logger = null,
+        string? webTemplatePath = null)
     {
+        _indicatorExporter = indicatorExporter ?? new IndicatorExporter(logger: null);
         _logger = logger;
         _webTemplatePath = webTemplatePath ?? Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory,
@@ -47,10 +52,15 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
                 _logger?.LogDebug("Created output directory: {OutputPath}", outputPath);
             }
 
-            // 2. Export chartData.json
+            // 2. Export indicators to separate files
+            var indicatorSeries = ExtractIndicatorData(model.Strategy);
+            var indicatorFiles = await ExportIndicatorsToFilesAsync(indicatorSeries, outputPath);
+
+            // 3. Export chartData.json (with indicator file references)
             var chartData = new ChartDataModel
             {
                 Candles = ExtractCandleData(model),
+                IndicatorFiles = indicatorFiles,
                 Trades = ExtractTradeData(model.Strategy),
                 WalkForward = ExtractWalkForwardData(model.WalkForwardResult)
             };
@@ -84,6 +94,14 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
                 throw new InvalidOperationException(
                     $"Web report generation failed: index.html not found at {indexPath}");
             }
+
+            // 6. Run fix-paths.mjs to fix Next.js paths and embed chartData.json
+            await RunFixPathsScript(outputPath);
+            _logger?.LogDebug("Fixed paths and embedded chart data via fix-paths.mjs");
+
+            // 7. Export trades to CSV
+            await ExportTradesToCsvAsync(chartData.Trades, outputPath);
+            _logger?.LogDebug("Exported trades to CSV");
 
             _logger?.LogInformation("Report generated successfully at {OutputPath}", outputPath);
         }
@@ -139,9 +157,15 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
                 lowestTimeFrame,
                 format: StorageFormats.Binary);
 
-            var dates = candleStorage.Dates.ToArray();
+            // Filter dates to only include those within the StartDate to EndDate range
+            var startDate = model.StartDate.Date;
+            var endDate = model.EndDate.Date;
+            var dates = candleStorage.Dates
+                .Where(d => d >= startDate && d <= endDate)
+                .ToArray();
 
             candles = dates.SelectMany(date => candleStorage.Load(date))
+                .Where(c => c.OpenTime >= model.StartDate && c.OpenTime <= model.EndDate)
                 .Select(c => new CandleDataPoint
                 {
                     Time = c.OpenTime.ToUnixTimeSeconds(),
@@ -155,6 +179,50 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
                 .ToList();
         }
         return candles;
+    }
+
+    private List<IndicatorDataSeries> ExtractIndicatorData(CustomStrategyBase strategy)
+    {
+        if (strategy is IIndicatorExportable exportable)
+        {
+            _logger?.LogDebug("Extracting indicator data from {StrategyType}", strategy.GetType().Name);
+
+            // Inject the indicator exporter into the strategy
+            strategy.IndicatorExporter = _indicatorExporter;
+
+            return exportable.GetIndicatorSeries();
+        }
+
+        _logger?.LogDebug("Strategy {StrategyType} does not implement IIndicatorExportable", strategy.GetType().Name);
+        return new List<IndicatorDataSeries>();
+    }
+
+    private async Task<List<string>> ExportIndicatorsToFilesAsync(List<IndicatorDataSeries> indicators, string outputPath)
+    {
+        var indicatorFiles = new List<string>();
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = true
+        };
+
+        foreach (var indicator in indicators)
+        {
+            // Create safe filename from indicator name
+            var safeFileName = string.Join("_", indicator.Name.Split(Path.GetInvalidFileNameChars()));
+            var fileName = $"indicator_{safeFileName}.json";
+            var filePath = Path.Combine(outputPath, fileName);
+
+            // Write indicator data to file
+            await File.WriteAllTextAsync(filePath, JsonSerializer.Serialize(indicator, jsonOptions));
+
+            indicatorFiles.Add(fileName);
+            _logger?.LogDebug("Exported indicator {Name} to {FileName} ({ValueCount} values)",
+                indicator.Name, fileName, indicator.Values.Count);
+        }
+
+        _logger?.LogInformation("Exported {Count} indicators to separate files", indicators.Count);
+        return indicatorFiles;
     }
 
     private List<TradeDataPoint> ExtractTradeData(Strategy strategy)
@@ -177,7 +245,7 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
 
             trades.Add(new TradeDataPoint
             {
-                Time = ((DateTimeOffset)myTrade.Trade.ServerTime).ToUnixTimeSeconds(),
+                Time = myTrade.Trade.ServerTime.ToUnixTimeSeconds(),
                 Price = (double)myTrade.Trade.Price,
                 Volume = (double)Math.Abs(myTrade.Trade.Volume),
                 Side = side,
@@ -312,5 +380,88 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
             var targetSubDir = Path.Combine(destinationDir, subDir.Name);
             CopyDirectory(subDir.FullName, targetSubDir, overwrite);
         }
+    }
+
+    /// <summary>
+    /// Runs the fix-paths.mjs Node.js script to fix Next.js paths and embed chartData.json
+    /// </summary>
+    /// <param name="reportPath">Path to the report directory containing index.html and chartData.json</param>
+    private async Task RunFixPathsScript(string reportPath)
+    {
+        // Path to fix-paths.mjs in the Web project
+        var fixPathsScript = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory,
+            "..", "..", "..", "..",
+            "StockSharp.AdvancedBacktest.Web", "fix-paths.mjs");
+
+        if (!File.Exists(fixPathsScript))
+        {
+            throw new InvalidOperationException(
+                $"fix-paths.mjs not found at {fixPathsScript}. " +
+                "Ensure StockSharp.AdvancedBacktest.Web project is in the expected location.");
+        }
+
+        _logger?.LogDebug("Running fix-paths.mjs from {ScriptPath}", fixPathsScript);
+
+        var processInfo = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = "node",
+            Arguments = $"\"{fixPathsScript}\"",
+            WorkingDirectory = reportPath,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+
+        using var process = System.Diagnostics.Process.Start(processInfo);
+        if (process == null)
+        {
+            throw new InvalidOperationException("Failed to start Node.js process for fix-paths.mjs");
+        }
+
+        // Capture output for logging
+        var output = await process.StandardOutput.ReadToEndAsync();
+        var error = await process.StandardError.ReadToEndAsync();
+
+        await process.WaitForExitAsync();
+
+        if (process.ExitCode != 0)
+        {
+            _logger?.LogError("fix-paths.mjs failed with exit code {ExitCode}", process.ExitCode);
+            _logger?.LogError("STDERR: {Error}", error);
+            throw new InvalidOperationException(
+                $"fix-paths.mjs failed with exit code {process.ExitCode}. Error: {error}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(output))
+        {
+            _logger?.LogDebug("fix-paths.mjs output: {Output}", output.Trim());
+        }
+    }
+
+    /// <summary>
+    /// Exports trade data to a CSV file
+    /// </summary>
+    /// <param name="trades">List of trade data points</param>
+    /// <param name="outputPath">Directory where the CSV file should be saved</param>
+    private async Task ExportTradesToCsvAsync(List<TradeDataPoint> trades, string outputPath)
+    {
+        var csvPath = Path.Combine(outputPath, "trades.csv");
+
+        using var writer = new StreamWriter(csvPath, false, System.Text.Encoding.UTF8);
+
+        // Write header
+        await writer.WriteLineAsync("Timestamp,DateTime,Price,Volume,Side,PnL");
+
+        // Write trade data
+        foreach (var trade in trades)
+        {
+            var dateTime = DateTimeOffset.FromUnixTimeSeconds(trade.Time).ToString("yyyy-MM-dd HH:mm:ss");
+            await writer.WriteLineAsync(
+                $"{trade.Time},{dateTime},{trade.Price},{trade.Volume},{trade.Side},{trade.PnL}");
+        }
+
+        _logger?.LogDebug("Exported {TradeCount} trades to {CsvPath}", trades.Count, csvPath);
     }
 }
