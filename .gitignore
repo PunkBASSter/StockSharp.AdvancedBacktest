@@ -71,3 +71,8 @@ ConnectorFile.json
 
 # Testing storage files
 **/StorageMock/**/*BinaryDates2.bin
+
+# Debug mode output files
+*.jsonl
+**/DebugOutput/
+debug-output/

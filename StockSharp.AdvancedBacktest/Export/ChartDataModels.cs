@@ -18,6 +18,10 @@ public class CandleDataPoint
 	public double Low { get; set; }
 	public double Close { get; set; }
 	public double Volume { get; set; }
+
+	// Debug mode support (nullable for backward compatibility)
+	public long? SequenceNumber { get; set; }
+	public string? SecurityId { get; set; }
 }
 
 public class IndicatorDataSeries
@@ -31,6 +35,9 @@ public class IndicatorDataPoint
 {
 	public long Time { get; set; }
 	public double Value { get; set; }
+
+	// Debug mode support (nullable for backward compatibility)
+	public long? SequenceNumber { get; set; }
 }
 
 public class TradeDataPoint
@@ -40,6 +47,20 @@ public class TradeDataPoint
 	public double Volume { get; set; }
 	public string Side { get; set; } = string.Empty;
 	public double PnL { get; set; }
+
+	// Debug mode support (nullable for backward compatibility)
+	public long? SequenceNumber { get; set; }
+	public long? OrderId { get; set; }
+}
+
+public class StateDataPoint
+{
+	public long Time { get; set; }
+	public double Position { get; set; }
+	public double PnL { get; set; }
+	public double UnrealizedPnL { get; set; }
+	public string ProcessState { get; set; } = string.Empty;
+	public long? SequenceNumber { get; set; }
 }
 
 public class WalkForwardDataModel
