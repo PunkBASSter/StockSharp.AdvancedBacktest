@@ -2,6 +2,8 @@ using System.Threading;
 using System.Collections.Generic;
 using StockSharp.AdvancedBacktest.Export;
 using StockSharp.AdvancedBacktest.Strategies;
+using StockSharp.Algo.Indicators;
+using StockSharp.Messages;
 
 namespace StockSharp.AdvancedBacktest.DebugMode;
 
@@ -21,6 +23,7 @@ public class DebugModeExporter : IDisposable
 	private long _sequenceNumber = 0;
 	private long _eventCount = 0;
 	private bool _disposed;
+	private readonly List<(IIndicator indicator, Action<IIndicatorValue, IIndicatorValue> handler)> _indicatorSubscriptions = new();
 
 	/// <summary>
 	/// Creates a new debug mode exporter.
@@ -137,7 +140,21 @@ public class DebugModeExporter : IDisposable
 
 		try
 		{
-			// Unsubscribe from events
+			// Unsubscribe from indicator events
+			foreach (var (indicator, handler) in _indicatorSubscriptions)
+			{
+				try
+				{
+					indicator.Changed -= handler;
+				}
+				catch
+				{
+					// Ignore unsubscribe errors
+				}
+			}
+			_indicatorSubscriptions.Clear();
+
+			// Unsubscribe from buffer events
 			if (_buffer != null)
 			{
 				_buffer.OnFlush -= OnBufferFlushed;
@@ -170,11 +187,135 @@ public class DebugModeExporter : IDisposable
 		return Interlocked.Increment(ref _sequenceNumber);
 	}
 
-	#region Event Capture Methods (Stubs for DM-03)
+	#region Indicator Subscription Methods
 
 	/// <summary>
-	/// Captures a candle update event.
-	/// Implementation will be added in DM-03.
+	/// Subscribes to an indicator's Changed event for automatic value capture.
+	/// Only captures values when indicator is formed (has enough data).
+	/// </summary>
+	/// <param name="indicator">Indicator to subscribe to</param>
+	public void SubscribeToIndicator(IIndicator indicator)
+	{
+		if (!IsInitialized || _disposed)
+			return;
+
+		if (indicator == null)
+			throw new ArgumentNullException(nameof(indicator));
+
+		try
+		{
+			// Create event handler
+			Action<IIndicatorValue, IIndicatorValue> handler = (input, result) =>
+			{
+				try
+				{
+					// Only capture when indicator is formed (has enough data)
+					if (!result.IsFormed)
+						return;
+
+					var dataPoint = new IndicatorDataPoint
+					{
+						Time = result.Time.ToUnixTimeMilliseconds(),
+						Value = (double)result.GetValue<decimal>()
+					};
+
+					// Capture with indicator-specific event type
+					CaptureIndicator(indicator.Name, dataPoint);
+				}
+				catch (Exception ex)
+				{
+					// Log error but don't crash strategy
+					_strategy?.LogError($"Error capturing indicator {indicator.Name}: {ex.Message}");
+				}
+			};
+
+			// Subscribe to Changed event
+			indicator.Changed += handler;
+
+			// Track subscription for cleanup
+			_indicatorSubscriptions.Add((indicator, handler));
+
+			_strategy?.LogDebug($"Subscribed to indicator: {indicator.Name}");
+		}
+		catch (Exception ex)
+		{
+			_strategy?.LogError($"Failed to subscribe to indicator {indicator.Name}: {ex.Message}");
+		}
+	}
+
+	/// <summary>
+	/// Automatically discovers and subscribes to all indicators in a collection.
+	/// This is called from CustomStrategyBase.OnStarted to capture all strategy indicators.
+	/// </summary>
+	/// <param name="indicators">Indicator collection from strategy</param>
+	public void SubscribeToIndicators(IEnumerable<IIndicator> indicators)
+	{
+		if (!IsInitialized || _disposed)
+			return;
+
+		if (indicators == null)
+			throw new ArgumentNullException(nameof(indicators));
+
+		try
+		{
+			var count = 0;
+			// Iterate through all indicators
+			foreach (var indicator in indicators)
+			{
+				SubscribeToIndicator(indicator);
+				count++;
+			}
+
+			_strategy?.LogInfo($"Subscribed to {count} indicators for debug mode");
+		}
+		catch (Exception ex)
+		{
+			_strategy?.LogError($"Error subscribing to indicators: {ex.Message}");
+		}
+	}
+
+	#endregion
+
+	#region Event Capture Methods
+
+	/// <summary>
+	/// Captures a candle update event from StockSharp candle message.
+	/// Automatically extracts OHLCV data and security identifier.
+	/// </summary>
+	/// <param name="candle">ICandleMessage from StockSharp</param>
+	/// <param name="securityId">Security identifier</param>
+	public void CaptureCandle(ICandleMessage candle, SecurityId securityId)
+	{
+		if (!IsInitialized || _disposed)
+			return;
+
+		if (candle == null)
+			throw new ArgumentNullException(nameof(candle));
+
+		try
+		{
+			var dataPoint = new CandleDataPoint
+			{
+				Time = candle.OpenTime.ToUnixTimeMilliseconds(),
+				Open = (double)candle.OpenPrice,
+				High = (double)candle.HighPrice,
+				Low = (double)candle.LowPrice,
+				Close = (double)candle.ClosePrice,
+				Volume = (double)candle.TotalVolume,
+				SecurityId = securityId.ToStringId(),
+				SequenceNumber = GetNextSequence()
+			};
+
+			_buffer!.Add("candle", dataPoint);
+		}
+		catch (Exception ex)
+		{
+			_strategy?.LogError($"Error capturing candle: {ex.Message}");
+		}
+	}
+
+	/// <summary>
+	/// Captures a candle data point directly (used by tests).
 	/// </summary>
 	/// <param name="candle">Candle data point to capture</param>
 	public void CaptureCandle(CandleDataPoint candle)
@@ -185,8 +326,9 @@ public class DebugModeExporter : IDisposable
 		if (candle == null)
 			throw new ArgumentNullException(nameof(candle));
 
-		// Set sequence number
-		candle.SequenceNumber = GetNextSequence();
+		// Set sequence number if not already set
+		if (candle.SequenceNumber == null)
+			candle.SequenceNumber = GetNextSequence();
 
 		// Add to buffer
 		_buffer!.Add("candle", candle);
