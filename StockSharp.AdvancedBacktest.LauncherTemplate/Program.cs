@@ -50,7 +50,18 @@ public class Program
                     EndDate = endDate
                 },
                 HistoryPath = historyPath,
-                MatchOnTouch = false
+                MatchOnTouch = false,
+                // Enable debug mode for real-time visualization
+                // JSONL file is written directly to frontend's public folder
+                // Open browser to http://localhost:3000/debug-mode to visualize
+                DebugMode = new DebugModeSettings
+                {
+                    Enabled = true,
+                    OutputDirectory = Path.GetFullPath(Path.Combine(
+                        AppContext.BaseDirectory,
+                        @"..\..\..\..\StockSharp.AdvancedBacktest.Web\public\debug-mode")),
+                    FlushIntervalMs = 500
+                }
             };
 
             // Create Strategy Instance

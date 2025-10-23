@@ -5,6 +5,7 @@ using StockSharp.Algo.Strategies;
 using StockSharp.Algo.Testing;
 using StockSharp.AdvancedBacktest.Models;
 using StockSharp.AdvancedBacktest.Statistics;
+using StockSharp.AdvancedBacktest.DebugMode;
 using StockSharp.Messages;
 using StockSharp.BusinessEntities;
 
@@ -24,6 +25,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
     private TaskCompletionSource<BacktestResult<TStrategy>>? _completionSource;
     private DateTimeOffset _startTime;
     private bool _disposed;
+    private DebugModeExporter? _debugExporter;
 
     public ILogReceiver? Logger { get; set; }
 
@@ -57,6 +59,14 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
             ConfigureConnector();
             SubscribeToEvents();
 
+            // Create and wire debug exporter if enabled
+            _debugExporter = CreateDebugExporter();
+            if (_debugExporter != null && _strategy is Strategies.CustomStrategyBase customStrategy)
+            {
+                customStrategy.DebugExporter = _debugExporter;
+                Logger?.AddInfoLog("Debug exporter wired to strategy");
+            }
+
             Logger?.AddInfoLog("Starting backtest...");
             _connector!.Connect();
             _connector.Start();
@@ -87,6 +97,28 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
             : $"Security={_strategy.Security!.Id}";
 
         Logger?.AddInfoLog($"Strategy validated: {securityInfo}, Portfolio={_strategy.Portfolio.Name}");
+    }
+
+    private DebugModeExporter? CreateDebugExporter()
+    {
+        if (_config.DebugMode?.Enabled != true)
+            return null;
+
+        var debugConfig = _config.DebugMode;
+        var outputPath = Path.Combine(
+            debugConfig.OutputDirectory,
+            "latest.jsonl"
+        );
+
+        // Create output directory if doesn't exist
+        Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+
+        Logger?.AddInfoLog($"Debug mode enabled. Output: {outputPath}");
+
+        return new DebugModeExporter(
+            outputPath: outputPath,
+            flushIntervalMs: debugConfig.FlushIntervalMs
+        );
     }
 
     private void ConfigureConnector()
@@ -249,6 +281,10 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
             {
                 _strategy.Error -= OnStrategyError;
             }
+
+            // Cleanup debug exporter
+            _debugExporter?.Dispose();
+            _debugExporter = null;
         }
         catch (Exception ex)
         {

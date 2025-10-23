@@ -5,5 +5,4 @@
   <Project Path="StockSharp.AdvancedBacktest.Tests/StockSharp.AdvancedBacktest.Tests.csproj" />
   <Project Path="StockSharp.AdvancedBacktest/StockSharp.AdvancedBacktest.csproj" />
   <Project Path="StockSharp.AdvancedBacktest.LauncherTemplate/StockSharp.AdvancedBacktest.LauncherTemplate.csproj" />
-  <Project Path="StockSharp.AdvancedBacktest.LauncherTemplate.Tests/StockSharp.AdvancedBacktest.LauncherTemplate.Tests.csproj" />
 </Solution>
