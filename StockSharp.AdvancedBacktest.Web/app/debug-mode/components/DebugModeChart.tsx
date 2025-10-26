@@ -22,7 +22,7 @@ import {
     Time,
     UTCTimestamp,
 } from 'lightweight-charts';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface Props {
     events: DebugModeEvent[];
@@ -58,11 +58,17 @@ export default function DebugModeChart({ events }: Props) {
     const indicatorSeriesRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
     const indicatorColorIndexRef = useRef<number>(0);
 
+    // Track indicator names for legend rendering
+    const [indicatorNames, setIndicatorNames] = useState<string[]>([]);
+
     // Pending updates for batching (requestAnimationFrame)
     const pendingCandlesRef = useRef<Map<number, CandleDataPoint>>(new Map());
     const pendingIndicatorsRef = useRef<Map<string, IndicatorDataPoint[]>>(new Map());
     const pendingMarkersRef = useRef<TradeDataPoint[]>([]);
     const rafIdRef = useRef<number | null>(null);
+
+    // Accumulated indicator history (persist across updates)
+    const indicatorHistoryRef = useRef<Map<string, Map<number, IndicatorDataPoint>>>(new Map());
 
     /**
      * Initialize chart on mount
@@ -135,6 +141,9 @@ export default function DebugModeChart({ events }: Props) {
 
         window.addEventListener('resize', handleResize);
 
+        // Capture refs for cleanup
+        const capturedIndicatorSeriesRef = indicatorSeriesRef;
+
         // Cleanup
         return () => {
             window.removeEventListener('resize', handleResize);
@@ -142,6 +151,12 @@ export default function DebugModeChart({ events }: Props) {
                 cancelAnimationFrame(rafIdRef.current);
             }
             chart.remove();
+
+            // Clear all series refs since chart is being destroyed
+            candleSeriesRef.current = null;
+            volumeSeriesRef.current = null;
+            capturedIndicatorSeriesRef.current.clear();
+            chartRef.current = null;
         };
     }, []);
 
@@ -197,7 +212,28 @@ export default function DebugModeChart({ events }: Props) {
 
         // Update indicators
         if (pendingIndicatorsRef.current.size > 0) {
+            console.log('[DebugModeChart] Flushing indicators:', pendingIndicatorsRef.current.size);
+
             for (const [indicatorName, points] of pendingIndicatorsRef.current.entries()) {
+                // Get or create indicator history map
+                let historyMap = indicatorHistoryRef.current.get(indicatorName);
+                if (!historyMap) {
+                    historyMap = new Map<number, IndicatorDataPoint>();
+                    indicatorHistoryRef.current.set(indicatorName, historyMap);
+                    console.log('[DebugModeChart] Created history map for indicator:', indicatorName);
+                }
+
+                // Add new points to history (by timestamp to avoid duplicates)
+                for (const point of points) {
+                    historyMap.set(point.time, point);
+                }
+
+                console.log('[DebugModeChart] Indicator history:', {
+                    name: indicatorName,
+                    totalPoints: historyMap.size,
+                    newPoints: points.length,
+                });
+
                 let series = indicatorSeriesRef.current.get(indicatorName);
 
                 // Create series if it doesn't exist
@@ -208,21 +244,38 @@ export default function DebugModeChart({ events }: Props) {
 
                     series = chartRef.current.addLineSeries({
                         color,
-                        lineWidth: 2,
+                        lineWidth: 3,
                         title: indicatorName,
                         priceLineVisible: false,
                         crosshairMarkerVisible: true,
+                        lastValueVisible: true,
+                        // Don't specify priceScaleId - use default (right) which is same as candles
                     });
 
                     indicatorSeriesRef.current.set(indicatorName, series);
+                    console.log('[DebugModeChart] Created line series for indicator:', indicatorName, 'with color:', color);
+
+                    // Update indicator names state to trigger legend re-render
+                    setIndicatorNames(Array.from(indicatorSeriesRef.current.keys()));
                 }
 
                 if (series) {
-                    // Convert to chart format
-                    const lineData: LineData[] = points.map((point) => ({
+                    // Convert accumulated history to chart format
+                    const allPoints = Array.from(historyMap.values());
+                    allPoints.sort((a, b) => a.time - b.time);
+
+                    const lineData: LineData[] = allPoints.map((point) => ({
                         time: toUTCTimestamp(point.time),
                         value: point.value,
                     }));
+
+                    console.log('[DebugModeChart] Setting indicator data:', {
+                        name: indicatorName,
+                        points: lineData.length,
+                        firstPoint: lineData[0],
+                        lastPoint: lineData[lineData.length - 1],
+                        sample: lineData.slice(0, 5),
+                    });
 
                     series.setData(lineData);
                 }
@@ -230,6 +283,11 @@ export default function DebugModeChart({ events }: Props) {
 
             // Clear pending indicators
             pendingIndicatorsRef.current.clear();
+
+            // Fit content after updating indicators to ensure they're visible
+            if (chartRef.current) {
+                chartRef.current.timeScale().fitContent();
+            }
         }
 
         // Update trade markers
@@ -307,6 +365,15 @@ export default function DebugModeChart({ events }: Props) {
                         const indicator = event.data as IndicatorDataPoint;
                         const indicatorName = event.type.replace('indicator_', '');
 
+                        // Debug logging
+                        if (indicatorMap.size === 0) {
+                            console.log('[DebugModeChart] First indicator event:', {
+                                type: event.type,
+                                indicatorName,
+                                data: indicator,
+                            });
+                        }
+
                         if (!indicatorMap.has(indicatorName)) {
                             indicatorMap.set(indicatorName, []);
                         }
@@ -320,6 +387,18 @@ export default function DebugModeChart({ events }: Props) {
         pendingCandlesRef.current = candleMap;
         pendingIndicatorsRef.current = indicatorMap;
         pendingMarkersRef.current = trades;
+
+        // Debug logging
+        if (indicatorMap.size > 0) {
+            console.log('[DebugModeChart] Pending indicators:', {
+                count: indicatorMap.size,
+                indicators: Array.from(indicatorMap.entries()).map(([name, points]) => ({
+                    name,
+                    pointCount: points.length,
+                    firstPoint: points[0],
+                })),
+            });
+        }
 
         // Schedule update
         scheduleUpdate();
@@ -342,11 +421,11 @@ export default function DebugModeChart({ events }: Props) {
             </div>
 
             {/* Indicator Legend */}
-            {indicatorSeriesRef.current.size > 0 && (
+            {indicatorNames.length > 0 && (
                 <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg shadow-md p-3">
                     <h3 className="text-sm font-semibold text-gray-800 mb-2">Indicators</h3>
                     <div className="space-y-2">
-                        {Array.from(indicatorSeriesRef.current.entries()).map(([name], index) => (
+                        {indicatorNames.map((name, index) => (
                             <div key={name} className="flex items-center gap-2">
                                 <div
                                     className="w-4 h-0.5 rounded-full"
