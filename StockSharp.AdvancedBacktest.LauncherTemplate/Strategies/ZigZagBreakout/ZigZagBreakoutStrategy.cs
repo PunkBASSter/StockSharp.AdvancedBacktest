@@ -32,8 +32,6 @@ public class ZigZagBreakout : CustomStrategyBase
 
     protected override void OnStarted(DateTimeOffset time)
     {
-        base.OnStarted(time);
-
         _config = new ZigZagBreakoutConfig
         {
             DzzDepth = GetParam<decimal>("DzzDepth"),
@@ -54,6 +52,13 @@ public class ZigZagBreakout : CustomStrategyBase
             Length = _config.JmaLength,
             Phase = _config.JmaPhase
         };
+
+        // Register indicators BEFORE calling base.OnStarted so debug mode can subscribe to them
+        Indicators.Add(_dzz);
+        Indicators.Add(_jma);
+
+        // Now call base to initialize debug mode with the indicators already registered
+        base.OnStarted(time);
 
         var timeframe = Securities.First().Value.First();
 
