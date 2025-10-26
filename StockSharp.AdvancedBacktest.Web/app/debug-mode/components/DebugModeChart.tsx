@@ -212,27 +212,18 @@ export default function DebugModeChart({ events }: Props) {
 
         // Update indicators
         if (pendingIndicatorsRef.current.size > 0) {
-            console.log('[DebugModeChart] Flushing indicators:', pendingIndicatorsRef.current.size);
-
             for (const [indicatorName, points] of pendingIndicatorsRef.current.entries()) {
                 // Get or create indicator history map
                 let historyMap = indicatorHistoryRef.current.get(indicatorName);
                 if (!historyMap) {
                     historyMap = new Map<number, IndicatorDataPoint>();
                     indicatorHistoryRef.current.set(indicatorName, historyMap);
-                    console.log('[DebugModeChart] Created history map for indicator:', indicatorName);
                 }
 
                 // Add new points to history (by timestamp to avoid duplicates)
                 for (const point of points) {
                     historyMap.set(point.time, point);
                 }
-
-                console.log('[DebugModeChart] Indicator history:', {
-                    name: indicatorName,
-                    totalPoints: historyMap.size,
-                    newPoints: points.length,
-                });
 
                 let series = indicatorSeriesRef.current.get(indicatorName);
 
@@ -253,7 +244,6 @@ export default function DebugModeChart({ events }: Props) {
                     });
 
                     indicatorSeriesRef.current.set(indicatorName, series);
-                    console.log('[DebugModeChart] Created line series for indicator:', indicatorName, 'with color:', color);
 
                     // Update indicator names state to trigger legend re-render
                     setIndicatorNames(Array.from(indicatorSeriesRef.current.keys()));
@@ -268,14 +258,6 @@ export default function DebugModeChart({ events }: Props) {
                         time: toUTCTimestamp(point.time),
                         value: point.value,
                     }));
-
-                    console.log('[DebugModeChart] Setting indicator data:', {
-                        name: indicatorName,
-                        points: lineData.length,
-                        firstPoint: lineData[0],
-                        lastPoint: lineData[lineData.length - 1],
-                        sample: lineData.slice(0, 5),
-                    });
 
                     series.setData(lineData);
                 }
@@ -365,15 +347,6 @@ export default function DebugModeChart({ events }: Props) {
                         const indicator = event.data as IndicatorDataPoint;
                         const indicatorName = event.type.replace('indicator_', '');
 
-                        // Debug logging
-                        if (indicatorMap.size === 0) {
-                            console.log('[DebugModeChart] First indicator event:', {
-                                type: event.type,
-                                indicatorName,
-                                data: indicator,
-                            });
-                        }
-
                         if (!indicatorMap.has(indicatorName)) {
                             indicatorMap.set(indicatorName, []);
                         }
@@ -387,18 +360,6 @@ export default function DebugModeChart({ events }: Props) {
         pendingCandlesRef.current = candleMap;
         pendingIndicatorsRef.current = indicatorMap;
         pendingMarkersRef.current = trades;
-
-        // Debug logging
-        if (indicatorMap.size > 0) {
-            console.log('[DebugModeChart] Pending indicators:', {
-                count: indicatorMap.size,
-                indicators: Array.from(indicatorMap.entries()).map(([name, points]) => ({
-                    name,
-                    pointCount: points.length,
-                    firstPoint: points[0],
-                })),
-            });
-        }
 
         // Schedule update
         scheduleUpdate();

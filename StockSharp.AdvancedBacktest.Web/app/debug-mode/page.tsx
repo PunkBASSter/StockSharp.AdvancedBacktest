@@ -40,14 +40,7 @@ export default function DebugModePage() {
 
     // Calculate event statistics
     const eventStats = useMemo(() => {
-        const stats = calculateEventStats(events);
-        console.log('[DebugModePage] Event stats:', stats);
-        console.log('[DebugModePage] Total events:', events.length);
-        if (events.length > 0) {
-            const indicatorEvents = events.filter(e => e.type.startsWith('indicator_'));
-            console.log('[DebugModePage] Indicator events sample:', indicatorEvents.slice(0, 3));
-        }
-        return stats;
+        return calculateEventStats(events);
     }, [events]);
 
     // Toggle polling
