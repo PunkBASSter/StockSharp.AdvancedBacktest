@@ -6,6 +6,13 @@
  */
 
 import {
+    CANDLE_COLORS,
+    formatTradeMarkerText,
+    getIndicatorColor,
+    getTradeMarkerConfig,
+    getVolumeColor,
+} from '@/lib/constants/chart-constants';
+import {
     CandleDataPoint,
     DebugModeEvent,
     IndicatorDataPoint,
@@ -30,18 +37,6 @@ interface Props {
 
 // Maximum candles to keep in memory for performance
 const MAX_CANDLE_HISTORY = 10000;
-
-// Indicator colors (cycle through these for multiple indicators)
-const INDICATOR_COLORS = [
-    '#2196F3', // Blue
-    '#FF9800', // Orange
-    '#4CAF50', // Green
-    '#9C27B0', // Purple
-    '#F44336', // Red
-    '#00BCD4', // Cyan
-    '#FFEB3B', // Yellow
-    '#795548', // Brown
-];
 
 /**
  * Convert Unix timestamp (milliseconds) to UTCTimestamp (seconds)
@@ -102,18 +97,18 @@ export default function DebugModeChart({ events }: Props) {
 
         // Add candlestick series
         const candleSeries = chart.addCandlestickSeries({
-            upColor: '#26a69a',
-            downColor: '#ef5350',
+            upColor: CANDLE_COLORS.UP,
+            downColor: CANDLE_COLORS.DOWN,
             borderVisible: false,
-            wickUpColor: '#26a69a',
-            wickDownColor: '#ef5350',
+            wickUpColor: CANDLE_COLORS.UP,
+            wickDownColor: CANDLE_COLORS.DOWN,
         });
 
         candleSeriesRef.current = candleSeries;
 
         // Add volume series
         const volumeSeries = chart.addHistogramSeries({
-            color: '#26a69a',
+            color: CANDLE_COLORS.UP,
             priceFormat: {
                 type: 'volume',
             },
@@ -199,7 +194,7 @@ export default function DebugModeChart({ events }: Props) {
                 return {
                     time: timestamp,
                     value: Number(candle.volume),
-                    color: candle.close >= candle.open ? '#26a69a80' : '#ef535080',
+                    color: getVolumeColor(candle.close, candle.open),
                 };
             });
 
@@ -229,8 +224,7 @@ export default function DebugModeChart({ events }: Props) {
 
                 // Create series if it doesn't exist
                 if (!series && chartRef.current) {
-                    const colorIndex = indicatorColorIndexRef.current % INDICATOR_COLORS.length;
-                    const color = INDICATOR_COLORS[colorIndex];
+                    const color = getIndicatorColor(indicatorColorIndexRef.current);
                     indicatorColorIndexRef.current++;
 
                     series = chartRef.current.addLineSeries({
@@ -275,13 +269,15 @@ export default function DebugModeChart({ events }: Props) {
         // Update trade markers
         if (pendingMarkersRef.current.length > 0 && candleSeriesRef.current) {
             const markers: SeriesMarker<Time>[] = pendingMarkersRef.current.map((trade) => {
-                const isBuy = trade.side === 'buy';
+                const markerConfig = getTradeMarkerConfig(trade.side);
                 return {
                     time: toUTCTimestamp(trade.time),
-                    position: (isBuy ? 'belowBar' : 'aboveBar') as 'belowBar' | 'aboveBar',
-                    color: isBuy ? '#2196F3' : '#F44336',
-                    shape: (isBuy ? 'arrowUp' : 'arrowDown') as 'arrowUp' | 'arrowDown',
-                    text: `${isBuy ? 'BUY' : 'SELL'} @ ${trade.price.toFixed(2)}`,
+                    position: markerConfig.position,
+                    color: markerConfig.color,
+                    shape: markerConfig.shape,
+                    text: formatTradeMarkerText(trade.side, trade.price),
+                    // Set the price level for the marker to appear at the actual trade price
+                    price: trade.price,
                 };
             });
 
@@ -391,7 +387,7 @@ export default function DebugModeChart({ events }: Props) {
                                 <div
                                     className="w-4 h-0.5 rounded-full"
                                     style={{
-                                        backgroundColor: INDICATOR_COLORS[index % INDICATOR_COLORS.length],
+                                        backgroundColor: getIndicatorColor(index),
                                     }}
                                 />
                                 <span className="text-sm font-medium text-gray-700">{name}</span>

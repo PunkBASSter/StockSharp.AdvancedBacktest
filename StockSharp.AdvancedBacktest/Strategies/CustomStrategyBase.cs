@@ -139,6 +139,9 @@ public abstract class CustomStrategyBase : Strategy, IIndicatorExportable
         {
             var connector = SafeGetConnector();
             connector.CandleReceived += OnCandleReceivedForDebug;
+
+            // Subscribe to trade events
+            OwnTradeReceived += OnOwnTradeReceivedForDebug;
         }
     }
 
@@ -147,13 +150,16 @@ public abstract class CustomStrategyBase : Strategy, IIndicatorExportable
     /// </summary>
     protected override void OnStopped()
     {
-        // Unsubscribe from candle events
+        // Unsubscribe from events
         if (DebugExporter != null)
         {
             try
             {
                 var connector = SafeGetConnector();
                 connector.CandleReceived -= OnCandleReceivedForDebug;
+
+                // Unsubscribe from trade events
+                OwnTradeReceived -= OnOwnTradeReceivedForDebug;
             }
             catch
             {
@@ -184,6 +190,34 @@ public abstract class CustomStrategyBase : Strategy, IIndicatorExportable
         catch (Exception ex)
         {
             this.LogError($"Error capturing candle for debug mode: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Handles trade received events for debug mode capture.
+    /// </summary>
+    private void OnOwnTradeReceivedForDebug(Subscription subscription, MyTrade trade)
+    {
+        if (DebugExporter == null || !DebugExporter.IsInitialized)
+            return;
+
+        try
+        {
+            var tradeDataPoint = new TradeDataPoint
+            {
+                Time = trade.Trade.ServerTime.ToUnixTimeMilliseconds(),
+                Price = (double)trade.Trade.Price,
+                Volume = (double)trade.Trade.Volume,
+                Side = trade.Order.Side == Sides.Buy ? "Buy" : "Sell",
+                PnL = (double)(trade.PnL ?? 0m),
+                OrderId = trade.Order.Id
+            };
+
+            DebugExporter.CaptureTrade(tradeDataPoint);
+        }
+        catch (Exception ex)
+        {
+            this.LogError($"Error capturing trade for debug mode: {ex.Message}");
         }
     }
 }
