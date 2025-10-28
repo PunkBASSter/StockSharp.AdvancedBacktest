@@ -26,6 +26,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
     private DateTimeOffset _startTime;
     private bool _disposed;
     private DebugModeExporter? _debugExporter;
+    private DebugWebAppLauncher? _webLauncher;
 
     public ILogReceiver? Logger { get; set; }
 
@@ -58,6 +59,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
             ValidateStrategy();
             ConfigureConnector();
             SubscribeToEvents();
+            await LaunchDebugWebServerAsync();
 
             // Create and wire debug exporter if enabled
             _debugExporter = CreateDebugExporter();
@@ -97,6 +99,40 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
             : $"Security={_strategy.Security!.Id}";
 
         Logger?.AddInfoLog($"Strategy validated: {securityInfo}, Portfolio={_strategy.Portfolio.Name}");
+    }
+
+    private async Task LaunchDebugWebServerAsync()
+    {
+        if (_config.DebugMode?.Enabled != true)
+            return;
+
+        var debugConfig = _config.DebugMode;
+        if (string.IsNullOrWhiteSpace(debugConfig.WebAppPath))
+        {
+            Logger?.AddInfoLog("Debug mode enabled but WebAppPath not configured. Skipping web server launch.");
+            return;
+        }
+
+        try
+        {
+            _webLauncher = new DebugWebAppLauncher(
+                webProjectPath: debugConfig.WebAppPath,
+                serverUrl: debugConfig.WebAppUrl,
+                debugPagePath: debugConfig.DebugPagePath);
+
+            Logger?.AddInfoLog($"Launching debug web server at {debugConfig.WebAppUrl}...");
+
+            var serverReady = await _webLauncher.EnsureServerRunningAndOpenAsync();
+            if (!serverReady)
+            {
+                Logger?.AddWarningLog("Debug web server could not be started. Continuing without live visualization.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger?.AddWarningLog($"Failed to launch debug web server: {ex.Message}. Continuing without live visualization.");
+            _webLauncher = null;
+        }
     }
 
     private DebugModeExporter? CreateDebugExporter()

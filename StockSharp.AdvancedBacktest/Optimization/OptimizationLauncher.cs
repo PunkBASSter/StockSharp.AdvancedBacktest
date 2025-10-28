@@ -23,7 +23,7 @@ public class OptimizationLauncher<TStrategy> : LauncherBase<TStrategy>
     private readonly PeriodConfig _trainingPeriod;
     private List<ICommissionRule> _commissionRules = new();
     private WalkForwardConfig? _walkForwardConfig;
-    private WalkForwardResult? _walkForwardResult;
+    //private WalkForwardResult? _walkForwardResult;
     public decimal InitialCapital { get; set; } = 10000m;
     private BaseOptimizer? _stockSharpOptimizer;
     private bool _bruteForce = true;

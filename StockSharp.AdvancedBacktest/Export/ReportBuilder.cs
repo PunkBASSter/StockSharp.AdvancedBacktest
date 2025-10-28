@@ -27,10 +27,30 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
     {
         _indicatorExporter = indicatorExporter ?? new IndicatorExporter(logger: null);
         _logger = logger;
-        _webTemplatePath = webTemplatePath ?? Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "..", "..", "..", "..",
-            "StockSharp.AdvancedBacktest.Web", "out");
+        _webTemplatePath = webTemplatePath ?? FindWebTemplatePath();
+    }
+
+    /// <summary>
+    /// Finds the web template path by searching upward from the base directory for the solution root
+    /// </summary>
+    private static string FindWebTemplatePath()
+    {
+        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        var currentDir = new DirectoryInfo(baseDir);
+
+        // Search upward for the solution root (directory containing .slnx file)
+        while (currentDir != null)
+        {
+            if (File.Exists(Path.Combine(currentDir.FullName, "StockSharp.AdvancedBacktest.slnx")))
+            {
+                // Found solution root
+                return Path.Combine(currentDir.FullName, "StockSharp.AdvancedBacktest.Web", "out");
+            }
+            currentDir = currentDir.Parent;
+        }
+
+        // Fallback to old relative path if solution root not found
+        return Path.Combine(baseDir, "..", "..", "..", "..", "StockSharp.AdvancedBacktest.Web", "out");
     }
 
     /// <summary>
