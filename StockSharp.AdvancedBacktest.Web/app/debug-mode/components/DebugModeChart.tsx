@@ -11,6 +11,7 @@ import {
     getIndicatorColor,
     getTradeMarkerConfig,
     getVolumeColor,
+    TRADE_PRICE_LINE,
 } from '@/lib/constants/chart-constants';
 import {
     CandleDataPoint,
@@ -52,6 +53,7 @@ export default function DebugModeChart({ events }: Props) {
     const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
     const indicatorSeriesRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
     const indicatorColorIndexRef = useRef<number>(0);
+    const tradePriceSeriesRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
 
     // Track indicator names for legend rendering
     const [indicatorNames, setIndicatorNames] = useState<string[]>([]);
@@ -138,6 +140,7 @@ export default function DebugModeChart({ events }: Props) {
 
         // Capture refs for cleanup
         const capturedIndicatorSeriesRef = indicatorSeriesRef;
+        const capturedTradePriceSeriesRef = tradePriceSeriesRef;
 
         // Cleanup
         return () => {
@@ -151,6 +154,7 @@ export default function DebugModeChart({ events }: Props) {
             candleSeriesRef.current = null;
             volumeSeriesRef.current = null;
             capturedIndicatorSeriesRef.current.clear();
+            capturedTradePriceSeriesRef.current.clear();
             chartRef.current = null;
         };
     }, []);
@@ -165,6 +169,15 @@ export default function DebugModeChart({ events }: Props) {
         if (!candleSeriesRef.current || !volumeSeriesRef.current) {
             rafIdRef.current = null;
             return;
+        }
+
+        // Calculate candle interval early for use in trade price lines
+        let candleInterval = 3600; // Default to 1 hour in seconds
+        if (pendingCandlesRef.current.size > 1) {
+            const candleArray = Array.from(pendingCandlesRef.current.values());
+            candleArray.sort((a, b) => a.time - b.time);
+            const intervalMs = candleArray[1].time - candleArray[0].time;
+            candleInterval = intervalMs / 1000; // Convert milliseconds to seconds
         }
 
         // Update candles
@@ -267,7 +280,7 @@ export default function DebugModeChart({ events }: Props) {
         }
 
         // Update trade markers
-        if (pendingMarkersRef.current.length > 0 && candleSeriesRef.current) {
+        if (pendingMarkersRef.current.length > 0 && candleSeriesRef.current && chartRef.current) {
             const markers: SeriesMarker<Time>[] = pendingMarkersRef.current.map((trade) => {
                 const markerConfig = getTradeMarkerConfig(trade.side);
                 return {
@@ -282,6 +295,42 @@ export default function DebugModeChart({ events }: Props) {
             });
 
             candleSeriesRef.current.setMarkers(markers);
+
+            // Add horizontal price lines for new trades (if not already created)
+            // Note: candleInterval was calculated at the beginning of flush function
+            for (const trade of pendingMarkersRef.current) {
+                // Use orderId or sequenceNumber as unique key to avoid duplicates
+                const tradeKey = trade.orderId?.toString() || trade.sequenceNumber?.toString() || `${trade.time}_${trade.price}`;
+
+                // Only create price line if it doesn't already exist
+                if (!tradePriceSeriesRef.current.has(tradeKey)) {
+                    const markerConfig = getTradeMarkerConfig(trade.side);
+
+                    // Create a short line series for this trade
+                    const tradePriceLine = chartRef.current.addLineSeries({
+                        color: markerConfig.color,
+                        lineWidth: TRADE_PRICE_LINE.LINE_WIDTH,
+                        lineStyle: TRADE_PRICE_LINE.LINE_STYLE,
+                        priceLineVisible: false,
+                        lastValueVisible: false,
+                        crosshairMarkerVisible: false,
+                    });
+
+                    // Calculate time window (only 1 candle after the trade)
+                    const tradeTimeSeconds = Math.floor(trade.time / 1000);
+                    const startTime = tradeTimeSeconds as UTCTimestamp;
+                    const endTime = (tradeTimeSeconds + candleInterval) as UTCTimestamp;
+
+                    // Create horizontal line segment at trade price (2 points: start and end)
+                    tradePriceLine.setData([
+                        { time: startTime, value: trade.price },
+                        { time: endTime, value: trade.price },
+                    ]);
+
+                    // Store the series to prevent duplicates
+                    tradePriceSeriesRef.current.set(tradeKey, tradePriceLine);
+                }
+            }
 
             // Clear pending markers
             pendingMarkersRef.current = [];

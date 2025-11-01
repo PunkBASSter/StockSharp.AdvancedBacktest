@@ -5,6 +5,7 @@ import {
     formatTradeMarkerText,
     getTradeMarkerConfig,
     getVolumeColor,
+    TRADE_PRICE_LINE,
 } from '@/lib/constants/chart-constants';
 import { ChartDataModel } from '@/types/chart-data';
 import { ColorType, createChart, UTCTimestamp } from 'lightweight-charts';
@@ -72,11 +73,40 @@ export default function CandlestickChart({ data }: Props) {
                     color: markerConfig.color,
                     shape: markerConfig.shape,
                     text: formatTradeMarkerText(trade.side, trade.price),
-                    // Set the price level for the marker to appear at the actual trade price
-                    price: trade.price,
                 };
             });
             candlestickSeries.setMarkers(markers);
+
+            // Add short horizontal price lines at each trade price to show exact levels
+            // We create a line series for each trade with points spanning ~5 candles
+            data.trades.forEach(trade => {
+                const markerConfig = getTradeMarkerConfig(trade.side);
+
+                // Create a short line series for this trade
+                const tradePriceLine = chart.addLineSeries({
+                    color: markerConfig.color,
+                    lineWidth: TRADE_PRICE_LINE.LINE_WIDTH,
+                    lineStyle: TRADE_PRICE_LINE.LINE_STYLE,
+                    priceLineVisible: false,
+                    lastValueVisible: false,
+                    crosshairMarkerVisible: false,
+                });
+
+                // Calculate time window (only 1 candle after the trade)
+                // Assuming candles are evenly spaced, calculate the interval
+                const candleInterval = candleData.length > 1
+                    ? (candleData[1].time as number) - (candleData[0].time as number)
+                    : 3600; // Default to 1 hour if only one candle
+
+                const startTime = trade.time as UTCTimestamp;
+                const endTime = (trade.time + candleInterval) as UTCTimestamp;
+
+                // Create horizontal line segment at trade price (2 points: start and end)
+                tradePriceLine.setData([
+                    { time: startTime, value: trade.price },
+                    { time: endTime, value: trade.price },
+                ]);
+            });
         }
 
         // Add volume series if volume data exists using v4 API

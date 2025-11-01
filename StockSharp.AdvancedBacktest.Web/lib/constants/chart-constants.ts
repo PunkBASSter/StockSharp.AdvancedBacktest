@@ -111,6 +111,33 @@ export const MARKER_SHAPE = {
 } as const;
 
 // ============================================================================
+// Price Line Configuration
+// ============================================================================
+
+/**
+ * Line styles for price lines (corresponds to LineStyle enum in lightweight-charts)
+ */
+export const PRICE_LINE_STYLE = {
+    SOLID: 0,
+    DOTTED: 1,
+    DASHED: 2,
+    LARGE_DASHED: 3,
+    SPARSE_DOTTED: 4,
+} as const;
+
+/**
+ * Price line configuration for trade markers
+ */
+export const TRADE_PRICE_LINE = {
+    /** Line width in pixels */
+    LINE_WIDTH: 1,
+    /** Line style (dashed for subtle appearance) */
+    LINE_STYLE: PRICE_LINE_STYLE.DASHED,
+    /** Axis label visibility */
+    AXIS_LABEL_VISIBLE: false,
+} as const;
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 
