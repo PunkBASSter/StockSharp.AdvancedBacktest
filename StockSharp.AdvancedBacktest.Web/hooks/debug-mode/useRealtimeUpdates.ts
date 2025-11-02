@@ -23,8 +23,8 @@ export interface UseRealtimeUpdatesResult {
 }
 
 const POLL_INTERVAL_MS = 500; // Match backend flush interval
-const MAX_RETRY_ATTEMPTS = 3;
-const RETRY_BACKOFF_MS = 1000; // Initial backoff, doubles each retry
+const MAX_RETRY_ATTEMPTS = Infinity; // Never stop polling - keep trying forever
+const RETRY_BACKOFF_MS = 1000; // Initial backoff, doubles each retry (currently unused)
 
 /**
  * Hook for real-time JSONL file updates using HTTP Range headers
@@ -132,12 +132,12 @@ export function useRealtimeUpdates(filePath: string): UseRealtimeUpdatesResult {
             } else if (response.status === 416) {
                 // Range Not Satisfiable - file hasn't grown yet
                 // This is normal, not an error
+                retryCountRef.current = 0;
                 setError(null);
             } else if (response.status === 404) {
-                // File not found - might not exist yet
-                if (retryCountRef.current === 0) {
-                    setError('File not found. Waiting for backtest to start...');
-                }
+                // File not found - might not exist yet, keep polling
+                setError('File not found. Waiting for backtest to start...');
+                // Don't reset retry count for 404s - file might appear soon
             } else if (response.status === 200) {
                 // Full content returned (server doesn't support Range)
                 // Fall back to reading entire file
@@ -156,6 +156,10 @@ export function useRealtimeUpdates(filePath: string): UseRealtimeUpdatesResult {
 
                 // Track file size for next request
                 lastByteReadRef.current = text.length;
+
+                // Reset retry count on success
+                retryCountRef.current = 0;
+                setError(null);
             } else {
                 throw new Error(`Unexpected response status: ${response.status}`);
             }
@@ -165,16 +169,15 @@ export function useRealtimeUpdates(filePath: string): UseRealtimeUpdatesResult {
                 return;
             }
 
-            // Handle other errors with retry logic
+            // Handle other errors with retry logic (but never stop polling)
             retryCountRef.current++;
 
-            if (retryCountRef.current >= MAX_RETRY_ATTEMPTS) {
-                const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-                setError(`Failed to poll file after ${MAX_RETRY_ATTEMPTS} attempts: ${errorMessage}`);
-                setIsPolling(false); // Stop polling after max retries
-            } else {
-                console.warn(`Poll attempt ${retryCountRef.current} failed, retrying...`, err);
-            }
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+
+            // Show transient error message but keep polling active
+            setError(`Polling error (attempt ${retryCountRef.current}): ${errorMessage}. Retrying...`);
+
+            console.warn(`Poll attempt ${retryCountRef.current} failed, retrying...`, err);
         }
     }, [filePath, isPolling]);
 
