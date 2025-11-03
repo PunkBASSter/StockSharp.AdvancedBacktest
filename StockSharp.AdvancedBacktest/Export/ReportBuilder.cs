@@ -17,16 +17,16 @@ namespace StockSharp.AdvancedBacktest.Export;
 public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new()
 {
     private readonly ILogger<ReportBuilder<TStrategy>>? _logger;
-    private readonly IIndicatorExporter _indicatorExporter;
+    private readonly BacktestExporter _backtestExporter;
     private readonly string _webTemplatePath;
 
     public ReportBuilder(
-        IIndicatorExporter? indicatorExporter = null,
+        BacktestExporter? backtestExporter = null,
         ILogger<ReportBuilder<TStrategy>>? logger = null,
         string? webTemplatePath = null)
     {
-        _indicatorExporter = indicatorExporter ?? new IndicatorExporter(logger: null);
         _logger = logger;
+        _backtestExporter = backtestExporter ?? new BacktestExporter(logger: null);
         _webTemplatePath = webTemplatePath ?? FindWebTemplatePath();
     }
 
@@ -203,18 +203,25 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
 
     private List<IndicatorDataSeries> ExtractIndicatorData(CustomStrategyBase strategy)
     {
-        if (strategy is IIndicatorExportable exportable)
-        {
-            _logger?.LogDebug("Extracting indicator data from {StrategyType}", strategy.GetType().Name);
+        _logger?.LogDebug("Extracting indicator data from {StrategyType}", strategy.GetType().Name);
 
-            // Inject the indicator exporter into the strategy
-            strategy.IndicatorExporter = _indicatorExporter;
+        // Extract candle interval from strategy configuration
+        var candleInterval = ExtractCandleInterval(strategy);
 
-            return exportable.GetIndicatorSeries();
-        }
+        // Use BacktestExporter to extract indicators directly
+        var indicators = _backtestExporter.ExtractIndicators(strategy.Indicators, candleInterval);
 
-        _logger?.LogDebug("Strategy {StrategyType} does not implement IIndicatorExportable", strategy.GetType().Name);
-        return new List<IndicatorDataSeries>();
+        _logger?.LogDebug("Extracted {Count} indicator series from strategy", indicators.Count);
+        return indicators;
+    }
+
+    private TimeSpan? ExtractCandleInterval(CustomStrategyBase strategy)
+    {
+        var firstSecurity = strategy.Securities.FirstOrDefault();
+        var candleInterval = firstSecurity.Value?.FirstOrDefault();
+
+        _logger?.LogDebug("Extracted candle interval: {Interval}", candleInterval);
+        return candleInterval;
     }
 
     private async Task<List<string>> ExportIndicatorsToFilesAsync(List<IndicatorDataSeries> indicators, string outputPath)
