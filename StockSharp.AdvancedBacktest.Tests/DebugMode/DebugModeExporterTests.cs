@@ -59,9 +59,24 @@ public class DebugModeExporterTests : IDisposable
         return path;
     }
 
-    // Mock strategy for testing
     private class TestStrategy : CustomStrategyBase
     {
+    }
+
+    private class TestIndicator : StockSharp.Algo.Indicators.BaseIndicator
+    {
+        protected override StockSharp.Algo.Indicators.IIndicatorValue OnProcess(StockSharp.Algo.Indicators.IIndicatorValue input)
+        {
+            return input;
+        }
+    }
+
+    private class TestIndicatorValue : StockSharp.Algo.Indicators.SingleIndicatorValue<decimal>
+    {
+        public TestIndicatorValue(StockSharp.Algo.Indicators.IIndicator indicator, decimal value, DateTimeOffset time)
+            : base(indicator, value, time)
+        {
+        }
     }
 
     #region Lifecycle Tests
@@ -786,6 +801,180 @@ public class DebugModeExporterTests : IDisposable
             TotalVolume = 1000,
             State = Messages.CandleStates.Finished
         };
+    }
+
+    #endregion
+
+    #region Shift-Aware Indicator Export Tests
+
+    [Fact]
+    public void GetAdjustedIndicatorTimestamp_WithShiftedValue_ReturnsAdjustedTime()
+    {
+        var filePath = GetTestFilePath();
+        using var exporter = new DebugModeExporter(filePath);
+        var strategy = new TestStrategy();
+        exporter.Initialize(strategy, TimeSpan.FromHours(1));
+
+        var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
+        var shift = 5;
+        var indicator = new TestIndicator();
+        var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(
+            indicator, 8300m, shift, currentTime, true);
+
+        var adjustedTime = exporter.GetAdjustedIndicatorTimestamp(indicatorValue, currentTime);
+
+        var expectedTime = new DateTimeOffset(2025, 1, 1, 16, 0, 0, TimeSpan.Zero);
+        Assert.Equal(expectedTime, adjustedTime);
+
+        exporter.Cleanup();
+    }
+
+    [Fact]
+    public void GetAdjustedIndicatorTimestamp_WithoutInterval_ReturnsFallback()
+    {
+        var filePath = GetTestFilePath();
+        using var exporter = new DebugModeExporter(filePath);
+        var strategy = new TestStrategy();
+        exporter.Initialize(strategy);
+
+        var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
+        var indicator = new TestIndicator();
+        var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(
+            indicator, 8300m, 5, currentTime, true);
+
+        var adjustedTime = exporter.GetAdjustedIndicatorTimestamp(indicatorValue, currentTime);
+
+        Assert.Equal(currentTime, adjustedTime);
+
+        exporter.Cleanup();
+    }
+
+    [Fact]
+    public void GetAdjustedIndicatorTimestamp_WithNonShiftedValue_ReturnsOriginalTime()
+    {
+        var filePath = GetTestFilePath();
+        using var exporter = new DebugModeExporter(filePath);
+        var strategy = new TestStrategy();
+        exporter.Initialize(strategy, TimeSpan.FromHours(1));
+
+        var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
+        var indicator = new TestIndicator();
+        var indicatorValue = new TestIndicatorValue(indicator, 8300m, currentTime);
+
+        var adjustedTime = exporter.GetAdjustedIndicatorTimestamp(indicatorValue, currentTime);
+
+        Assert.Equal(currentTime, adjustedTime);
+
+        exporter.Cleanup();
+    }
+
+    [Fact]
+    public void GetAdjustedIndicatorTimestamp_WithZeroShift_ReturnsOriginalTime()
+    {
+        var filePath = GetTestFilePath();
+        using var exporter = new DebugModeExporter(filePath);
+        var strategy = new TestStrategy();
+        exporter.Initialize(strategy, TimeSpan.FromHours(1));
+
+        var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
+        var indicator = new TestIndicator();
+        var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(
+            indicator, 8300m, 0, currentTime, true);
+
+        var adjustedTime = exporter.GetAdjustedIndicatorTimestamp(indicatorValue, currentTime);
+
+        Assert.Equal(currentTime, adjustedTime);
+
+        exporter.Cleanup();
+    }
+
+    [Fact]
+    public void CreateIndicatorDataPoint_WithShiftedValue_CreatesCorrectDataPoint()
+    {
+        var filePath = GetTestFilePath();
+        using var exporter = new DebugModeExporter(filePath);
+        var strategy = new TestStrategy();
+        exporter.Initialize(strategy, TimeSpan.FromHours(1));
+
+        var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
+        var shift = 5;
+        var value = 8300m;
+        var indicator = new TestIndicator();
+        var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(
+            indicator, value, shift, currentTime, true);
+        indicatorValue.IsFormed = true;
+
+        var dataPoint = exporter.CreateIndicatorDataPoint(indicatorValue);
+
+        Assert.NotNull(dataPoint);
+        var expectedTime = new DateTimeOffset(2025, 1, 1, 16, 0, 0, TimeSpan.Zero);
+        Assert.Equal(expectedTime.ToUnixTimeMilliseconds(), dataPoint.Time);
+        Assert.Equal((double)value, dataPoint.Value);
+        Assert.NotNull(dataPoint.SequenceNumber);
+
+        exporter.Cleanup();
+    }
+
+    [Fact]
+    public void CreateIndicatorDataPoint_WithEmptyValue_ReturnsNull()
+    {
+        var filePath = GetTestFilePath();
+        using var exporter = new DebugModeExporter(filePath);
+        var strategy = new TestStrategy();
+        exporter.Initialize(strategy, TimeSpan.FromHours(1));
+
+        var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
+        var indicator = new TestIndicator();
+        var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(indicator, currentTime);
+
+        var dataPoint = exporter.CreateIndicatorDataPoint(indicatorValue);
+
+        Assert.Null(dataPoint);
+
+        exporter.Cleanup();
+    }
+
+    [Fact]
+    public void CreateIndicatorDataPoint_WithZeroValue_ReturnsNull()
+    {
+        var filePath = GetTestFilePath();
+        using var exporter = new DebugModeExporter(filePath);
+        var strategy = new TestStrategy();
+        exporter.Initialize(strategy, TimeSpan.FromHours(1));
+
+        var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
+        var indicator = new TestIndicator();
+        var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(
+            indicator, 0m, 0, currentTime, true);
+
+        var dataPoint = exporter.CreateIndicatorDataPoint(indicatorValue);
+
+        Assert.Null(dataPoint);
+
+        exporter.Cleanup();
+    }
+
+    [Fact]
+    public void CreateIndicatorDataPoint_WithNormalValue_CreatesDataPoint()
+    {
+        var filePath = GetTestFilePath();
+        using var exporter = new DebugModeExporter(filePath);
+        var strategy = new TestStrategy();
+        exporter.Initialize(strategy, TimeSpan.FromHours(1));
+
+        var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
+        var value = 8300m;
+        var indicator = new TestIndicator();
+        var indicatorValue = new TestIndicatorValue(indicator, value, currentTime);
+        indicatorValue.IsFormed = true;
+
+        var dataPoint = exporter.CreateIndicatorDataPoint(indicatorValue);
+
+        Assert.NotNull(dataPoint);
+        Assert.Equal(currentTime.ToUnixTimeMilliseconds(), dataPoint.Time);
+        Assert.Equal((double)value, dataPoint.Value);
+
+        exporter.Cleanup();
     }
 
     #endregion

@@ -2,6 +2,7 @@ using System.Threading;
 using System.Collections.Generic;
 using StockSharp.AdvancedBacktest.Export;
 using StockSharp.AdvancedBacktest.Strategies;
+using StockSharp.AdvancedBacktest.Utilities;
 using StockSharp.Algo.Indicators;
 using StockSharp.Messages;
 
@@ -218,7 +219,45 @@ public class DebugModeExporter : IDisposable
         return Interlocked.Increment(ref _sequenceNumber);
     }
 
+
     #region Indicator Subscription Methods
+
+    public DateTimeOffset GetAdjustedIndicatorTimestamp(IIndicatorValue value, DateTimeOffset fallbackTime)
+    {
+        if (value == null)
+            return fallbackTime;
+
+        if (IndicatorValueHelper.TryGetShift(value, out int shift) && shift > 0)
+        {
+            if (_candleInterval.HasValue)
+            {
+                var adjustedTime = IndicatorValueHelper.GetAdjustedTimestamp(value, _candleInterval);
+                _strategy?.LogDebug($"Adjusted indicator timestamp: {value.Time} - {shift} candles = {adjustedTime}");
+                return adjustedTime;
+            }
+            else
+            {
+                _strategy?.LogWarning($"Cannot apply shift correction: candle interval not yet detected (shift={shift})");
+                return value.Time;
+            }
+        }
+
+        return value.Time;
+    }
+
+    public IndicatorDataPoint? CreateIndicatorDataPoint(IIndicatorValue value)
+    {
+        if (value == null)
+            return null;
+
+        if (!IndicatorValueHelper.ShouldExport(value))
+            return null;
+
+        var dataPoint = IndicatorValueHelper.ToDataPoint(value, _candleInterval);
+        dataPoint.SequenceNumber = GetNextSequence();
+
+        return dataPoint;
+    }
 
     /// <summary>
     /// Subscribes to an indicator's Changed event for automatic value capture.
@@ -240,22 +279,15 @@ public class DebugModeExporter : IDisposable
             {
                 try
                 {
-                    // Only capture when indicator is formed (has enough data)
-                    if (!result.IsFormed)
-                        return;
+                    var dataPoint = CreateIndicatorDataPoint(result);
 
-                    var dataPoint = new IndicatorDataPoint
+                    if (dataPoint != null)
                     {
-                        Time = result.Time.ToUnixTimeMilliseconds(),
-                        Value = (double)result.GetValue<decimal>()
-                    };
-
-                    // Capture with indicator-specific event type
-                    CaptureIndicator(indicator.Name, dataPoint);
+                        CaptureIndicator(indicator.Name, dataPoint);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    // Log error but don't crash strategy
                     _strategy?.LogError($"Error capturing indicator {indicator.Name}: {ex.Message}");
                 }
             };
