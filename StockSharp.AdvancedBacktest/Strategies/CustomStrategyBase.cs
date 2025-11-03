@@ -6,7 +6,6 @@ using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.AdvancedBacktest.Statistics;
 using StockSharp.AdvancedBacktest.Utilities;
 using StockSharp.AdvancedBacktest.Export;
-using StockSharp.AdvancedBacktest.DebugMode;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -37,13 +36,6 @@ public abstract class CustomStrategyBase : Strategy, IIndicatorExportable
     /// Set this property before calling GetIndicatorSeries()
     /// </summary>
     public IIndicatorExporter? IndicatorExporter { get; set; }
-
-    /// <summary>
-    /// Optional debug mode exporter for real-time event capture during backtest.
-    /// When set, automatically captures candles, indicators, trades, and state changes to JSONL files.
-    /// Enables live visualization of strategy execution in browser.
-    /// </summary>
-    public DebugModeExporter? DebugExporter { get; set; }
 
     /// <summary>
     /// Default implementation: automatically extracts all indicators from Strategy.Indicators collection
@@ -122,102 +114,4 @@ public abstract class CustomStrategyBase : Strategy, IIndicatorExportable
 
     //TODO handle more elegantly, now it serves as a temp param storage
     public List<ICustomParam> ParamsBackup { get; set; } = [];
-
-    /// <summary>
-    /// Called when strategy starts. Initializes debug mode if DebugExporter is configured.
-    /// </summary>
-    protected override void OnStarted(DateTimeOffset time)
-    {
-        base.OnStarted(time);
-
-        // Initialize debug exporter if configured
-        DebugExporter?.Initialize(this);
-        DebugExporter?.SubscribeToIndicators(Indicators);
-
-        // Subscribe to candle events for debug mode
-        if (DebugExporter != null && DebugExporter.IsInitialized)
-        {
-            var connector = SafeGetConnector();
-            connector.CandleReceived += OnCandleReceivedForDebug;
-
-            // Subscribe to trade events
-            OwnTradeReceived += OnOwnTradeReceivedForDebug;
-        }
-    }
-
-    /// <summary>
-    /// Called when strategy stops. Performs debug mode cleanup.
-    /// </summary>
-    protected override void OnStopped()
-    {
-        // Unsubscribe from events
-        if (DebugExporter != null)
-        {
-            try
-            {
-                var connector = SafeGetConnector();
-                connector.CandleReceived -= OnCandleReceivedForDebug;
-
-                // Unsubscribe from trade events
-                OwnTradeReceived -= OnOwnTradeReceivedForDebug;
-            }
-            catch
-            {
-                // Ignore errors during cleanup
-            }
-        }
-
-        // Cleanup debug exporter
-        DebugExporter?.Cleanup();
-
-        base.OnStopped();
-    }
-
-    /// <summary>
-    /// Handles candle received events for debug mode capture.
-    /// </summary>
-    private void OnCandleReceivedForDebug(Subscription subscription, ICandleMessage candle)
-    {
-        if (DebugExporter == null || !DebugExporter.IsInitialized)
-            return;
-
-        try
-        {
-            // Get security ID from subscription or use first security
-            var securityId = subscription?.SecurityId ?? Securities.Keys.FirstOrDefault()?.ToSecurityId() ?? default;
-            DebugExporter.CaptureCandle(candle, securityId);
-        }
-        catch (Exception ex)
-        {
-            this.LogError($"Error capturing candle for debug mode: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Handles trade received events for debug mode capture.
-    /// </summary>
-    private void OnOwnTradeReceivedForDebug(Subscription subscription, MyTrade trade)
-    {
-        if (DebugExporter == null || !DebugExporter.IsInitialized)
-            return;
-
-        try
-        {
-            var tradeDataPoint = new TradeDataPoint
-            {
-                Time = trade.Trade.ServerTime.ToUnixTimeMilliseconds(),
-                Price = (double)trade.Trade.Price,
-                Volume = (double)trade.Trade.Volume,
-                Side = trade.Order.Side == Sides.Buy ? "Buy" : "Sell",
-                PnL = (double)(trade.PnL ?? 0m),
-                OrderId = trade.Order.Id
-            };
-
-            DebugExporter.CaptureTrade(tradeDataPoint);
-        }
-        catch (Exception ex)
-        {
-            this.LogError($"Error capturing trade for debug mode: {ex.Message}");
-        }
-    }
 }

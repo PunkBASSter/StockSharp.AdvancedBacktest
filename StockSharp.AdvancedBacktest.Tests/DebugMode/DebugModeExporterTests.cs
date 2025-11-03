@@ -7,6 +7,7 @@ using StockSharp.AdvancedBacktest.Export;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.BusinessEntities;
+using StockSharp.Messages;
 
 namespace StockSharp.AdvancedBacktest.Tests.DebugMode;
 
@@ -616,6 +617,175 @@ public class DebugModeExporterTests : IDisposable
 
         // Assert
         Assert.False(exporter.IsInitialized);
+    }
+
+    #endregion
+
+    #region Candle Interval Detection Tests
+
+    [Fact]
+    public void CandleInterval_BeforeFirstCandle_ReturnsNull()
+    {
+        // Arrange
+        var filePath = GetTestFilePath();
+        using var exporter = new DebugModeExporter(filePath);
+        var strategy = new TestStrategy();
+        exporter.Initialize(strategy);
+
+        // Assert
+        Assert.Null(exporter.CandleInterval);
+
+        exporter.Cleanup();
+    }
+
+    [Fact]
+    public void CandleInterval_AfterOneCandle_ReturnsNull()
+    {
+        // Arrange
+        var filePath = GetTestFilePath();
+        using var exporter = new DebugModeExporter(filePath);
+        var strategy = new TestStrategy();
+        exporter.Initialize(strategy);
+
+        // Act
+        var candle = CreateCandleMessage(DateTimeOffset.UtcNow);
+        exporter.CaptureCandle(candle, new Messages.SecurityId { SecurityCode = "TEST" });
+
+        // Assert
+        Assert.Null(exporter.CandleInterval);
+
+        exporter.Cleanup();
+    }
+
+    [Fact]
+    public void CandleInterval_AfterTwoCandles_DetectsInterval()
+    {
+        // Arrange
+        var filePath = GetTestFilePath();
+        using var exporter = new DebugModeExporter(filePath);
+        var strategy = new TestStrategy();
+        exporter.Initialize(strategy);
+
+        var time1 = DateTimeOffset.UtcNow;
+        var time2 = time1.AddHours(1);
+
+        // Act
+        exporter.CaptureCandle(CreateCandleMessage(time1), new Messages.SecurityId { SecurityCode = "TEST" });
+        exporter.CaptureCandle(CreateCandleMessage(time2), new Messages.SecurityId { SecurityCode = "TEST" });
+
+        // Assert
+        Assert.NotNull(exporter.CandleInterval);
+        Assert.Equal(TimeSpan.FromHours(1), exporter.CandleInterval.Value);
+
+        exporter.Cleanup();
+    }
+
+    [Fact]
+    public void CandleInterval_WithExplicitInterval_UsesConfigured()
+    {
+        // Arrange
+        var filePath = GetTestFilePath();
+        using var exporter = new DebugModeExporter(filePath);
+        var strategy = new TestStrategy();
+        var configuredInterval = TimeSpan.FromMinutes(5);
+
+        // Act
+        exporter.Initialize(strategy, configuredInterval);
+
+        // Assert
+        Assert.Equal(configuredInterval, exporter.CandleInterval);
+
+        exporter.Cleanup();
+    }
+
+    [Fact]
+    public void CandleInterval_ExplicitMatchesDetected_NoWarning()
+    {
+        // Arrange
+        var filePath = GetTestFilePath();
+        using var exporter = new DebugModeExporter(filePath);
+        var strategy = new TestStrategy();
+        var interval = TimeSpan.FromHours(1);
+
+        exporter.Initialize(strategy, interval);
+
+        var time1 = DateTimeOffset.UtcNow;
+        var time2 = time1.Add(interval);
+
+        // Act - Capture matching interval
+        exporter.CaptureCandle(CreateCandleMessage(time1), new Messages.SecurityId { SecurityCode = "TEST" });
+        exporter.CaptureCandle(CreateCandleMessage(time2), new Messages.SecurityId { SecurityCode = "TEST" });
+
+        // Assert - Should not change from configured value
+        Assert.Equal(interval, exporter.CandleInterval);
+
+        exporter.Cleanup();
+    }
+
+    [Fact]
+    public void CandleInterval_AfterCleanup_ResetsToNull()
+    {
+        // Arrange
+        var filePath = GetTestFilePath();
+        using var exporter = new DebugModeExporter(filePath);
+        var strategy = new TestStrategy();
+        exporter.Initialize(strategy);
+
+        var time1 = DateTimeOffset.UtcNow;
+        var time2 = time1.AddMinutes(5);
+
+        exporter.CaptureCandle(CreateCandleMessage(time1), new Messages.SecurityId { SecurityCode = "TEST" });
+        exporter.CaptureCandle(CreateCandleMessage(time2), new Messages.SecurityId { SecurityCode = "TEST" });
+
+        Assert.NotNull(exporter.CandleInterval);
+
+        // Act
+        exporter.Cleanup();
+
+        // Assert
+        Assert.Null(exporter.CandleInterval);
+    }
+
+    [Fact]
+    public void CandleInterval_MultipleTimeframes_DetectsFirst()
+    {
+        // Arrange
+        var filePath = GetTestFilePath();
+        using var exporter = new DebugModeExporter(filePath);
+        var strategy = new TestStrategy();
+        exporter.Initialize(strategy);
+
+        var baseTime = DateTimeOffset.UtcNow;
+
+        // Act - Send 1-hour candles
+        exporter.CaptureCandle(CreateCandleMessage(baseTime), new Messages.SecurityId { SecurityCode = "TEST" });
+        exporter.CaptureCandle(CreateCandleMessage(baseTime.AddHours(1)), new Messages.SecurityId { SecurityCode = "TEST" });
+
+        var detectedInterval = exporter.CandleInterval;
+
+        // Then send different interval (should keep first detected)
+        exporter.CaptureCandle(CreateCandleMessage(baseTime.AddHours(2)), new Messages.SecurityId { SecurityCode = "TEST" });
+
+        // Assert
+        Assert.Equal(TimeSpan.FromHours(1), detectedInterval);
+
+        exporter.Cleanup();
+    }
+
+    // Helper method to create candle messages
+    private Messages.ICandleMessage CreateCandleMessage(DateTimeOffset time)
+    {
+        return new Messages.TimeFrameCandleMessage
+        {
+            OpenTime = time,
+            CloseTime = time.AddHours(1),
+            OpenPrice = 100,
+            HighPrice = 105,
+            LowPrice = 99,
+            ClosePrice = 103,
+            TotalVolume = 1000,
+            State = Messages.CandleStates.Finished
+        };
     }
 
     #endregion

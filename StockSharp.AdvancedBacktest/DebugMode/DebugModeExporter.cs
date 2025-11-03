@@ -24,6 +24,11 @@ public class DebugModeExporter : IDisposable
     private bool _disposed;
     private readonly List<(IIndicator indicator, Action<IIndicatorValue, IIndicatorValue> handler)> _indicatorSubscriptions = new();
 
+    // Candle interval tracking for shift-aware indicator export
+    private TimeSpan? _candleInterval;           // Detected or configured interval
+    private DateTimeOffset? _lastCandleTime;     // Last candle timestamp for auto-detection
+    private TimeSpan? _configuredInterval;       // Explicitly provided interval (optional)
+
     /// <summary>
     /// Creates a new debug mode exporter.
     /// </summary>
@@ -62,6 +67,13 @@ public class DebugModeExporter : IDisposable
     public long CurrentSequence => Interlocked.Read(ref _sequenceNumber);
 
     /// <summary>
+    /// Detected or configured candle interval.
+    /// Null until at least 2 candles have been captured or interval was explicitly set during initialization.
+    /// Used for calculating correct timestamps for shifted indicators (e.g., ZigZag extrema).
+    /// </summary>
+    public TimeSpan? CandleInterval => _candleInterval;
+
+    /// <summary>
     /// Initializes debug mode hooks for the given strategy.
     /// Sets up event buffer, file writer, and event subscriptions.
     /// </summary>
@@ -91,6 +103,26 @@ public class DebugModeExporter : IDisposable
         _writer = new FileBasedWriter(_outputPath);
 
         _strategy.LogInfo($"Debug mode initialized. Output: {_outputPath}, Flush interval: {_flushIntervalMs}ms");
+    }
+
+    /// <summary>
+    /// Initializes debug mode hooks for the given strategy with optional candle interval.
+    /// If candle interval is provided, it will be used immediately and validated against auto-detected intervals.
+    /// </summary>
+    /// <param name="strategy">Strategy to attach debug mode to</param>
+    /// <param name="candleInterval">Optional candle interval for validation (e.g., TimeSpan.FromHours(1))</param>
+    public void Initialize(CustomStrategyBase strategy, TimeSpan? candleInterval)
+    {
+        // Call base initialization
+        Initialize(strategy);
+
+        // Store and use configured interval if provided
+        if (candleInterval.HasValue)
+        {
+            _configuredInterval = candleInterval.Value;
+            _candleInterval = candleInterval.Value;
+            _strategy?.LogInfo($"Debug mode: Candle interval configured to {candleInterval.Value}");
+        }
     }
 
     /// <summary>
@@ -147,6 +179,11 @@ public class DebugModeExporter : IDisposable
                 }
             }
             _indicatorSubscriptions.Clear();
+
+            // Reset interval tracking
+            _candleInterval = null;
+            _lastCandleTime = null;
+            _configuredInterval = null;
 
             // Unsubscribe from buffer events
             if (_buffer != null)
@@ -288,6 +325,25 @@ public class DebugModeExporter : IDisposable
 
         try
         {
+            // Auto-detect candle interval from consecutive candles
+            if (_lastCandleTime.HasValue)
+            {
+                var detectedInterval = candle.OpenTime - _lastCandleTime.Value;
+
+                // If no interval set yet, use detected value
+                if (!_candleInterval.HasValue)
+                {
+                    _candleInterval = detectedInterval;
+                    _strategy?.LogDebug($"Auto-detected candle interval: {detectedInterval}");
+                }
+                // If configured interval exists, validate detection matches
+                else if (_configuredInterval.HasValue && _candleInterval.Value != detectedInterval)
+                {
+                    _strategy?.LogWarning($"Detected candle interval ({detectedInterval}) differs from configured interval ({_configuredInterval.Value})");
+                }
+            }
+            _lastCandleTime = candle.OpenTime;
+
             var dataPoint = new CandleDataPoint
             {
                 Time = candle.OpenTime.ToUnixTimeMilliseconds(),

@@ -61,12 +61,20 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
             SubscribeToEvents();
             await LaunchDebugWebServerAsync();
 
-            // Create and wire debug exporter if enabled
-            _debugExporter = CreateDebugExporter();
+            // Initialize debug mode if enabled
+            InitializeDebugMode();
+
+            // Subscribe to indicators after strategy starts (they are created in OnStarted)
             if (_debugExporter != null && _strategy is Strategies.CustomStrategyBase customStrategy)
             {
-                customStrategy.DebugExporter = _debugExporter;
-                Logger?.AddInfoLog("Debug exporter wired to strategy");
+                _strategy.ProcessStateChanged += (s) =>
+                {
+                    if (s.ProcessState == ProcessStates.Started)
+                    {
+                        _debugExporter.SubscribeToIndicators(customStrategy.Indicators);
+                        Logger?.AddInfoLog($"Debug mode subscribed to {customStrategy.Indicators.Count} indicators");
+                    }
+                };
             }
 
             Logger?.AddInfoLog("Starting backtest...");
@@ -155,6 +163,100 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
             outputPath: outputPath,
             flushIntervalMs: debugConfig.FlushIntervalMs
         );
+    }
+
+    private void InitializeDebugMode()
+    {
+        if (_config.DebugMode?.Enabled != true)
+            return;
+
+        // Create debug exporter
+        _debugExporter = CreateDebugExporter();
+        if (_debugExporter == null)
+            return;
+
+        try
+        {
+            // Initialize exporter with strategy
+            if (_strategy is Strategies.CustomStrategyBase customStrategy)
+            {
+                _debugExporter.Initialize(customStrategy);
+
+                // NOTE: Indicator subscription is deferred to Strategy.Started event
+                // because indicators are created in OnStarted(), not yet available here
+
+                Logger?.AddInfoLog("Debug mode initialized with strategy");
+            }
+            else
+            {
+                // For non-CustomStrategyBase strategies, just initialize without strategy reference
+                Logger?.AddWarningLog($"Strategy type {_strategy.GetType().Name} is not CustomStrategyBase. Debug mode will have limited functionality.");
+            }
+
+            // Subscribe to connector events for candles and trades
+            if (_connector != null)
+            {
+                _connector.CandleReceived += OnCandleReceivedForDebug;
+                Logger?.AddInfoLog("Debug mode subscribed to candle events");
+            }
+
+            // Subscribe to strategy trade events
+            _strategy.OwnTradeReceived += OnOwnTradeReceivedForDebug;
+            Logger?.AddInfoLog("Debug mode subscribed to trade events");
+        }
+        catch (Exception ex)
+        {
+            Logger?.AddErrorLog(ex, "Failed to initialize debug mode");
+            _debugExporter?.Dispose();
+            _debugExporter = null;
+        }
+    }
+
+    private void OnCandleReceivedForDebug(Subscription subscription, ICandleMessage candle)
+    {
+        if (_debugExporter == null || !_debugExporter.IsInitialized)
+            return;
+
+        try
+        {
+            // Get security ID from subscription or use first security from strategy
+            var securityId = subscription?.SecurityId;
+            if (securityId == null && _strategy is Strategies.CustomStrategyBase customStrategy)
+            {
+                securityId = customStrategy.Securities.Keys.FirstOrDefault()?.ToSecurityId() ?? default;
+            }
+
+            _debugExporter.CaptureCandle(candle, securityId ?? default);
+        }
+        catch (Exception ex)
+        {
+            Logger?.AddErrorLog(ex, "Error capturing candle for debug mode");
+        }
+    }
+
+    private void OnOwnTradeReceivedForDebug(Subscription subscription, MyTrade trade)
+    {
+        if (_debugExporter == null || !_debugExporter.IsInitialized)
+            return;
+
+        try
+        {
+            var tradeDataPoint = new Export.TradeDataPoint
+            {
+                Time = trade.Trade.ServerTime.ToUnixTimeMilliseconds(),
+                Price = (double)trade.Trade.Price,
+                Volume = (double)trade.Trade.Volume,
+                Side = trade.Order.Side == Sides.Buy ? "Buy" : "Sell",
+                PnL = (double)(trade.PnL ?? 0m),
+                OrderId = trade.Order.Id
+            };
+
+            _debugExporter.CaptureTrade(tradeDataPoint);
+        }
+        catch (Exception ex)
+        {
+            Logger?.AddErrorLog(ex, "Error capturing trade for debug mode");
+        }
     }
 
     private void ConfigureConnector()
@@ -311,14 +413,21 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
             if (_connector != null)
             {
                 _connector.StateChanged2 -= OnConnectorStateChanged;
+
+                // Unsubscribe from debug mode events
+                _connector.CandleReceived -= OnCandleReceivedForDebug;
             }
 
             if (_strategy != null)
             {
                 _strategy.Error -= OnStrategyError;
+
+                // Unsubscribe from debug mode events
+                _strategy.OwnTradeReceived -= OnOwnTradeReceivedForDebug;
             }
 
             // Cleanup debug exporter
+            _debugExporter?.Cleanup();
             _debugExporter?.Dispose();
             _debugExporter = null;
         }
