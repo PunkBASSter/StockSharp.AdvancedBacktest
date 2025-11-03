@@ -11,11 +11,13 @@ namespace StockSharp.AdvancedBacktest.DebugMode;
 /// <summary>
 /// Main orchestrator for debug mode event capture and export.
 /// Coordinates event buffering and file writing for real-time visualization.
+/// Uses IndicatorDataExtractor for consistent indicator data extraction.
 /// </summary>
 public class DebugModeExporter : IDisposable
 {
     private readonly string _outputPath;
     private readonly int _flushIntervalMs;
+    private readonly IndicatorDataExtractor _extractor;
 
     private DebugEventBuffer? _buffer;
     private FileBasedWriter? _writer;
@@ -45,6 +47,7 @@ public class DebugModeExporter : IDisposable
 
         _outputPath = outputPath;
         _flushIntervalMs = flushIntervalMs;
+        _extractor = new IndicatorDataExtractor();
     }
 
     /// <summary>
@@ -209,11 +212,6 @@ public class DebugModeExporter : IDisposable
         }
     }
 
-    /// <summary>
-    /// Gets next sequence number for event ordering.
-    /// Thread-safe using Interlocked.Increment.
-    /// </summary>
-    /// <returns>Next sequence number</returns>
     protected long GetNextSequence()
     {
         return Interlocked.Increment(ref _sequenceNumber);
@@ -250,11 +248,12 @@ public class DebugModeExporter : IDisposable
         if (value == null)
             return null;
 
-        if (!IndicatorValueHelper.ShouldExport(value))
-            return null;
+        var dataPoint = _extractor.ExtractFromValue(value, _candleInterval);
 
-        var dataPoint = IndicatorValueHelper.ToDataPoint(value, _candleInterval);
-        dataPoint.SequenceNumber = GetNextSequence();
+        if (dataPoint != null)
+        {
+            dataPoint.SequenceNumber = GetNextSequence();
+        }
 
         return dataPoint;
     }
