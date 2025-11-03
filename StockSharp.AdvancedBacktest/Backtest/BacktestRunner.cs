@@ -180,12 +180,16 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
             // Initialize exporter with strategy
             if (_strategy is Strategies.CustomStrategyBase customStrategy)
             {
-                _debugExporter.Initialize(customStrategy);
+                // Extract candle interval from strategy configuration
+                var candleInterval = ExtractCandleInterval(_strategy);
+
+                // Initialize with candle interval for shift-aware indicator export
+                _debugExporter.Initialize(customStrategy, candleInterval);
 
                 // NOTE: Indicator subscription is deferred to Strategy.Started event
                 // because indicators are created in OnStarted(), not yet available here
 
-                Logger?.AddInfoLog("Debug mode initialized with strategy");
+                Logger?.AddInfoLog($"Debug mode initialized with strategy (candle interval: {candleInterval?.ToString() ?? "auto-detect"})");
             }
             else
             {
@@ -210,6 +214,16 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
             _debugExporter?.Dispose();
             _debugExporter = null;
         }
+    }
+
+    private TimeSpan? ExtractCandleInterval(TStrategy strategy)
+    {
+        if (strategy is Strategies.CustomStrategyBase customStrategy)
+        {
+            var firstSecurity = customStrategy.Securities.FirstOrDefault();
+            return firstSecurity.Value?.FirstOrDefault();
+        }
+        return null;
     }
 
     private void OnCandleReceivedForDebug(Subscription subscription, ICandleMessage candle)

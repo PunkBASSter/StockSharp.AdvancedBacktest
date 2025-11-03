@@ -1,5 +1,4 @@
 using StockSharp.Algo.Indicators;
-using StockSharp.AdvancedBacktest.Export;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.ZigZagBreakout.TrendFiltering;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Utilities;
@@ -238,50 +237,5 @@ public class ZigZagBreakout : CustomStrategyBase
                 _currentStopLoss = null;
             }
         }
-    }
-
-    public override List<IndicatorDataSeries> GetIndicatorSeries()
-    {
-        var seriesList = new List<IndicatorDataSeries>();
-
-        if (_dzzHistory.Count > 0)
-        {
-            seriesList.Add(new IndicatorDataSeries
-            {
-                Name = _dzz?.Name ?? "Delta ZigZag",
-                Color = "#FF6B35",
-                Values = _dzzHistory
-                    .Where(IndicatorValueHelper.ShouldExport)
-                    .Select(h =>
-                    {
-                        var adjustedTime = IndicatorValueHelper.GetAdjustedTimestamp(h, _candleInterval);
-                        return new IndicatorDataPoint
-                        {
-                            Time = adjustedTime.ToUnixTimeSeconds(),
-                            Value = (double)h.GetValue<decimal>()
-                        };
-                    })
-                    .ToList()
-            });
-        }
-
-        if (_jmaHistory.Count > 0)
-        {
-            seriesList.Add(new IndicatorDataSeries
-            {
-                Name = _jma?.Name ?? "JMA",
-                Color = "#4ECDC4",
-                Values = _jmaHistory
-                    .Where(IndicatorValueHelper.ShouldExport)
-                    .Select(h => new IndicatorDataPoint
-                    {
-                        Time = h.Time.ToUnixTimeSeconds(),
-                        Value = (double)h.GetValue<decimal>()
-                    })
-                    .ToList()
-            });
-        }
-
-        return seriesList;
     }
 }
