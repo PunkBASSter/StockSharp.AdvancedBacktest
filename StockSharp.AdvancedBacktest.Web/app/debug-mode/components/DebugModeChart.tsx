@@ -7,6 +7,7 @@
 
 import {
     CANDLE_COLORS,
+    DEBUG_CHART_RIGHT_OFFSET_BARS,
     formatTradeMarkerText,
     getIndicatorColor,
     getTradeMarkerConfig,
@@ -92,6 +93,7 @@ export default function DebugModeChart({ events }: Props) {
                 borderColor: '#D1D4DC',
                 timeVisible: true,
                 secondsVisible: false,
+                rightOffset: DEBUG_CHART_RIGHT_OFFSET_BARS,
             },
         });
 

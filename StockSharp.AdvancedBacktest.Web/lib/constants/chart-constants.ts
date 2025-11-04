@@ -138,6 +138,17 @@ export const TRADE_PRICE_LINE = {
 } as const;
 
 // ============================================================================
+// Chart Viewport Configuration
+// ============================================================================
+
+/**
+ * Right offset for debug mode chart (in bars)
+ * Creates empty space between the last candle and the right border
+ * Approximates 20% of a typical 60-bar viewport
+ */
+export const DEBUG_CHART_RIGHT_OFFSET_BARS = 12;
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 
