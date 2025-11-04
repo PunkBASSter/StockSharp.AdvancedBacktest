@@ -410,6 +410,202 @@ public class DebugEventBufferTests
 
 	#endregion
 
+#if DEBUG
+	#region Synchronous Flush Tests (DEBUG only)
+
+	[Fact]
+	public void FlushSynchronously_ImmediatelyFlushesEvents()
+	{
+		// Arrange
+		using var buffer = new DebugEventBuffer(10000); // Long interval so timer won't fire
+
+		Dictionary<string, List<object>>? flushedEvents = null;
+		buffer.OnFlush += events => flushedEvents = events;
+
+		buffer.Add("test", new { Value = 1 });
+
+		// Act - No Task.Delay needed, should complete immediately
+		buffer.FlushSynchronously();
+
+		// Assert - Events should be flushed immediately, no async delay
+		Assert.NotNull(flushedEvents);
+		Assert.Single(flushedEvents);
+		Assert.Single(flushedEvents["test"]);
+	}
+
+	[Fact]
+	public void FlushSynchronously_WritesBeforeReturning()
+	{
+		// Arrange
+		using var buffer = new DebugEventBuffer(10000);
+
+		var eventsWritten = false;
+		buffer.OnFlush += events => eventsWritten = true;
+
+		buffer.Add("test", new { Value = 1 });
+
+		// Act
+		buffer.FlushSynchronously();
+
+		// Assert - Should be true immediately after method returns
+		Assert.True(eventsWritten, "Events should be written before FlushSynchronously returns");
+	}
+
+	[Fact]
+	public void FlushSynchronously_ClearsBuffer()
+	{
+		// Arrange
+		using var buffer = new DebugEventBuffer(10000);
+
+		var flushCount = 0;
+		buffer.OnFlush += _ => flushCount++;
+
+		// Act
+		buffer.Add("test", new { Value = 1 });
+		buffer.FlushSynchronously();
+
+		// Flush again - should not trigger event (buffer is empty)
+		buffer.FlushSynchronously();
+
+		// Assert
+		Assert.Equal(1, flushCount);
+	}
+
+	[Fact]
+	public void FlushSynchronously_EmptyBuffer_DoesNotTriggerEvent()
+	{
+		// Arrange
+		using var buffer = new DebugEventBuffer(10000);
+
+		var flushCalled = false;
+		buffer.OnFlush += _ => flushCalled = true;
+
+		// Act
+		buffer.FlushSynchronously();
+
+		// Assert
+		Assert.False(flushCalled, "Should not flush empty buffer");
+	}
+
+	[Fact]
+	public void FlushSynchronously_AfterDisposal_DoesNotThrow()
+	{
+		// Arrange
+		var buffer = new DebugEventBuffer(10000);
+		buffer.Add("test", new { Value = 1 });
+		buffer.Dispose();
+
+		// Act & Assert - Should not throw
+		buffer.FlushSynchronously();
+	}
+
+	[Fact]
+	public void FlushSynchronously_MultipleEventTypes_FlushesAll()
+	{
+		// Arrange
+		using var buffer = new DebugEventBuffer(10000);
+
+		Dictionary<string, List<object>>? flushedEvents = null;
+		buffer.OnFlush += events => flushedEvents = events;
+
+		// Act
+		buffer.Add("candle", new CandleDataPoint { Time = 1 });
+		buffer.Add("candle", new CandleDataPoint { Time = 2 });
+		buffer.Add("trade", new TradeDataPoint { Time = 1 });
+		buffer.Add("indicator", new IndicatorDataPoint { Time = 1 });
+
+		buffer.FlushSynchronously();
+
+		// Assert
+		Assert.NotNull(flushedEvents);
+		Assert.Equal(3, flushedEvents.Count); // 3 event types
+		Assert.Equal(2, flushedEvents["candle"].Count);
+		Assert.Single(flushedEvents["trade"]);
+		Assert.Single(flushedEvents["indicator"]);
+	}
+
+	[Fact]
+	public void FlushSynchronously_Performance_CompletesQuickly()
+	{
+		// Arrange
+		using var buffer = new DebugEventBuffer(10000);
+		var eventCount = 0;
+
+		buffer.OnFlush += events =>
+		{
+			foreach (var list in events.Values)
+			{
+				eventCount += list.Count;
+			}
+		};
+
+		// Add 1000 events
+		for (int i = 0; i < 1000; i++)
+		{
+			buffer.Add("test", new { Index = i });
+		}
+
+		// Act
+		var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+		buffer.FlushSynchronously();
+		stopwatch.Stop();
+
+		// Assert
+		Assert.Equal(1000, eventCount);
+		// Synchronous flush should complete in <50ms for 1000 events
+		Assert.True(stopwatch.ElapsedMilliseconds < 50,
+			$"FlushSynchronously took {stopwatch.ElapsedMilliseconds}ms (target: <50ms)");
+	}
+
+	[Fact]
+	public void FlushSynchronously_ConcurrentWithAdd_ThreadSafe()
+	{
+		// Arrange
+		using var buffer = new DebugEventBuffer(10000);
+		var totalFlushed = 0;
+		var lockObj = new object();
+
+		buffer.OnFlush += events =>
+		{
+			lock (lockObj)
+			{
+				foreach (var list in events.Values)
+				{
+					totalFlushed += list.Count;
+				}
+			}
+		};
+
+		// Act - Add events from multiple threads while flushing
+		var addTask = Task.Run(() =>
+		{
+			for (int i = 0; i < 500; i++)
+			{
+				buffer.Add("test", new { Index = i });
+			}
+		});
+
+		var flushTask = Task.Run(() =>
+		{
+			for (int i = 0; i < 10; i++)
+			{
+				buffer.FlushSynchronously();
+				Thread.Sleep(5);
+			}
+		});
+
+		// Assert - Should not throw
+		Task.WaitAll(addTask, flushTask);
+
+		// Final flush to count remaining events
+		buffer.FlushSynchronously();
+
+		Assert.Equal(500, totalFlushed);
+	}
+
+	#endregion
+#endif
+
 	#region Performance Tests
 
 	[Fact]

@@ -481,6 +481,24 @@ public class DebugModeExporter : IDisposable
 
     #endregion
 
+#if DEBUG
+    public void FlushBeforeCandle()
+    {
+        if (!IsInitialized || _disposed)
+            return;
+
+        try
+        {
+            _buffer!.FlushSynchronously();
+            _strategy?.LogDebug($"Debug mode: Synchronously flushed {EventCount} events before new candle");
+        }
+        catch (Exception ex)
+        {
+            _strategy?.LogError($"Failed to flush debug events before candle: {ex.Message}");
+        }
+    }
+#endif
+
     /// <summary>
     /// Disposes the exporter and performs cleanup.
     /// </summary>

@@ -238,6 +238,10 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
 
         try
         {
+#if DEBUG
+            _debugExporter.FlushBeforeCandle();
+#endif
+
             // Get security ID from subscription or use first security from strategy
             var securityId = subscription?.SecurityId;
             if (securityId == null && _strategy is Strategies.CustomStrategyBase customStrategy)
