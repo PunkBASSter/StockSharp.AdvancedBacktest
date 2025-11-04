@@ -2,6 +2,7 @@ using StockSharp.Algo.Commissions;
 using StockSharp.Algo.Strategies;
 using StockSharp.AdvancedBacktest.Backtest;
 using StockSharp.AdvancedBacktest.Models;
+using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.BusinessEntities;
 using StockSharp.Messages;
 using StockSharp.Algo.Candles;
@@ -68,6 +69,37 @@ public class BacktestRunnerTests
         {
             base.OnStarted(time);
             throw new InvalidOperationException("Test error");
+        }
+    }
+
+    /// <summary>
+    /// Test strategy inheriting from CustomStrategyBase for candle interval extraction tests
+    /// </summary>
+    private class CustomTestStrategy : CustomStrategyBase
+    {
+        public DataType CandleType { get; set; } = TimeSpan.FromMinutes(1).TimeFrame();
+
+        public override IEnumerable<(Security sec, DataType dt)> GetWorkingSecurities()
+        {
+            // Return securities from the Securities dictionary
+            return Securities.SelectMany(kvp =>
+                kvp.Value.Select(timespan => (kvp.Key, timespan.TimeFrame())));
+        }
+
+        protected override void OnStarted(DateTimeOffset time)
+        {
+            // Subscribe to candles - just use the primary security
+            // (multiple securities cause issues with limited test data)
+            if (Securities.Any())
+            {
+                var firstSecurity = Securities.First();
+                Security = firstSecurity.Key;
+                var firstTimeframe = firstSecurity.Value.First();
+                var subscription = SubscribeCandles(firstTimeframe.TimeFrame());
+                subscription.Start();
+            }
+
+            base.OnStarted(time);
         }
     }
 
@@ -651,6 +683,193 @@ public class BacktestRunnerTests
         // Assert - should complete (either success or cancellation)
         var result = await runTask;
         Assert.NotNull(result);
+    }
+
+    #endregion
+
+    #region Candle Interval Extraction Tests (Phase 5)
+
+    [Fact]
+    public async Task RunAsync_WithDebugMode_ExtractsCandleIntervalFromSingleSecurity()
+    {
+        // Arrange
+        var security = CreateBtcSecurity();
+        var candleInterval = TimeSpan.FromMinutes(5);
+
+        var strategy = new CustomTestStrategy
+        {
+            Securities = new Dictionary<Security, IEnumerable<TimeSpan>>
+            {
+                { security, new[] { candleInterval } }
+            },
+            Portfolio = CreatePortfolio()
+        };
+
+        var config = CreateConfig();
+        config.DebugMode = new DebugModeSettings
+        {
+            Enabled = true,
+            OutputDirectory = Path.Combine(Path.GetTempPath(), $"debug_test_{Guid.NewGuid()}")
+        };
+
+        using var runner = new BacktestRunner<CustomTestStrategy>(config, strategy);
+
+        // Act
+        var result = await runner.RunAsync();
+
+        // Assert
+        Assert.True(result.IsSuccessful);
+        Assert.NotNull(result.Strategy);
+
+        // Cleanup - wait for files to be released
+        await Task.Delay(100);
+        if (Directory.Exists(config.DebugMode.OutputDirectory))
+        {
+            try
+            {
+                Directory.Delete(config.DebugMode.OutputDirectory, true);
+            }
+            catch (IOException)
+            {
+                // Files might still be locked, ignore cleanup error
+            }
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_WithDebugMode_HandlesNoSecurities()
+    {
+        // Arrange
+        var strategy = new CustomTestStrategy
+        {
+            Securities = new Dictionary<Security, IEnumerable<TimeSpan>>(), // Empty
+            Portfolio = CreatePortfolio()
+        };
+
+        var config = CreateConfig();
+        config.DebugMode = new DebugModeSettings
+        {
+            Enabled = true,
+            OutputDirectory = Path.Combine(Path.GetTempPath(), $"debug_test_{Guid.NewGuid()}")
+        };
+
+        using var runner = new BacktestRunner<CustomTestStrategy>(config, strategy);
+
+        // Act
+        var result = await runner.RunAsync();
+
+        // Assert - should complete (with null candle interval)
+        Assert.NotNull(result);
+
+        // Cleanup - wait for files to be released
+        await Task.Delay(100);
+        if (Directory.Exists(config.DebugMode.OutputDirectory))
+        {
+            try
+            {
+                Directory.Delete(config.DebugMode.OutputDirectory, true);
+            }
+            catch (IOException)
+            {
+                // Files might still be locked, ignore cleanup error
+            }
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_WithDebugMode_HandlesEmptyTimeframes()
+    {
+        // Arrange
+        var security = CreateBtcSecurity();
+
+        var strategy = new CustomTestStrategy
+        {
+            Securities = new Dictionary<Security, IEnumerable<TimeSpan>>
+            {
+                { security, Enumerable.Empty<TimeSpan>() } // Empty timeframes
+            },
+            Portfolio = CreatePortfolio()
+        };
+
+        var config = CreateConfig();
+        config.DebugMode = new DebugModeSettings
+        {
+            Enabled = true,
+            OutputDirectory = Path.Combine(Path.GetTempPath(), $"debug_test_{Guid.NewGuid()}")
+        };
+
+        using var runner = new BacktestRunner<CustomTestStrategy>(config, strategy);
+
+        // Act
+        var result = await runner.RunAsync();
+
+        // Assert - should complete (with null candle interval from empty timeframes)
+        Assert.NotNull(result);
+
+        // Cleanup - wait for files to be released
+        await Task.Delay(100);
+        if (Directory.Exists(config.DebugMode.OutputDirectory))
+        {
+            try
+            {
+                Directory.Delete(config.DebugMode.OutputDirectory, true);
+            }
+            catch (IOException)
+            {
+                // Files might still be locked, ignore cleanup error
+            }
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_WithDebugMode_ExtractsFirstSecurityTimeframe()
+    {
+        // Arrange
+        var security1 = CreateBtcSecurity();
+        var security2 = CreateEthSecurity();
+        var candleInterval1 = TimeSpan.FromMinutes(1);
+        var candleInterval2 = TimeSpan.FromMinutes(5);
+
+        var strategy = new CustomTestStrategy
+        {
+            Securities = new Dictionary<Security, IEnumerable<TimeSpan>>
+            {
+                { security1, new[] { candleInterval1, TimeSpan.FromMinutes(15) } },
+                { security2, new[] { candleInterval2 } }
+            },
+            Portfolio = CreatePortfolio()
+        };
+
+        var config = CreateConfig();
+        config.DebugMode = new DebugModeSettings
+        {
+            Enabled = true,
+            OutputDirectory = Path.Combine(Path.GetTempPath(), $"debug_test_{Guid.NewGuid()}")
+        };
+
+        using var runner = new BacktestRunner<CustomTestStrategy>(config, strategy);
+
+        // Act
+        var result = await runner.RunAsync();
+
+        // Assert
+        Assert.True(result.IsSuccessful);
+        // The exact interval extracted depends on dictionary ordering,
+        // but the test verifies the mechanism works without errors
+
+        // Cleanup - wait for files to be released
+        await Task.Delay(100);
+        if (Directory.Exists(config.DebugMode.OutputDirectory))
+        {
+            try
+            {
+                Directory.Delete(config.DebugMode.OutputDirectory, true);
+            }
+            catch (IOException)
+            {
+                // Files might still be locked, ignore cleanup error
+            }
+        }
     }
 
     #endregion

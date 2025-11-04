@@ -1,6 +1,14 @@
 'use client';
+import {
+    CANDLE_COLORS,
+    DEFAULT_INDICATOR_COLOR,
+    formatTradeMarkerText,
+    getTradeMarkerConfig,
+    getVolumeColor,
+    TRADE_PRICE_LINE,
+} from '@/lib/constants/chart-constants';
 import { ChartDataModel } from '@/types/chart-data';
-import { createChart, ColorType, UTCTimestamp } from 'lightweight-charts';
+import { ColorType, createChart, UTCTimestamp } from 'lightweight-charts';
 import { useEffect, useRef } from 'react';
 
 interface Props {
@@ -35,13 +43,13 @@ export default function CandlestickChart({ data }: Props) {
             },
         });
 
-        // Add candlestick series using v4 API
+        // Add candlestick series
         const candlestickSeries = chart.addCandlestickSeries({
-            upColor: '#26a69a',
-            downColor: '#ef5350',
+            upColor: CANDLE_COLORS.UP,
+            downColor: CANDLE_COLORS.DOWN,
             borderVisible: false,
-            wickUpColor: '#26a69a',
-            wickDownColor: '#ef5350',
+            wickUpColor: CANDLE_COLORS.UP,
+            wickDownColor: CANDLE_COLORS.DOWN,
         });
 
         // Set candlestick data
@@ -58,22 +66,53 @@ export default function CandlestickChart({ data }: Props) {
         // Add trade markers using v4 setMarkers API
         if (data.trades && data.trades.length > 0) {
             const markers = data.trades.map(trade => {
-                const isBuy = trade.side === 'buy';
+                const markerConfig = getTradeMarkerConfig(trade.side);
                 return {
                     time: trade.time as UTCTimestamp,
-                    position: (isBuy ? 'belowBar' : 'aboveBar') as 'belowBar' | 'aboveBar',
-                    color: isBuy ? '#2196F3' : '#F44336',
-                    shape: (isBuy ? 'arrowUp' : 'arrowDown') as 'arrowUp' | 'arrowDown',
-                    text: `${isBuy ? 'BUY' : 'SELL'} @ ${trade.price.toFixed(2)}`,
+                    position: markerConfig.position,
+                    color: markerConfig.color,
+                    shape: markerConfig.shape,
+                    text: formatTradeMarkerText(trade.side, trade.price),
                 };
             });
             candlestickSeries.setMarkers(markers);
+
+            // Add short horizontal price lines at each trade price to show exact levels
+            // We create a line series for each trade with points spanning ~5 candles
+            data.trades.forEach(trade => {
+                const markerConfig = getTradeMarkerConfig(trade.side);
+
+                // Create a short line series for this trade
+                const tradePriceLine = chart.addLineSeries({
+                    color: markerConfig.color,
+                    lineWidth: TRADE_PRICE_LINE.LINE_WIDTH,
+                    lineStyle: TRADE_PRICE_LINE.LINE_STYLE,
+                    priceLineVisible: false,
+                    lastValueVisible: false,
+                    crosshairMarkerVisible: false,
+                });
+
+                // Calculate time window (only 1 candle after the trade)
+                // Assuming candles are evenly spaced, calculate the interval
+                const candleInterval = candleData.length > 1
+                    ? (candleData[1].time as number) - (candleData[0].time as number)
+                    : 3600; // Default to 1 hour if only one candle
+
+                const startTime = trade.time as UTCTimestamp;
+                const endTime = (trade.time + candleInterval) as UTCTimestamp;
+
+                // Create horizontal line segment at trade price (2 points: start and end)
+                tradePriceLine.setData([
+                    { time: startTime, value: trade.price },
+                    { time: endTime, value: trade.price },
+                ]);
+            });
         }
 
         // Add volume series if volume data exists using v4 API
         if (data.candles.length > 0 && data.candles[0].volume !== undefined) {
             const volumeSeries = chart.addHistogramSeries({
-                color: '#26a69a',
+                color: CANDLE_COLORS.UP,
                 priceFormat: {
                     type: 'volume',
                 },
@@ -84,7 +123,7 @@ export default function CandlestickChart({ data }: Props) {
             const volumeData = data.candles.map(candle => ({
                 time: candle.time as UTCTimestamp,
                 value: candle.volume,
-                color: candle.close >= candle.open ? '#26a69a80' : '#ef535080', // Semi-transparent
+                color: getVolumeColor(candle.close, candle.open),
             }));
 
             volumeSeries.setData(volumeData);
@@ -102,7 +141,7 @@ export default function CandlestickChart({ data }: Props) {
         if (data.indicators && data.indicators.length > 0) {
             data.indicators.forEach(indicator => {
                 const lineSeries = chart.addLineSeries({
-                    color: indicator.color || '#2196F3',
+                    color: indicator.color || DEFAULT_INDICATOR_COLOR,
                     lineWidth: 2,
                     title: indicator.name,
                     priceLineVisible: false,

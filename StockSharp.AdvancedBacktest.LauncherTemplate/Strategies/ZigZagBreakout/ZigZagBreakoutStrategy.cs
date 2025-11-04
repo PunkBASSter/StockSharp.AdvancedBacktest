@@ -1,5 +1,4 @@
 using StockSharp.Algo.Indicators;
-using StockSharp.AdvancedBacktest.Export;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.ZigZagBreakout.TrendFiltering;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Utilities;
@@ -16,9 +15,9 @@ public class ZigZagBreakout : CustomStrategyBase
     private Order? _currentBuyOrder;
     private Order? _currentStopLoss;
     private Order? _currentTakeProfit;
-    // Manual history for trading logic and visualization export (Container limited to 100 values)
-    private readonly List<(DateTimeOffset Time, decimal Value)> _dzzHistory = [];
-    private readonly List<(DateTimeOffset Time, decimal Value)> _jmaHistory = [];
+    private readonly List<IIndicatorValue> _dzzHistory = [];
+    private readonly List<IIndicatorValue> _jmaHistory = [];
+    private TimeSpan? _candleInterval;
 
     protected override void OnReseted()
     {
@@ -32,8 +31,6 @@ public class ZigZagBreakout : CustomStrategyBase
 
     protected override void OnStarted(DateTimeOffset time)
     {
-        base.OnStarted(time);
-
         _config = new ZigZagBreakoutConfig
         {
             DzzDepth = GetParam<decimal>("DzzDepth"),
@@ -54,6 +51,13 @@ public class ZigZagBreakout : CustomStrategyBase
             Length = _config.JmaLength,
             Phase = _config.JmaPhase
         };
+
+        // Register indicators BEFORE calling base.OnStarted so debug mode can subscribe to them
+        Indicators.Add(_dzz);
+        Indicators.Add(_jma);
+
+        // Now call base to initialize debug mode with the indicators already registered
+        base.OnStarted(time);
 
         var timeframe = Securities.First().Value.First();
 
@@ -76,12 +80,23 @@ public class ZigZagBreakout : CustomStrategyBase
         if (candle.State != CandleStates.Finished)
             return;
 
-        // Store in manual history for trading logic (Container is limited to 100 values)
+        if (!_candleInterval.HasValue && _dzzHistory.Count > 0)
+        {
+            var lastTime = _dzzHistory[^1].Time;
+            _candleInterval = candle.OpenTime - lastTime;
+        }
+
         if (_dzz!.IsFormed)
-            _dzzHistory.Add((candle.OpenTime, dzzValue));
+        {
+            var dzzIndicatorValue = _dzz.Container.GetValue(0).output;
+            _dzzHistory.Add(dzzIndicatorValue);
+        }
 
         if (_jma!.IsFormed)
-            _jmaHistory.Add((candle.OpenTime, jmaValue));
+        {
+            var jmaIndicatorValue = _jma.Container.GetValue(0).output;
+            _jmaHistory.Add(jmaIndicatorValue);
+        }
 
         var signal = TryGetBuyOrder();
         if (signal == null)
@@ -126,7 +141,7 @@ public class ZigZagBreakout : CustomStrategyBase
         // Extract last 3 non-zero zigzag points from last 20 values
         var last20 = _dzzHistory
             .Skip(Math.Max(0, _dzzHistory.Count - 20))
-            .Select(h => h.Value)
+            .Select(h => h.GetValue<decimal>())
             .ToList();
         var nonZeroPoints = last20
             .Where(v => v != 0)
@@ -143,8 +158,8 @@ public class ZigZagBreakout : CustomStrategyBase
         // JMA trend filtering
         if (_config.JmaUsage != 0 && _jmaHistory.Count >= 2)
         {
-            var jma1 = _jmaHistory[^1].Value;
-            var jma2 = _jmaHistory[^2].Value;
+            var jma1 = _jmaHistory[^1].GetValue<decimal>();
+            var jma2 = _jmaHistory[^2].GetValue<decimal>();
 
             bool trendOk = _config.JmaUsage switch
             {
@@ -222,42 +237,5 @@ public class ZigZagBreakout : CustomStrategyBase
                 _currentStopLoss = null;
             }
         }
-    }
-
-    public override List<IndicatorDataSeries> GetIndicatorSeries()
-    {
-        var seriesList = new List<IndicatorDataSeries>();
-
-        // Export DZZ from manual history with timestamps
-        if (_dzzHistory.Count > 0)
-        {
-            seriesList.Add(new IndicatorDataSeries
-            {
-                Name = _dzz?.Name ?? "Delta ZigZag",
-                Color = "#FF6B35", // Orange for DZZ
-                Values = _dzzHistory.Select(h => new IndicatorDataPoint
-                {
-                    Time = h.Time.ToUnixTimeSeconds(),
-                    Value = (double)h.Value
-                }).ToList()
-            });
-        }
-
-        // Export JMA from manual history with timestamps
-        if (_jmaHistory.Count > 0)
-        {
-            seriesList.Add(new IndicatorDataSeries
-            {
-                Name = _jma?.Name ?? "JMA",
-                Color = "#4ECDC4", // Turquoise for JMA
-                Values = _jmaHistory.Select(h => new IndicatorDataPoint
-                {
-                    Time = h.Time.ToUnixTimeSeconds(),
-                    Value = (double)h.Value
-                }).ToList()
-            });
-        }
-
-        return seriesList;
     }
 }

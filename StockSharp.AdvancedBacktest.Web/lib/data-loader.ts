@@ -1,3 +1,4 @@
+import { isValidTradeSide, VALIDATION_ERRORS } from '@/lib/constants/validation-constants';
 import { ChartDataModel, IndicatorDataSeries } from '@/types/chart-data';
 
 /**
@@ -132,7 +133,7 @@ function validateChartData(data: unknown): void {
 
     // Validate candles (required)
     if (!chartData.candles || !Array.isArray(chartData.candles)) {
-        throw new Error('Invalid chart data: missing candles array');
+        throw new Error(VALIDATION_ERRORS.MISSING_CANDLES);
     }
 
     if (chartData.candles.length === 0) {
@@ -148,16 +149,16 @@ function validateChartData(data: unknown): void {
     const requiredCandleFields = ['time', 'open', 'high', 'low', 'close', 'volume'];
     for (const field of requiredCandleFields) {
         if (!(field in firstCandle)) {
-            throw new Error(`Invalid candle data: missing required field '${field}'`);
+            throw new Error(VALIDATION_ERRORS.MISSING_CANDLE_FIELD(field));
         }
         if (typeof firstCandle[field] !== 'number') {
-            throw new Error(`Invalid candle data: field '${field}' must be a number`);
+            throw new Error(VALIDATION_ERRORS.INVALID_CANDLE_FIELD_TYPE(field));
         }
     }
 
     // Validate trades (required)
     if (!chartData.trades || !Array.isArray(chartData.trades)) {
-        throw new Error('Invalid chart data: missing trades array');
+        throw new Error(VALIDATION_ERRORS.MISSING_TRADES);
     }
 
     // Validate trade structure (if trades exist)
@@ -166,30 +167,31 @@ function validateChartData(data: unknown): void {
         const requiredTradeFields = ['time', 'price', 'volume', 'side', 'pnL'];
         for (const field of requiredTradeFields) {
             if (!(field in firstTrade)) {
-                throw new Error(`Invalid trade data: missing required field '${field}'`);
+                throw new Error(VALIDATION_ERRORS.MISSING_TRADE_FIELD(field));
             }
         }
 
-        // Validate side is either 'buy' or 'sell'
-        if (firstTrade.side !== 'buy' && firstTrade.side !== 'sell') {
-            throw new Error(`Invalid trade data: side must be 'buy' or 'sell'`);
+        // Validate side is either 'buy' or 'sell' (case-insensitive)
+        const side = firstTrade.side as string;
+        if (!isValidTradeSide(side)) {
+            throw new Error(VALIDATION_ERRORS.INVALID_TRADE_SIDE);
         }
     }
 
     // Validate optional indicators (only if present)
     if (chartData.indicators !== undefined) {
         if (!Array.isArray(chartData.indicators)) {
-            throw new Error('Invalid chart data: indicators must be an array');
+            throw new Error(VALIDATION_ERRORS.INVALID_INDICATORS);
         }
 
         // Validate indicator structure (if any exist)
         if (chartData.indicators.length > 0) {
             const firstIndicator = chartData.indicators[0] as Record<string, unknown>;
             if (!firstIndicator.name || typeof firstIndicator.name !== 'string') {
-                throw new Error('Invalid indicator data: missing or invalid name');
+                throw new Error(VALIDATION_ERRORS.INVALID_INDICATOR_NAME);
             }
             if (!firstIndicator.values || !Array.isArray(firstIndicator.values)) {
-                throw new Error('Invalid indicator data: missing values array');
+                throw new Error(VALIDATION_ERRORS.MISSING_INDICATOR_VALUES);
             }
         }
     }
@@ -197,19 +199,19 @@ function validateChartData(data: unknown): void {
     // Validate optional walk-forward data (only if present and not null)
     if (chartData.walkForward !== undefined && chartData.walkForward !== null) {
         if (typeof chartData.walkForward !== 'object') {
-            throw new Error('Invalid chart data: walkForward must be an object');
+            throw new Error(VALIDATION_ERRORS.INVALID_WALK_FORWARD);
         }
 
         const walkForward = chartData.walkForward as Record<string, unknown>;
         const requiredWFFields = ['walkForwardEfficiency', 'consistency', 'totalWindows', 'windows'];
         for (const field of requiredWFFields) {
             if (!(field in walkForward)) {
-                throw new Error(`Invalid walk-forward data: missing required field '${field}'`);
+                throw new Error(VALIDATION_ERRORS.MISSING_WF_FIELD(field));
             }
         }
 
         if (!Array.isArray(walkForward.windows)) {
-            throw new Error('Invalid walk-forward data: windows must be an array');
+            throw new Error(VALIDATION_ERRORS.INVALID_WF_WINDOWS);
         }
     }
 }

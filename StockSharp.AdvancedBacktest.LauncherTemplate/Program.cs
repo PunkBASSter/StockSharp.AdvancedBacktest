@@ -50,7 +50,18 @@ public class Program
                     EndDate = endDate
                 },
                 HistoryPath = historyPath,
-                MatchOnTouch = false
+                MatchOnTouch = false,
+                // Enable debug mode for real-time visualization
+                // JSONL file is written directly to frontend's public folder
+                DebugMode = new DebugModeSettings
+                {
+                    Enabled = true,
+                    OutputDirectory = WebAppPath(@"public\debug-mode"),
+                    FlushIntervalMs = 800,
+                    WebAppPath = WebAppPath(),
+                    WebAppUrl = "http://localhost:3000",
+                    DebugPagePath = "/debug-mode"
+                }
             };
 
             // Create Strategy Instance
@@ -192,5 +203,17 @@ public class Program
             Console.WriteLine($"Stack Trace: {ex.StackTrace}");
             return 1;
         }
+    }
+
+    private static string WebAppPath(string subdirectory = "")
+    {
+        var basePath = AppContext.BaseDirectory;
+        var fullPath = Path.GetFullPath(Path.Combine(basePath,
+            @"..\..\..\..\StockSharp.AdvancedBacktest.Web", subdirectory));
+
+        Console.WriteLine($"[DEBUG] AppContext.BaseDirectory: {basePath}");
+        Console.WriteLine($"[DEBUG] WebAppPath result: {fullPath}");
+
+        return fullPath;
     }
 }

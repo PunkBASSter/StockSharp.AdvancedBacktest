@@ -313,12 +313,20 @@ public class HashGenerationTests
         // Act
         var fullHash = strategy.Hash;
 
-        // Assert
+        // Assert - Hash format: {StrategyName}V{Version}_{SecuritiesHash}_{ParamsHash}
         Assert.Contains("TestStrategy", fullHash);
         Assert.Contains("V2.0.0", fullHash);
         Assert.Contains("AAPL@NASDAQ", fullHash);
-        Assert.Contains("fast=10", fullHash);
-        Assert.Contains("slow=30", fullHash);
+        Assert.Contains("00:01:00", fullHash); // TimeSpan formatted in securities hash
+
+        // ParamsHash is an 8-character SHA256 hash, not the literal params
+        // Verify hash has the correct structure with 3 underscore-separated parts
+        var parts = fullHash.Split('_');
+        Assert.Equal(3, parts.Length);
+
+        // Last part should be the 8-character params hash
+        Assert.Equal(8, parts[2].Length);
+        Assert.True(parts[2].All(c => char.IsLetterOrDigit(c) && (char.IsDigit(c) || char.IsLower(c))));
     }
 
     [Fact]

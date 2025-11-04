@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Ecng.Collections;
 using Ecng.Serialization;
-using StockSharp.Localization;
+using StockSharp.Messages;
 
 namespace StockSharp.Algo.Indicators;
 
@@ -83,18 +83,27 @@ public class DeltaZigZag : BaseIndicator
     }
 
     protected override IIndicatorValue OnProcess(IIndicatorValue input)
-        => CalcZigZag(input, input.ToDecimal());
-
-    protected ZigZagIndicatorValue CalcZigZag(IIndicatorValue input, decimal price)
     {
+        // Extract High and Low prices from candle for proper ZigZag calculation
+        var candle = input.GetValue<ICandleMessage>();
+        var high = candle.HighPrice;
+        var low = candle.LowPrice;
+        return CalcZigZag(input, high, low);
+    }
+
+    protected ZigZagIndicatorValue CalcZigZag(IIndicatorValue input, decimal high, decimal low)
+    {
+        // Use close price (midpoint) for buffer initialization
+        var currentPrice = (high + low) / 2m;
+
         if (input.IsFinal)
-            _buffer.PushBack(price);
+            _buffer.PushBack(currentPrice);
 
         if (!IsFormed)
             return new ZigZagIndicatorValue(this, input.Time);
 
-        var lastExtremum = _lastExtremum ?? price;
-        var isUpTrend = _isUpTrend ?? price >= _buffer[^2];
+        var lastExtremum = _lastExtremum ?? currentPrice;
+        var isUpTrend = _isUpTrend ?? currentPrice >= _buffer[^2];
 
         // Use dynamic threshold based on last swing size (like Python DeltaZigZag)
         // Fallback to MinimumThreshold if set, otherwise use Delta as absolute value
@@ -102,20 +111,29 @@ public class DeltaZigZag : BaseIndicator
             ? _lastSwingSize * Delta
             : (_minimumThreshold ?? Delta);
         var changeTrend = false;
+        var extremumUpdated = false;
 
         if (isUpTrend)
         {
-            if (lastExtremum < price)
-                lastExtremum = price;
+            // During uptrend, track the highest high for peak detection
+            if (lastExtremum < high)
+            {
+                lastExtremum = high;
+                extremumUpdated = true;
+            }
             else
-                changeTrend = price <= (lastExtremum - threshold);
+                changeTrend = low <= (lastExtremum - threshold);
         }
         else
         {
-            if (lastExtremum > price)
-                lastExtremum = price;
+            // During downtrend, track the lowest low for bottom detection
+            if (lastExtremum > low)
+            {
+                lastExtremum = low;
+                extremumUpdated = true;
+            }
             else
-                changeTrend = price >= (lastExtremum + threshold);
+                changeTrend = high >= (lastExtremum + threshold);
         }
 
         if (changeTrend)
@@ -129,10 +147,13 @@ public class DeltaZigZag : BaseIndicator
                 if (input.IsFinal)
                 {
                     _isUpTrend = !isUpTrend;
-                    _lastExtremum = price;
+                    // When switching trends, use appropriate price:
+                    // - Switching to downtrend: start from low
+                    // - Switching to uptrend: start from high
+                    _lastExtremum = _isUpTrend.Value ? high : low;
                     _shift = 1;
                     // Track swing size for dynamic threshold calculation
-                    _lastSwingSize = Math.Abs(lastExtremum - price);
+                    _lastSwingSize = Math.Abs(lastExtremum - _lastExtremum.Value);
                 }
             }
         }
@@ -142,7 +163,13 @@ public class DeltaZigZag : BaseIndicator
             {
                 _lastExtremum = lastExtremum;
                 _isUpTrend = isUpTrend;
-                _shift++;
+
+                // If extremum was updated to current bar, reset shift to 1
+                // Otherwise, extremum is one more bar away, so increment shift
+                if (extremumUpdated)
+                    _shift = 1;
+                else
+                    _shift++;
             }
         }
 

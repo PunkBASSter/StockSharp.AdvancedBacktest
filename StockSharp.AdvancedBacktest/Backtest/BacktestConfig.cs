@@ -2,6 +2,16 @@ using StockSharp.Algo.Commissions;
 
 namespace StockSharp.AdvancedBacktest.Backtest;
 
+public class DebugModeSettings
+{
+    public bool Enabled { get; set; } = false;
+    public string OutputDirectory { get; set; } = "debug";
+    public int FlushIntervalMs { get; set; } = 500;
+    public string? WebAppPath { get; set; }
+    public string WebAppUrl { get; set; } = "http://localhost:3000";
+    public string DebugPagePath { get; set; } = "/debug-mode";
+}
+
 public class BacktestConfig
 {
     public required PeriodConfig ValidationPeriod { get; set; }
@@ -13,4 +23,5 @@ public class BacktestConfig
     /// </summary>
     public bool MatchOnTouch { get; set; } = false;
     public IEnumerable<ICommissionRule> CommissionRules { get; set; } = [new CommissionTradeRule { Value = 0.1m }];
+    public DebugModeSettings? DebugMode { get; set; }
 }
