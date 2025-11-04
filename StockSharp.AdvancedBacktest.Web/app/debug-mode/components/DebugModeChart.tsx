@@ -8,6 +8,7 @@
 import {
     CANDLE_COLORS,
     DEBUG_CHART_RIGHT_OFFSET_BARS,
+    DEBUG_CHART_VISIBLE_BARS,
     formatTradeMarkerText,
     getIndicatorColor,
     getTradeMarkerConfig,
@@ -216,6 +217,20 @@ export default function DebugModeChart({ events }: Props) {
             candleSeriesRef.current.setData(candleData);
             volumeSeriesRef.current.setData(volumeData);
 
+            // Set visible range to show last 48 bars with right offset
+            if (chartRef.current && candleData.length > 0) {
+                const totalBars = candleData.length;
+                // Calculate the logical range to show exactly DEBUG_CHART_VISIBLE_BARS
+                // Add right offset to the 'to' index to create space on the right
+                const toIndex = totalBars - 1 + DEBUG_CHART_RIGHT_OFFSET_BARS;
+                const fromIndex = Math.max(0, totalBars - DEBUG_CHART_VISIBLE_BARS);
+
+                chartRef.current.timeScale().setVisibleLogicalRange({
+                    from: fromIndex,
+                    to: toIndex,
+                });
+            }
+
             // Clear pending candles
             pendingCandlesRef.current.clear();
         }
@@ -274,11 +289,6 @@ export default function DebugModeChart({ events }: Props) {
 
             // Clear pending indicators
             pendingIndicatorsRef.current.clear();
-
-            // Fit content after updating indicators to ensure they're visible
-            if (chartRef.current) {
-                chartRef.current.timeScale().fitContent();
-            }
         }
 
         // Update trade markers
@@ -336,11 +346,6 @@ export default function DebugModeChart({ events }: Props) {
 
             // Clear pending markers
             pendingMarkersRef.current = [];
-        }
-
-        // Auto-scroll to show latest data
-        if (chartRef.current) {
-            chartRef.current.timeScale().scrollToRealTime();
         }
 
         rafIdRef.current = null;

@@ -142,9 +142,15 @@ export const TRADE_PRICE_LINE = {
 // ============================================================================
 
 /**
+ * Number of visible bars in debug mode chart
+ * Controls the default viewport width to show the last 48 candles
+ */
+export const DEBUG_CHART_VISIBLE_BARS = 48;
+
+/**
  * Right offset for debug mode chart (in bars)
  * Creates empty space between the last candle and the right border
- * Approximates 20% of a typical 60-bar viewport
+ * Represents 25% of the 48-bar viewport for better UX
  */
 export const DEBUG_CHART_RIGHT_OFFSET_BARS = 12;
 
