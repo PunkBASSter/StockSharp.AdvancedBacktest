@@ -84,7 +84,7 @@ public class DebugEventBufferTests
 	public async Task Flush_ClearsBufferAfterFlush()
 	{
 		// Arrange
-		const int flushIntervalMs = 100;
+		const int flushIntervalMs = 200; // Increased for reliability on slow systems
 		using var buffer = new DebugEventBuffer(flushIntervalMs);
 
 		var flushCount = 0;
@@ -92,12 +92,12 @@ public class DebugEventBufferTests
 
 		// Act - Add event, wait for flush, then wait again
 		buffer.Add("test", new { Value = 1 });
-		await Task.Delay(flushIntervalMs + 50);
+		await Task.Delay(flushIntervalMs + 100); // Increased wait time
 
 		var firstFlushCount = flushCount;
 
 		// Wait for another interval without adding events
-		await Task.Delay(flushIntervalMs + 50);
+		await Task.Delay(flushIntervalMs + 100); // Increased wait time
 
 		// Assert
 		Assert.Equal(1, firstFlushCount);

@@ -201,8 +201,13 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
             if (_connector != null)
             {
                 _connector.CandleReceived += OnCandleReceivedForDebug;
-                Logger?.AddInfoLog("Debug mode subscribed to candle events");
+                Logger?.AddInfoLog("Debug mode subscribed to connector candle events");
             }
+
+            // Subscribe to strategy candle events (in addition to connector)
+            // This is important because strategies may subscribe to candles independently
+            _strategy.CandleReceived += OnCandleReceivedForDebug;
+            Logger?.AddInfoLog("Debug mode subscribed to strategy candle events");
 
             // Subscribe to strategy trade events
             _strategy.OwnTradeReceived += OnOwnTradeReceivedForDebug;
@@ -437,6 +442,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
                 _strategy.Error -= OnStrategyError;
 
                 // Unsubscribe from debug mode events
+                _strategy.CandleReceived -= OnCandleReceivedForDebug;
                 _strategy.OwnTradeReceived -= OnOwnTradeReceivedForDebug;
             }
 
