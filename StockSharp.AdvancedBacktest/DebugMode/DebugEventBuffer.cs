@@ -8,13 +8,16 @@ namespace StockSharp.AdvancedBacktest.DebugMode;
 /// <summary>
 /// Buffers debug events using time-based flushing instead of count-based.
 /// Ensures all events during polling interval are captured, even when debugging with breakpoints.
+/// Events are grouped by candle to ensure correct association.
 /// </summary>
 public class DebugEventBuffer : IDisposable
 {
-    private readonly Dictionary<string, List<object>> _buffers = new();
+    // Stores events grouped by candle time, then by event type
+    private readonly Dictionary<DateTimeOffset, Dictionary<string, List<object>>> _candleBuffers = [];
     private readonly Timer _flushTimer;
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
     private bool _disposed;
+    private DateTimeOffset _currentCandleTime = DateTimeOffset.MinValue;
 
     /// <summary>
     /// Fired when buffer is flushed with accumulated events.
@@ -41,7 +44,21 @@ public class DebugEventBuffer : IDisposable
     }
 
     /// <summary>
-    /// Adds an event to the buffer.
+    /// Sets the current candle time context for subsequent events.
+    /// All events added after this call will be associated with this candle.
+    /// </summary>
+    /// <param name="candleTime">Timestamp of the current candle</param>
+    public void SetCurrentCandle(DateTimeOffset candleTime)
+    {
+        lock (_lock)
+        {
+            _currentCandleTime = candleTime;
+        }
+    }
+
+    /// <summary>
+    /// Adds an event to the buffer, associating it with the current candle.
+    /// If no candle has been set via SetCurrentCandle(), uses a default candle time for backward compatibility.
     /// </summary>
     /// <param name="eventType">Type of event (e.g., "candle", "trade", "indicator_SMA_20")</param>
     /// <param name="eventData">Event data object (will be serialized later by FileBasedWriter)</param>
@@ -58,17 +75,31 @@ public class DebugEventBuffer : IDisposable
 
         lock (_lock)
         {
-            if (!_buffers.ContainsKey(eventType))
+            // Use default candle time if not set (backward compatibility for tests without candle context)
+            var candleTime = _currentCandleTime == DateTimeOffset.MinValue
+                ? DateTimeOffset.MaxValue  // Use MaxValue as a "default" bucket that always flushes
+                : _currentCandleTime;
+
+            // Get or create buffer for current candle
+            if (!_candleBuffers.ContainsKey(candleTime))
             {
-                _buffers[eventType] = new List<object>();
+                _candleBuffers[candleTime] = [];
             }
 
-            _buffers[eventType].Add(eventData);
+            var candleBuffer = _candleBuffers[candleTime];
+
+            if (!candleBuffer.ContainsKey(eventType))
+            {
+                candleBuffer[eventType] = [];
+            }
+
+            candleBuffer[eventType].Add(eventData);
         }
     }
 
     /// <summary>
-    /// Manually flushes the buffer, firing OnFlush event with accumulated events.
+    /// Manually flushes completed candles, firing OnFlush event with accumulated events.
+    /// Only flushes candles that are no longer current (to ensure all events are captured).
     /// Called automatically by timer, but can also be called manually or on disposal.
     /// </summary>
     public void Flush()
@@ -81,21 +112,38 @@ public class DebugEventBuffer : IDisposable
         lock (_lock)
         {
             // Don't flush if buffer is empty
-            if (_buffers.Count == 0 || _buffers.All(kvp => kvp.Value.Count == 0))
+            if (_candleBuffers.Count == 0)
                 return;
 
-            // Create snapshot of current buffer state
-            eventsToFlush = new Dictionary<string, List<object>>();
-            foreach (var (eventType, eventList) in _buffers)
+            // Flush all candles except the current one (which may still be accumulating events)
+            eventsToFlush = [];
+            var candlesToFlush = _candleBuffers.Keys
+                .Where(candleTime => candleTime != _currentCandleTime)
+                .OrderBy(candleTime => candleTime)
+                .ToList();
+
+            foreach (var candleTime in candlesToFlush)
             {
-                if (eventList.Count > 0)
+                var candleBuffer = _candleBuffers[candleTime];
+                foreach (var (eventType, eventList) in candleBuffer)
                 {
-                    eventsToFlush[eventType] = new List<object>(eventList);
+                    if (eventList.Count > 0)
+                    {
+                        if (!eventsToFlush.ContainsKey(eventType))
+                        {
+                            eventsToFlush[eventType] = new List<object>();
+                        }
+                        eventsToFlush[eventType].AddRange(eventList);
+                    }
                 }
+
+                // Remove flushed candle from buffer
+                _candleBuffers.Remove(candleTime);
             }
 
-            // Clear buffers for next interval
-            _buffers.Clear();
+            // If nothing to flush, return early
+            if (eventsToFlush.Count == 0)
+                return;
         }
 
         // Fire event asynchronously to not block strategy execution
@@ -118,6 +166,10 @@ public class DebugEventBuffer : IDisposable
     }
 
 #if DEBUG
+    /// <summary>
+    /// Synchronously flushes completed candles, ensuring events are on disk before returning.
+    /// Only flushes candles that are no longer current to ensure correct event association.
+    /// </summary>
     public void FlushSynchronously()
     {
         if (_disposed)
@@ -128,21 +180,38 @@ public class DebugEventBuffer : IDisposable
         lock (_lock)
         {
             // Don't flush if buffer is empty
-            if (_buffers.Count == 0 || _buffers.All(kvp => kvp.Value.Count == 0))
+            if (_candleBuffers.Count == 0)
                 return;
 
-            // Create snapshot of current buffer state
+            // Flush all candles except the current one (which may still be accumulating events)
             eventsToFlush = new Dictionary<string, List<object>>();
-            foreach (var (eventType, eventList) in _buffers)
+            var candlesToFlush = _candleBuffers.Keys
+                .Where(candleTime => candleTime != _currentCandleTime)
+                .OrderBy(candleTime => candleTime)
+                .ToList();
+
+            foreach (var candleTime in candlesToFlush)
             {
-                if (eventList.Count > 0)
+                var candleBuffer = _candleBuffers[candleTime];
+                foreach (var (eventType, eventList) in candleBuffer)
                 {
-                    eventsToFlush[eventType] = new List<object>(eventList);
+                    if (eventList.Count > 0)
+                    {
+                        if (!eventsToFlush.ContainsKey(eventType))
+                        {
+                            eventsToFlush[eventType] = new List<object>();
+                        }
+                        eventsToFlush[eventType].AddRange(eventList);
+                    }
                 }
+
+                // Remove flushed candle from buffer
+                _candleBuffers.Remove(candleTime);
             }
 
-            // Clear buffers for next interval
-            _buffers.Clear();
+            // If nothing to flush, return early
+            if (eventsToFlush.Count == 0)
+                return;
         }
 
         // Fire event SYNCHRONOUSLY (not Task.Run) to ensure completion before returning
@@ -174,21 +243,33 @@ public class DebugEventBuffer : IDisposable
         // Perform final synchronous flush to ensure no events are lost
         lock (_lock)
         {
-            if (_buffers.Count > 0 && _buffers.Any(kvp => kvp.Value.Count > 0))
+            if (_candleBuffers.Count > 0)
             {
                 var eventsToFlush = new Dictionary<string, List<object>>();
-                foreach (var (eventType, eventList) in _buffers)
+
+                // Flush ALL candles including current one on disposal
+                foreach (var (candleTime, candleBuffer) in _candleBuffers.OrderBy(kvp => kvp.Key))
                 {
-                    if (eventList.Count > 0)
+                    foreach (var (eventType, eventList) in candleBuffer)
                     {
-                        eventsToFlush[eventType] = new List<object>(eventList);
+                        if (eventList.Count > 0)
+                        {
+                            if (!eventsToFlush.ContainsKey(eventType))
+                            {
+                                eventsToFlush[eventType] = new List<object>();
+                            }
+                            eventsToFlush[eventType].AddRange(eventList);
+                        }
                     }
                 }
 
-                _buffers.Clear();
+                _candleBuffers.Clear();
 
                 // Final flush is synchronous to ensure completion before disposal
-                OnFlush?.Invoke(eventsToFlush);
+                if (eventsToFlush.Count > 0)
+                {
+                    OnFlush?.Invoke(eventsToFlush);
+                }
             }
         }
     }

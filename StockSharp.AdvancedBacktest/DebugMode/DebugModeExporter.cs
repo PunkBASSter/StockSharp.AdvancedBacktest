@@ -341,6 +341,27 @@ public class DebugModeExporter : IDisposable
     #region Event Capture Methods
 
     /// <summary>
+    /// Sets the current candle context in the buffer for subsequent events.
+    /// Should be called BEFORE processing each new candle to ensure all events
+    /// (trades, indicators) are associated with the correct candle.
+    /// </summary>
+    /// <param name="candleTime">Timestamp of the current candle</param>
+    public void SetCurrentCandle(DateTimeOffset candleTime)
+    {
+        if (!IsInitialized || _disposed)
+            return;
+
+        try
+        {
+            _buffer!.SetCurrentCandle(candleTime);
+        }
+        catch (Exception ex)
+        {
+            _strategy?.LogError($"Error setting current candle context: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// Captures a candle update event from StockSharp candle message.
     /// Automatically extracts OHLCV data and security identifier.
     /// </summary>

@@ -238,7 +238,13 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
 
         try
         {
+            // CRITICAL: Set current candle context FIRST, before any operations
+            // This ensures all subsequent events (trades, indicators) are tagged with this candle's timestamp
+            _debugExporter.SetCurrentCandle(candle.OpenTime);
+
 #if DEBUG
+            // Flush previous candle's events now that we've moved to a new candle
+            // This ensures previous candle's events are written with correct association
             _debugExporter.FlushBeforeCandle();
 #endif
 
@@ -249,6 +255,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
                 securityId = customStrategy.Securities.Keys.FirstOrDefault()?.ToSecurityId() ?? default;
             }
 
+            // Capture current candle (will be associated with current candle time)
             _debugExporter.CaptureCandle(candle, securityId ?? default);
         }
         catch (Exception ex)
