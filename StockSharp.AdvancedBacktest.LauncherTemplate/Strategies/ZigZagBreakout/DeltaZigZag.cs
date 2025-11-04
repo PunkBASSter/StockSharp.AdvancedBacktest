@@ -111,12 +111,16 @@ public class DeltaZigZag : BaseIndicator
             ? _lastSwingSize * Delta
             : (_minimumThreshold ?? Delta);
         var changeTrend = false;
+        var extremumUpdated = false;
 
         if (isUpTrend)
         {
             // During uptrend, track the highest high for peak detection
             if (lastExtremum < high)
+            {
                 lastExtremum = high;
+                extremumUpdated = true;
+            }
             else
                 changeTrend = low <= (lastExtremum - threshold);
         }
@@ -124,7 +128,10 @@ public class DeltaZigZag : BaseIndicator
         {
             // During downtrend, track the lowest low for bottom detection
             if (lastExtremum > low)
+            {
                 lastExtremum = low;
+                extremumUpdated = true;
+            }
             else
                 changeTrend = high >= (lastExtremum + threshold);
         }
@@ -156,7 +163,13 @@ public class DeltaZigZag : BaseIndicator
             {
                 _lastExtremum = lastExtremum;
                 _isUpTrend = isUpTrend;
-                _shift++;
+
+                // If extremum was updated to current bar, reset shift to 1
+                // Otherwise, extremum is one more bar away, so increment shift
+                if (extremumUpdated)
+                    _shift = 1;
+                else
+                    _shift++;
             }
         }
 
