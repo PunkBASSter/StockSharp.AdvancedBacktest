@@ -11,4 +11,10 @@ public class ZigZagBreakoutConfig
 
     // JMA usage: -1 = bearish filter, 0 = disabled, 1 = bullish filter
     public int JmaUsage { get; set; } = -1;
+
+    // Risk management: percentage of account to risk per trade (e.g., 0.02 = 2%)
+    public decimal RiskPercentPerTrade { get; set; } = 0.02m;
+
+    // Whether to use native StockSharp protection (StartProtection)
+    public bool UseNativeProtection { get; set; } = true;
 }

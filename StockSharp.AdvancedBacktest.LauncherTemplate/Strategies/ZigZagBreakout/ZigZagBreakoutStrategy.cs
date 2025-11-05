@@ -11,17 +11,21 @@ public class ZigZagBreakout : CustomStrategyBase
     private DeltaZigZag? _dzz;
     private ZigZagBreakoutConfig? _config;
     private Order? _currentBuyOrder;
-    private Order? _currentStopLoss;
-    private Order? _currentTakeProfit;
     private readonly List<IIndicatorValue> _dzzHistory = [];
     private TimeSpan? _candleInterval;
+
+    // Track current signal levels for protection and order management
+    private decimal _currentStopLoss;
+    private decimal _currentTakeProfit;
+    private decimal _currentEntryPrice;
 
     protected override void OnReseted()
     {
         base.OnReseted();
         _currentBuyOrder = null;
-        _currentStopLoss = null;
-        _currentTakeProfit = null;
+        _currentStopLoss = 0;
+        _currentTakeProfit = 0;
+        _currentEntryPrice = 0;
         _dzzHistory.Clear();
     }
 
@@ -78,31 +82,52 @@ public class ZigZagBreakout : CustomStrategyBase
             _dzzHistory.Add(dzzIndicatorValue);
         }
 
+        // Don't place new orders if we have a position
+        if (Position != 0)
+            return;
+
         var signal = TryGetBuyOrder();
         if (signal == null)
         {
+            // No valid signal - cancel any pending entry order
+            if (_currentBuyOrder != null && _currentBuyOrder.State == OrderStates.Active)
+            {
+                this.LogInfo("Canceling order - no valid signal");
+                CancelOrder(_currentBuyOrder);
+                _currentBuyOrder = null;
+            }
             return;
         }
 
         var (price, sl, tp) = signal.Value;
 
-        // Simple order management: place limit order at breakout price
-        if (_currentBuyOrder != null && _currentBuyOrder.State == OrderStates.Active)
+        // Check if signal levels changed significantly
+        bool levelsChanged =
+            Math.Abs(_currentEntryPrice - price) > PriceStepHelper.GetPriceStep(Security) ||
+            Math.Abs(_currentStopLoss - sl) > PriceStepHelper.GetPriceStep(Security) ||
+            Math.Abs(_currentTakeProfit - tp) > PriceStepHelper.GetPriceStep(Security);
+
+        // Cancel existing order if levels changed
+        if (_currentBuyOrder != null && _currentBuyOrder.State == OrderStates.Active && levelsChanged)
         {
-            // Cancel existing order if price changed
-            if (Math.Abs(_currentBuyOrder.Price - price) > PriceStepHelper.GetPriceStep(Security))
-            {
-                this.LogInfo("Canceling existing order due to price change");
-                CancelOrder(_currentBuyOrder);
-                _currentBuyOrder = null;
-            }
+            this.LogInfo("Canceling existing order - ZigZag levels changed");
+            CancelOrder(_currentBuyOrder);
+            _currentBuyOrder = null;
         }
 
-        if (_currentBuyOrder == null && Position == 0)
+        // Place new order if no active order exists
+        if (_currentBuyOrder == null)
         {
-            // No existing order, create new one
-            this.LogInfo("BUY LIMIT at {0:F2} SL:{1:F2} TP:{2:F2}", price, sl, tp);
-            _currentBuyOrder = BuyLimit(price, 1m);
+            // Update tracked levels
+            _currentEntryPrice = price;
+            _currentStopLoss = sl;
+            _currentTakeProfit = tp;
+
+            // Calculate position size based on risk
+            var volume = CalculatePositionSize(price, sl);
+
+            this.LogInfo("BUY LIMIT at {0:F2} SL:{1:F2} TP:{2:F2} Volume:{3}", price, sl, tp, volume);
+            _currentBuyOrder = BuyLimit(price, volume);
         }
     }
 
@@ -145,59 +170,56 @@ public class ZigZagBreakout : CustomStrategyBase
         return null;
     }
 
+    private decimal CalculatePositionSize(decimal entryPrice, decimal stopLoss)
+    {
+        if (_config == null)
+            return 1m;
+
+        // Calculate risk amount in currency
+        var accountSize = Portfolio.CurrentValue ?? 10000m; // Default to 10000 if null
+        var riskAmount = accountSize * _config.RiskPercentPerTrade;
+
+        // Calculate stop loss distance
+        var stopDistance = Math.Abs(entryPrice - stopLoss);
+
+        if (stopDistance == 0)
+            return 1m;
+
+        // Calculate position size: riskAmount / stopDistance
+        var volume = riskAmount / stopDistance;
+
+        // Round to valid lot size (minimum 1)
+        volume = Math.Max(1m, Math.Floor(volume));
+
+        this.LogInfo("Position sizing - Account:{0:F2} Risk:{1:F2} SL Distance:{2:F4} Volume:{3}",
+            accountSize, riskAmount, stopDistance, volume);
+
+        return volume;
+    }
+
     protected override void OnOwnTradeReceived(MyTrade trade)
     {
         base.OnOwnTradeReceived(trade);
 
         var order = trade.Order;
 
-        // Check if this was our buy order
+        // Check if this was our entry order
         if (order == _currentBuyOrder)
         {
-            this.LogInfo("Buy order filled at {0:F2}, Position: {1}", trade.Trade.Price, Position);
+            this.LogInfo("Entry order filled at {0:F2}, Position: {1}", trade.Trade.Price, Position);
             _currentBuyOrder = null;
 
-            // Create protective orders based on the signal
-            var signal = TryGetBuyOrder();
-            if (signal != null)
+            // Activate native protection using tracked SL/TP levels
+            if (_config?.UseNativeProtection == true && _currentStopLoss != 0 && _currentTakeProfit != 0)
             {
-                var (_, sl, tp) = signal.Value;
+                this.LogInfo("Activating native protection - SL:{0:F2} TP:{1:F2}", _currentStopLoss, _currentTakeProfit);
 
-                // Create stop-loss order
-                _currentStopLoss = SellLimit(sl, Math.Abs(Position));
-                this.LogInfo("Stop-Loss order created at {0:F2}", sl);
-
-                // Create take-profit order
-                _currentTakeProfit = SellLimit(tp, Math.Abs(Position));
-                this.LogInfo("Take-Profit order created at {0:F2}", tp);
-            }
-        }
-        // Check if stop-loss was filled
-        else if (order == _currentStopLoss)
-        {
-            this.LogInfo("Stop-Loss filled at {0:F2}, Position: {1}", trade.Trade.Price, Position);
-            _currentStopLoss = null;
-
-            // Cancel the take-profit order
-            if (_currentTakeProfit != null && _currentTakeProfit.State == OrderStates.Active)
-            {
-                this.LogInfo("Canceling Take-Profit order");
-                CancelOrder(_currentTakeProfit);
-                _currentTakeProfit = null;
-            }
-        }
-        // Check if take-profit was filled
-        else if (order == _currentTakeProfit)
-        {
-            this.LogInfo("Take-Profit filled at {0:F2}, Position: {1}", trade.Trade.Price, Position);
-            _currentTakeProfit = null;
-
-            // Cancel the stop-loss order
-            if (_currentStopLoss != null && _currentStopLoss.State == OrderStates.Active)
-            {
-                this.LogInfo("Canceling Stop-Loss order");
-                CancelOrder(_currentStopLoss);
-                _currentStopLoss = null;
+                StartProtection(
+                    takeProfit: new Unit(_currentTakeProfit, UnitTypes.Limit),
+                    stopLoss: new Unit(_currentStopLoss, UnitTypes.Limit),
+                    isStopTrailing: false,
+                    useMarketOrders: false
+                );
             }
         }
     }

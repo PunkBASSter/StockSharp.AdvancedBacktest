@@ -53,8 +53,8 @@ public class DebugEventBufferTests
 		buffer.Add("candle", new CandleDataPoint { Time = 3 });
 		buffer.Add("trade", new TradeDataPoint { Time = 1 });
 
-		// Wait for flush
-		await Task.Delay(flushIntervalMs + 50);
+		// Wait for flush - increased delay to account for async Task.Run overhead
+		await Task.Delay(flushIntervalMs + 150);
 
 		// Assert
 		Assert.NotNull(flushedEvents);
@@ -84,24 +84,29 @@ public class DebugEventBufferTests
 	public async Task Flush_ClearsBufferAfterFlush()
 	{
 		// Arrange
-		const int flushIntervalMs = 200; // Increased for reliability on slow systems
+		const int flushIntervalMs = 300; // Increased for reliability on slow CI systems
 		using var buffer = new DebugEventBuffer(flushIntervalMs);
 
 		var flushCount = 0;
-		buffer.OnFlush += _ => flushCount++;
+		var lockObj = new object();
+		buffer.OnFlush += _ => { lock (lockObj) { flushCount++; } };
 
 		// Act - Add event, wait for flush, then wait again
 		buffer.Add("test", new { Value = 1 });
-		await Task.Delay(flushIntervalMs + 100); // Increased wait time
+		await Task.Delay(flushIntervalMs + 300); // Extra time for async Task.Run
 
-		var firstFlushCount = flushCount;
+		int firstFlushCount;
+		lock (lockObj) { firstFlushCount = flushCount; }
 
 		// Wait for another interval without adding events
-		await Task.Delay(flushIntervalMs + 100); // Increased wait time
+		await Task.Delay(flushIntervalMs + 300); // Extra time for async Task.Run
+
+		int finalFlushCount;
+		lock (lockObj) { finalFlushCount = flushCount; }
 
 		// Assert
 		Assert.Equal(1, firstFlushCount);
-		Assert.Equal(1, flushCount); // Should not flush empty buffer
+		Assert.Equal(1, finalFlushCount); // Should not flush empty buffer
 	}
 
 	#endregion
