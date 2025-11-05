@@ -77,18 +77,12 @@ public class Program
             // Set Strategy Parameters using CustomParams
             var parameters = new List<ICustomParam>
             {
-                new NumberParam<decimal>("DzzDepth", 5m),
-                new NumberParam<int>("JmaLength", 7),
-                new NumberParam<int>("JmaPhase", 0),
-                new NumberParam<int>("JmaUsage", 0)  // Bearish trend filter
+                new NumberParam<decimal>("DzzDepth", 5m)
             };
             strategy.ParamsContainer = new CustomParamsContainer(parameters);
 
             Console.WriteLine("Strategy Parameters:");
             Console.WriteLine($"  DzzDepth: 5");
-            Console.WriteLine($"  JmaLength: 7");
-            Console.WriteLine($"  JmaPhase: 0");
-            Console.WriteLine($"  JmaUsage: -1 (Bearish trend filter)");
             Console.WriteLine();
 
             // Create and Run Backtest

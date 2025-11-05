@@ -1,5 +1,4 @@
 using StockSharp.Algo.Indicators;
-using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.ZigZagBreakout.TrendFiltering;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Utilities;
 using StockSharp.BusinessEntities;
@@ -10,13 +9,11 @@ namespace StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.ZigZagBreakout
 public class ZigZagBreakout : CustomStrategyBase
 {
     private DeltaZigZag? _dzz;
-    private Jma? _jma;
     private ZigZagBreakoutConfig? _config;
     private Order? _currentBuyOrder;
     private Order? _currentStopLoss;
     private Order? _currentTakeProfit;
     private readonly List<IIndicatorValue> _dzzHistory = [];
-    private readonly List<IIndicatorValue> _jmaHistory = [];
     private TimeSpan? _candleInterval;
 
     protected override void OnReseted()
@@ -26,17 +23,13 @@ public class ZigZagBreakout : CustomStrategyBase
         _currentStopLoss = null;
         _currentTakeProfit = null;
         _dzzHistory.Clear();
-        _jmaHistory.Clear();
     }
 
     protected override void OnStarted(DateTimeOffset time)
     {
         _config = new ZigZagBreakoutConfig
         {
-            DzzDepth = GetParam<decimal>("DzzDepth"),
-            JmaLength = GetParam<int>("JmaLength"),
-            JmaPhase = GetParam<int>("JmaPhase"),
-            JmaUsage = GetParam<int>("JmaUsage")
+            DzzDepth = GetParam<decimal>("DzzDepth")
         };
 
         _dzz = new DeltaZigZag
@@ -46,15 +39,8 @@ public class ZigZagBreakout : CustomStrategyBase
             MinimumThreshold = PriceStepHelper.GetDefaultDelta(Security, multiplier: 10)
         };
 
-        _jma = new Jma
-        {
-            Length = _config.JmaLength,
-            Phase = _config.JmaPhase
-        };
-
         // Register indicators BEFORE calling base.OnStarted so debug mode can subscribe to them
         Indicators.Add(_dzz);
-        Indicators.Add(_jma);
 
         // Now call base to initialize debug mode with the indicators already registered
         base.OnStarted(time);
@@ -71,11 +57,11 @@ public class ZigZagBreakout : CustomStrategyBase
         };
 
         SubscribeCandles(subscription)
-            .Bind(_dzz, _jma, OnProcessCandle)
+            .Bind(_dzz, OnProcessCandle)
             .Start();
     }
 
-    private void OnProcessCandle(ICandleMessage candle, decimal dzzValue, decimal jmaValue)
+    private void OnProcessCandle(ICandleMessage candle, decimal dzzValue)
     {
         if (candle.State != CandleStates.Finished)
             return;
@@ -90,12 +76,6 @@ public class ZigZagBreakout : CustomStrategyBase
         {
             var dzzIndicatorValue = _dzz.Container.GetValue(0).output;
             _dzzHistory.Add(dzzIndicatorValue);
-        }
-
-        if (_jma!.IsFormed)
-        {
-            var jmaIndicatorValue = _jma.Container.GetValue(0).output;
-            _jmaHistory.Add(jmaIndicatorValue);
         }
 
         var signal = TryGetBuyOrder();
@@ -128,10 +108,10 @@ public class ZigZagBreakout : CustomStrategyBase
 
     private (decimal price, decimal sl, decimal tp)? TryGetBuyOrder()
     {
-        if (_dzz == null || _jma == null || _config == null)
+        if (_dzz == null || _config == null)
             return null;
 
-        if (!_dzz.IsFormed || !_jma.IsFormed)
+        if (!_dzz.IsFormed)
             return null;
 
         // Need at least 20 values to extract pattern
@@ -154,23 +134,6 @@ public class ZigZagBreakout : CustomStrategyBase
         var sl = nonZeroPoints[0];
         var price = nonZeroPoints[1];
         var l1 = nonZeroPoints[2];
-
-        // JMA trend filtering
-        if (_config.JmaUsage != 0 && _jmaHistory.Count >= 2)
-        {
-            var jma1 = _jmaHistory[^1].GetValue<decimal>();
-            var jma2 = _jmaHistory[^2].GetValue<decimal>();
-
-            bool trendOk = _config.JmaUsage switch
-            {
-                1 => jma1 >= jma2,   // Bullish: JMA rising
-                -1 => jma1 <= jma2,  // Bearish: JMA falling
-                _ => true
-            };
-
-            if (!trendOk)
-                return null;
-        }
 
         // Check pattern: sl < l1 < price and price > sl
         if (price > sl && sl < l1 && l1 < price)
