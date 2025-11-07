@@ -1,4 +1,5 @@
 using StockSharp.Algo.Indicators;
+using StockSharp.AdvancedBacktest.OrderManagement;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Utilities;
 using StockSharp.BusinessEntities;
@@ -10,22 +11,14 @@ public class ZigZagBreakout : CustomStrategyBase
 {
     private DeltaZigZag? _dzz;
     private ZigZagBreakoutConfig? _config;
-    private Order? _currentBuyOrder;
+    private OrderPositionManager? _orderManager;
     private readonly List<IIndicatorValue> _dzzHistory = [];
     private TimeSpan? _candleInterval;
-
-    // Track current signal levels for protection and order management
-    private decimal _currentStopLoss;
-    private decimal _currentTakeProfit;
-    private decimal _currentEntryPrice;
 
     protected override void OnReseted()
     {
         base.OnReseted();
-        _currentBuyOrder = null;
-        _currentStopLoss = 0;
-        _currentTakeProfit = 0;
-        _currentEntryPrice = 0;
+        _orderManager?.Reset();
         _dzzHistory.Clear();
     }
 
@@ -35,6 +28,9 @@ public class ZigZagBreakout : CustomStrategyBase
         {
             DzzDepth = GetParam<decimal>("DzzDepth")
         };
+
+        // Initialize order manager
+        _orderManager = new OrderPositionManager(this);
 
         _dzz = new DeltaZigZag
         {
@@ -67,6 +63,10 @@ public class ZigZagBreakout : CustomStrategyBase
 
     private void OnProcessCandle(ICandleMessage candle, decimal dzzValue)
     {
+        //A special bar that triggers open order and tp at the same time for testing
+        if (candle.OpenTime == new DateTimeOffset(2020, 4, 29, 1, 0, 0, TimeSpan.Zero))
+            LogDebug("last order timestamp");
+
         if (candle.State != CandleStates.Finished)
             return;
 
@@ -82,53 +82,38 @@ public class ZigZagBreakout : CustomStrategyBase
             _dzzHistory.Add(dzzIndicatorValue);
         }
 
-        // Don't place new orders if we have a position
-        if (Position != 0)
+        // Check if we can trade (no position, no active orders)
+        if (!_orderManager!.CanTrade())
             return;
 
-        var signal = TryGetBuyOrder();
-        if (signal == null)
+        // Try to get a buy signal from ZigZag pattern
+        var signalData = TryGetBuyOrder();
+
+        if (signalData == null)
         {
-            // No valid signal - cancel any pending entry order
-            if (_currentBuyOrder != null && _currentBuyOrder.State == OrderStates.Active)
-            {
-                this.LogInfo("Canceling order - no valid signal");
-                CancelOrder(_currentBuyOrder);
-                _currentBuyOrder = null;
-            }
+            // No valid signal - cancel any pending orders
+            _orderManager!.HandleSignal(null);
             return;
         }
 
-        var (price, sl, tp) = signal.Value;
+        var (price, sl, tp) = signalData.Value;
 
-        // Check if signal levels changed significantly
-        bool levelsChanged =
-            Math.Abs(_currentEntryPrice - price) > PriceStepHelper.GetPriceStep(Security) ||
-            Math.Abs(_currentStopLoss - sl) > PriceStepHelper.GetPriceStep(Security) ||
-            Math.Abs(_currentTakeProfit - tp) > PriceStepHelper.GetPriceStep(Security);
+        // Calculate position size based on risk
+        var volume = CalculatePositionSize(price, sl);
 
-        // Cancel existing order if levels changed
-        if (_currentBuyOrder != null && _currentBuyOrder.State == OrderStates.Active && levelsChanged)
+        // Create and handle the signal
+        var signal = new TradeSignal
         {
-            this.LogInfo("Canceling existing order - ZigZag levels changed");
-            CancelOrder(_currentBuyOrder);
-            _currentBuyOrder = null;
-        }
+            Direction = Sides.Buy,
+            EntryPrice = price,
+            Volume = volume,
+            StopLoss = sl,
+            TakeProfit = tp,
+            OrderType = OrderTypes.Limit
+        };
 
-        // Place new order if no active order exists
-        if (_currentBuyOrder == null)
-        {
-            // Update tracked levels
-            _currentEntryPrice = price;
-            _currentStopLoss = sl;
-            _currentTakeProfit = tp;
-
-            // Calculate position size based on risk
-            var volume = CalculatePositionSize(price, sl);
-
-            this.LogInfo("BUY LIMIT at {0:F2} SL:{1:F2} TP:{2:F2} Volume:{3}", price, sl, tp, volume);
-            _currentBuyOrder = BuyLimit(price, volume);
-        }
+        this.LogInfo("Signal: BUY LIMIT at {0:F2} SL:{1:F2} TP:{2:F2} Volume:{3}", price, sl, tp, volume);
+        _orderManager.HandleSignal(signal);
     }
 
     private (decimal price, decimal sl, decimal tp)? TryGetBuyOrder()
@@ -201,26 +186,7 @@ public class ZigZagBreakout : CustomStrategyBase
     {
         base.OnOwnTradeReceived(trade);
 
-        var order = trade.Order;
-
-        // Check if this was our entry order
-        if (order == _currentBuyOrder)
-        {
-            this.LogInfo("Entry order filled at {0:F2}, Position: {1}", trade.Trade.Price, Position);
-            _currentBuyOrder = null;
-
-            // Activate native protection using tracked SL/TP levels
-            if (_config?.UseNativeProtection == true && _currentStopLoss != 0 && _currentTakeProfit != 0)
-            {
-                this.LogInfo("Activating native protection - SL:{0:F2} TP:{1:F2}", _currentStopLoss, _currentTakeProfit);
-
-                StartProtection(
-                    takeProfit: new Unit(_currentTakeProfit, UnitTypes.Limit),
-                    stopLoss: new Unit(_currentStopLoss, UnitTypes.Limit),
-                    isStopTrailing: false,
-                    useMarketOrders: false
-                );
-            }
-        }
+        // Delegate to order manager to handle entry fills and protection order management
+        _orderManager?.OnOwnTradeReceived(trade);
     }
 }
