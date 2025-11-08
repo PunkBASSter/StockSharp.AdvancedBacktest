@@ -82,26 +82,16 @@ public class ZigZagBreakout : CustomStrategyBase
             _dzzHistory.Add(dzzIndicatorValue);
         }
 
-        // Check if we can trade (no position, no active orders)
-        if (!_orderManager!.CanTrade())
+        if (Position > 0)
             return;
 
-        // Try to get a buy signal from ZigZag pattern
         var signalData = TryGetBuyOrder();
-
-        if (signalData == null)
-        {
-            // No valid signal - cancel any pending orders
-            _orderManager!.HandleSignal(null);
+        if (!signalData.HasValue)
             return;
-        }
 
         var (price, sl, tp) = signalData.Value;
-
-        // Calculate position size based on risk
         var volume = CalculatePositionSize(price, sl);
 
-        // Create and handle the signal
         var signal = new TradeSignal
         {
             Direction = Sides.Buy,
@@ -113,7 +103,7 @@ public class ZigZagBreakout : CustomStrategyBase
         };
 
         this.LogInfo("Signal: BUY LIMIT at {0:F2} SL:{1:F2} TP:{2:F2} Volume:{3}", price, sl, tp, volume);
-        _orderManager.HandleSignal(signal);
+        _orderManager!.HandleSignal(signal);
     }
 
     private (decimal price, decimal sl, decimal tp)? TryGetBuyOrder()
@@ -157,24 +147,20 @@ public class ZigZagBreakout : CustomStrategyBase
 
     private decimal CalculatePositionSize(decimal entryPrice, decimal stopLoss)
     {
+        var defaultSize = 0.01m;
         if (_config == null)
-            return 1m;
+            return defaultSize;
 
-        // Calculate risk amount in currency
-        var accountSize = Portfolio.CurrentValue ?? 10000m; // Default to 10000 if null
+        var accountSize = Portfolio.CurrentValue ?? 10000m;
         var riskAmount = accountSize * _config.RiskPercentPerTrade;
 
-        // Calculate stop loss distance
         var stopDistance = Math.Abs(entryPrice - stopLoss);
 
         if (stopDistance == 0)
-            return 1m;
+            return defaultSize;
 
-        // Calculate position size: riskAmount / stopDistance
         var volume = riskAmount / stopDistance;
-
-        // Round to valid lot size (minimum 1)
-        volume = Math.Max(1m, Math.Floor(volume));
+        volume = Math.Max(defaultSize, Math.Floor(volume));
 
         this.LogInfo("Position sizing - Account:{0:F2} Risk:{1:F2} SL Distance:{2:F4} Volume:{3}",
             accountSize, riskAmount, stopDistance, volume);
@@ -185,8 +171,6 @@ public class ZigZagBreakout : CustomStrategyBase
     protected override void OnOwnTradeReceived(MyTrade trade)
     {
         base.OnOwnTradeReceived(trade);
-
-        // Delegate to order manager to handle entry fills and protection order management
         _orderManager?.OnOwnTradeReceived(trade);
     }
 }
