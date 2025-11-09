@@ -82,6 +82,11 @@ public class ZigZagBreakout : CustomStrategyBase
             _dzzHistory.Add(dzzIndicatorValue);
         }
 
+        // Check stop-loss and take-profit BEFORE checking for new signals
+        // This ensures SL/TP can execute in the same candle as entry if needed
+        if (_orderManager!.CheckProtectionLevels(candle))
+            return; // Position was closed, no need to check for new signals
+
         if (Position > 0)
             return;
 
@@ -103,7 +108,7 @@ public class ZigZagBreakout : CustomStrategyBase
         };
 
         this.LogInfo("Signal: BUY LIMIT at {0:F2} SL:{1:F2} TP:{2:F2} Volume:{3}", price, sl, tp, volume);
-        _orderManager!.HandleSignal(signal);
+        _orderManager.HandleSignal(signal);
     }
 
     private (decimal price, decimal sl, decimal tp)? TryGetBuyOrder()

@@ -2,6 +2,7 @@ using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Utilities;
 using StockSharp.BusinessEntities;
 using StockSharp.Messages;
+using StockSharp.Algo.Candles;
 
 namespace StockSharp.AdvancedBacktest.OrderManagement;
 
@@ -24,6 +25,13 @@ public class OrderPositionManager(CustomStrategyBase strategy)
 
     private TradeSignal? _lastSignal;
 
+    // Track current stop-loss and take-profit levels for protection
+    private decimal? _currentStopLoss;
+    private decimal? _currentTakeProfit;
+
+    // Cache the last candle for protection checking after entry fills
+    private ICandleMessage? _lastCandle;
+
     public MyOrder[] ActiveOrders()
     {
         if (_order is null || !IsOrderActive(_order.EntryOrder))
@@ -44,6 +52,9 @@ public class OrderPositionManager(CustomStrategyBase strategy)
         {
             signal.Validate();
             PlaceEntryOrder(signal);
+            // Store SL/TP levels for protection checking
+            _currentStopLoss = signal.StopLoss;
+            _currentTakeProfit = signal.TakeProfit;
             return;
         }
 
@@ -53,10 +64,62 @@ public class OrderPositionManager(CustomStrategyBase strategy)
             _strategy.LogInfo("Canceling existing entry order - signal levels changed");
             CancelAllOrders();
             PlaceEntryOrder(signal);
+            // Update SL/TP levels for new signal
+            _currentStopLoss = signal.StopLoss;
+            _currentTakeProfit = signal.TakeProfit;
         }
     }
 
-    public void CloseAllPositions() //TODO: what to do with existing orders? _order=null?
+    /// <summary>
+    /// Checks if stop-loss or take-profit levels have been hit by the current candle.
+    /// If hit, closes the position with a market order.
+    /// This method should be called on each candle update BEFORE checking for new signals.
+    /// </summary>
+    /// <param name="candle">The current candle to check against protection levels.</param>
+    /// <returns>True if position was closed due to SL/TP hit, false otherwise.</returns>
+    public bool CheckProtectionLevels(ICandleMessage candle)
+    {
+        // Cache the candle for later use (e.g., after entry fills)
+        _lastCandle = candle;
+
+        // Only check if we have an open position and protection levels are set
+        if (_strategy.Position == 0 || (_currentStopLoss == null && _currentTakeProfit == null))
+            return false;
+
+        return CheckProtectionLevelsInternal(candle);
+    }
+
+    /// <summary>
+    /// Internal method to check protection levels against a candle.
+    /// </summary>
+    private bool CheckProtectionLevelsInternal(ICandleMessage candle)
+    {
+        // Check if stop-loss was hit (use candle low for more accurate checking)
+        if (_currentStopLoss.HasValue && candle.LowPrice <= _currentStopLoss.Value)
+        {
+            _strategy.LogInfo("Stop-loss hit at candle low {0:F2} (SL level: {1:F2}), closing position",
+                candle.LowPrice, _currentStopLoss.Value);
+            CloseAllPositions();
+            _currentStopLoss = null;
+            _currentTakeProfit = null;
+            return true;
+        }
+
+        // Check if take-profit was hit (use candle high for more accurate checking)
+        if (_currentTakeProfit.HasValue && candle.HighPrice >= _currentTakeProfit.Value)
+        {
+            _strategy.LogInfo("Take-profit hit at candle high {0:F2} (TP level: {1:F2}), closing position",
+                candle.HighPrice, _currentTakeProfit.Value);
+            CloseAllPositions();
+            _currentStopLoss = null;
+            _currentTakeProfit = null;
+            return true;
+        }
+
+        return false;
+    }
+
+    public void CloseAllPositions()
     {
         if (_strategy.Position == 0)
             return;
@@ -74,6 +137,10 @@ public class OrderPositionManager(CustomStrategyBase strategy)
         {
             _strategy.BuyMarket(closeVolume);
         }
+
+        // Clear order state to allow new orders to be placed
+        _order = null;
+        _lastSignal = null;
     }
 
     public void OnOwnTradeReceived(MyTrade trade)
@@ -101,6 +168,9 @@ public class OrderPositionManager(CustomStrategyBase strategy)
     {
         _order = null;
         _lastSignal = null;
+        _currentStopLoss = null;
+        _currentTakeProfit = null;
+        _lastCandle = null;
     }
 
     #region Private Helper Methods
@@ -170,6 +240,18 @@ public class OrderPositionManager(CustomStrategyBase strategy)
         if (_lastSignal == null)
             return;
 
+        // CRITICAL FIX: Check if SL/TP were hit in the SAME candle that filled the entry
+        // This handles the case where entry fills and TP/SL hit in one big candle
+        if (_lastCandle != null && _strategy.Position != 0)
+        {
+            _strategy.LogInfo("Checking if protection levels hit in same candle as entry fill...");
+            if (CheckProtectionLevelsInternal(_lastCandle))
+            {
+                _strategy.LogInfo("Protection hit immediately after entry - position closed");
+                return; // Position was closed, don't place protection orders
+            }
+        }
+
         PlaceProtectionOrders(_lastSignal);
     }
 
@@ -182,9 +264,10 @@ public class OrderPositionManager(CustomStrategyBase strategy)
         {
             _strategy.LogInfo("Canceling take-profit order");
             _strategy.CancelOrder(_order.TpOrder);
-            _order = null;
         }
 
+        // Clear state to allow new orders after SL closes the position
+        _order = null;
         _lastSignal = null;
     }
 
@@ -197,9 +280,10 @@ public class OrderPositionManager(CustomStrategyBase strategy)
         {
             _strategy.LogInfo("Canceling stop-loss order");
             _strategy.CancelOrder(_order.SlOrder);
-            _order = null;
         }
 
+        // Clear state to allow new orders after TP closes the position
+        _order = null;
         _lastSignal = null;
     }
 
