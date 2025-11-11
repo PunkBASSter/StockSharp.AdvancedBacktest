@@ -65,7 +65,11 @@ public class ZigZagBreakout : CustomStrategyBase
     {
         //A special bar that triggers open order and tp at the same time for testing
         if (candle.OpenTime == new DateTimeOffset(2020, 4, 29, 1, 0, 0, TimeSpan.Zero))
-            LogDebug("last order timestamp");
+            LogDebug("last order timestamp"); // Stops from StandardProtection were placed but never triggered (as price moved too far)
+                                              //TODO: Also check how DZZ handles big candle with both local peak and trough
+
+        if (candle.OpenTime == new DateTimeOffset(2020, 2, 06, 9, 0, 0, TimeSpan.Zero))
+            LogDebug("last order timestamp"); //Stops were not placed here - custom order management was used
 
         if (candle.State != CandleStates.Finished)
             return;
