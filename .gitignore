@@ -76,3 +76,4 @@ ConnectorFile.json
 *.jsonl
 **/DebugOutput/
 debug-output/
+nul
