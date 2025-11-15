@@ -12,7 +12,7 @@ NEXT STEPS TODO:
 - I start using SpecKit not from scratch, how exactly to integrate it into existing projects? (Follow SpecKit integration guidelines, adapt existing docs)
 - What if my existing docs are stale or incomplete? (Update them to align with SpecKit standards)
 
-## 2. Add .claude/CLAUSE.md definitions
+## 2. Add .claude/CLAUDE.md definitions
 - For each sub-project (e.g., StockSharp.AdvancedBacktest, StockSharp.AdvancedBacktest.LauncherTemplate), create a CLAUDE.md file defining the main agents and their responsibilities.
 - Define the roles of Product Manager Agent, Tech Lead Agent, Backend Implementer Agent, QA Tester Agent, and Documentation Specialist Agent and map them to specific subagents.
 - Ensure clear instructions for each agent in their definitions.
