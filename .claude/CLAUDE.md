@@ -10,6 +10,7 @@
 9. When a class contains too many responsibilities and dependencies, consider refactoring it into smaller, more focused classes or modules.
 10. On the backend solution design level, ensure end-to-end testability. E.g. for a testing strategy, ensure you can run it in backtest mode with mock data, validate outputs, and simulate edge cases.
 11. Prefer composition over inheritance. Favor composing objects with specific behaviors over creating deep inheritance hierarchies.
+12. For shell interaction use PowerShell 5.1.19041.6456, avoid using bash or other shells.
 
 ## Code Style Instructions
 
