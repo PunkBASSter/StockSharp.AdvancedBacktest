@@ -1,3 +1,4 @@
+using System.CommandLine;
 using StockSharp.AdvancedBacktest.Backtest;
 using StockSharp.AdvancedBacktest.Export;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.ZigZagBreakout;
@@ -10,8 +11,34 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        var aiDebugOption = new Option<bool>(
+            name: "--ai-debug",
+            description: "Enable AI agentic debug mode (disables web app launcher)",
+            getDefaultValue: () => false);
+
+        var rootCommand = new RootCommand("ZigZag Breakout Strategy Backtest");
+        rootCommand.AddOption(aiDebugOption);
+
+        rootCommand.SetHandler(async (bool aiDebug) =>
+        {
+            await RunBacktestAsync(aiDebug);
+        }, aiDebugOption);
+
+        return await rootCommand.InvokeAsync(args);
+    }
+
+    private static async Task<int> RunBacktestAsync(bool aiDebug)
+    {
         Console.WriteLine("=== ZigZag Breakout Strategy Backtest ===");
         Console.WriteLine();
+
+        if (aiDebug)
+        {
+            Console.WriteLine("[AI Debug Mode Enabled]");
+            Console.WriteLine("  - Using SQLite event repository");
+            Console.WriteLine("  - Web app launcher disabled");
+            Console.WriteLine();
+        }
 
         try
         {
@@ -50,10 +77,28 @@ public class Program
                     EndDate = endDate
                 },
                 HistoryPath = historyPath,
-                MatchOnTouch = false,
-                // Enable debug mode for real-time visualization
-                // JSONL file is written directly to frontend's public folder
-                DebugMode = new DebugModeSettings
+                MatchOnTouch = false
+            };
+
+            // Configure debug mode based on --ai-debug flag
+            if (aiDebug)
+            {
+                // AI Agentic Debug Mode - SQLite event repository for AI agent analysis
+                config.AgenticLogging = new AgenticLoggingSettings
+                {
+                    Enabled = true,
+                    DatabasePath = "debug/events.db",
+                    BatchSize = 1000,
+                    FlushInterval = TimeSpan.FromSeconds(30),
+                    LogIndicators = true,
+                    LogTrades = true,
+                    LogMarketData = false  // Disable to reduce database size
+                };
+            }
+            else
+            {
+                // Standard Debug Mode - Real-time browser visualization
+                config.DebugMode = new DebugModeSettings
                 {
                     Enabled = true,
                     OutputDirectory = WebAppPath(@"public\debug-mode"),
@@ -61,8 +106,8 @@ public class Program
                     WebAppPath = WebAppPath(),
                     WebAppUrl = "http://localhost:3000",
                     DebugPagePath = "/debug-mode"
-                }
-            };
+                };
+            }
 
             // Create Strategy Instance
             var strategy = new ZigZagBreakout

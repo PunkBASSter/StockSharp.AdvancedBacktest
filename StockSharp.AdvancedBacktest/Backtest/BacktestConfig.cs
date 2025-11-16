@@ -12,6 +12,17 @@ public class DebugModeSettings
     public string DebugPagePath { get; set; } = "/debug-mode";
 }
 
+public class AgenticLoggingSettings
+{
+    public bool Enabled { get; set; } = false;
+    public string DatabasePath { get; set; } = "debug/events.db";
+    public int BatchSize { get; set; } = 1000;
+    public TimeSpan FlushInterval { get; set; } = TimeSpan.FromSeconds(30);
+    public bool LogIndicators { get; set; } = true;
+    public bool LogTrades { get; set; } = true;
+    public bool LogMarketData { get; set; } = false;
+}
+
 public class BacktestConfig
 {
     public required PeriodConfig ValidationPeriod { get; set; }
@@ -24,4 +35,5 @@ public class BacktestConfig
     public bool MatchOnTouch { get; set; } = false;
     public IEnumerable<ICommissionRule> CommissionRules { get; set; } = [new CommissionTradeRule { Value = 0.1m }];
     public DebugModeSettings? DebugMode { get; set; }
+    public AgenticLoggingSettings? AgenticLogging { get; set; }
 }
