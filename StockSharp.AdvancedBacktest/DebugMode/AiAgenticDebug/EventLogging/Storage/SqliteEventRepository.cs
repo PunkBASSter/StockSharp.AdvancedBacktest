@@ -84,46 +84,42 @@ public sealed class SqliteEventRepository : IEventRepository
 	{
 		var stopwatch = Stopwatch.StartNew();
 
-		var queryBuilder = new StringBuilder();
-		queryBuilder.Append("SELECT * FROM Events WHERE RunId = @runId");
+		var whereClauseBuilder = new StringBuilder();
+		whereClauseBuilder.Append("WHERE RunId = @runId");
 
 		if (parameters.EventType.HasValue)
-			queryBuilder.Append(" AND EventType = @eventType");
+			whereClauseBuilder.Append(" AND EventType = @eventType");
 
 		if (parameters.Severity.HasValue)
-			queryBuilder.Append(" AND Severity = @severity");
+			whereClauseBuilder.Append(" AND Severity = @severity");
 
 		if (parameters.Category.HasValue)
-			queryBuilder.Append(" AND Category = @category");
+			whereClauseBuilder.Append(" AND Category = @category");
 
 		if (parameters.StartTime.HasValue)
-			queryBuilder.Append(" AND Timestamp >= @startTime");
+			whereClauseBuilder.Append(" AND Timestamp >= @startTime");
 
 		if (parameters.EndTime.HasValue)
-			queryBuilder.Append(" AND Timestamp <= @endTime");
+			whereClauseBuilder.Append(" AND Timestamp <= @endTime");
 
+		var whereClause = whereClauseBuilder.ToString();
+
+		int totalCount;
+		using (var countCommand = _connection.CreateCommand())
+		{
+			countCommand.CommandText = $"SELECT COUNT(*) FROM Events {whereClause}";
+			AddQueryParameters(countCommand, parameters);
+			totalCount = Convert.ToInt32(await countCommand.ExecuteScalarAsync());
+		}
+
+		var queryBuilder = new StringBuilder();
+		queryBuilder.Append($"SELECT * FROM Events {whereClause}");
 		queryBuilder.Append(" ORDER BY Timestamp");
 		queryBuilder.Append($" LIMIT {parameters.PageSize} OFFSET {parameters.PageIndex * parameters.PageSize}");
 
 		using var command = _connection.CreateCommand();
 		command.CommandText = queryBuilder.ToString();
-
-		command.Parameters.AddWithValue("@runId", parameters.RunId);
-
-		if (parameters.EventType.HasValue)
-			command.Parameters.AddWithValue("@eventType", parameters.EventType.Value.ToString());
-
-		if (parameters.Severity.HasValue)
-			command.Parameters.AddWithValue("@severity", parameters.Severity.Value.ToString());
-
-		if (parameters.Category.HasValue)
-			command.Parameters.AddWithValue("@category", parameters.Category.Value.ToString());
-
-		if (parameters.StartTime.HasValue)
-			command.Parameters.AddWithValue("@startTime", parameters.StartTime.Value.ToString("o"));
-
-		if (parameters.EndTime.HasValue)
-			command.Parameters.AddWithValue("@endTime", parameters.EndTime.Value.ToString("o"));
+		AddQueryParameters(command, parameters);
 
 		var events = new List<EventEntity>();
 		using (var reader = await command.ExecuteReaderAsync())
@@ -141,15 +137,35 @@ public sealed class SqliteEventRepository : IEventRepository
 			Events = events,
 			Metadata = new QueryResultMetadata
 			{
-				TotalCount = events.Count,
+				TotalCount = totalCount,
 				ReturnedCount = events.Count,
 				PageIndex = parameters.PageIndex,
 				PageSize = parameters.PageSize,
-				HasMore = events.Count == parameters.PageSize,
+				HasMore = (parameters.PageIndex + 1) * parameters.PageSize < totalCount,
 				QueryTimeMs = (int)stopwatch.ElapsedMilliseconds,
 				Truncated = false
 			}
 		};
+	}
+
+	private static void AddQueryParameters(SqliteCommand command, EventQueryParameters parameters)
+	{
+		command.Parameters.AddWithValue("@runId", parameters.RunId);
+
+		if (parameters.EventType.HasValue)
+			command.Parameters.AddWithValue("@eventType", parameters.EventType.Value.ToString());
+
+		if (parameters.Severity.HasValue)
+			command.Parameters.AddWithValue("@severity", parameters.Severity.Value.ToString());
+
+		if (parameters.Category.HasValue)
+			command.Parameters.AddWithValue("@category", parameters.Category.Value.ToString());
+
+		if (parameters.StartTime.HasValue)
+			command.Parameters.AddWithValue("@startTime", parameters.StartTime.Value.ToString("o"));
+
+		if (parameters.EndTime.HasValue)
+			command.Parameters.AddWithValue("@endTime", parameters.EndTime.Value.ToString("o"));
 	}
 
 	private static EventEntity MapEventEntity(SqliteDataReader reader)

@@ -7,6 +7,6 @@ public sealed class QueryResultMetadata
 	public required int PageIndex { get; init; }
 	public required int PageSize { get; init; }
 	public required bool HasMore { get; init; }
-	public required int QueryTimeMs { get; init; }
+	public int QueryTimeMs { get; set; }
 	public required bool Truncated { get; init; }
 }
