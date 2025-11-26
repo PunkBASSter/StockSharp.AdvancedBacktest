@@ -35,6 +35,29 @@ Build the solution:
 dotnet build StockSharp.AdvancedBacktest.slnx
 ```
 
+### Package Locking
+
+This solution uses NuGet package lock files (`packages.lock.json`) to ensure reproducible builds. The StockSharp submodule uses floating versions (e.g., `8.*`, `10.*`), so lock files prevent accidental breakage from upstream package updates.
+
+**Normal workflow**: Just build normally. Restore will fail if lock files are out of sync with resolved packages.
+
+**To update packages to latest versions**:
+
+```powershell
+.\Update-PackageLocks.ps1
+```
+
+This script:
+- Fetches the latest package versions matching version constraints
+- Rebuilds the solution to verify compatibility
+- Updates the lock files if successful
+
+If the build fails after updating, revert with:
+
+```powershell
+git checkout -- **/packages.lock.json
+```
+
 ### 2. Install Package Reference
 
 Add to your project:
