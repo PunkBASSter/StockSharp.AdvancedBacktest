@@ -1,5 +1,4 @@
 using StockSharp.AdvancedBacktest.OrderManagement;
-using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.BusinessEntities;
 using StockSharp.Messages;
 
@@ -219,7 +218,7 @@ public class OrderPositionManagerTests
         {
             TradePrice = price,
             TradeVolume = volume,
-            ServerTime = DateTimeOffset.Now
+            ServerTime = DateTime.Now
         };
 
         return new MyTrade
@@ -233,13 +232,12 @@ public class OrderPositionManagerTests
 
     #region Test Strategy
 
-    private class TestStrategy : CustomStrategyBase
+    private class TestStrategy : IStrategyOrderOperations
     {
-        private decimal _position;
         public List<Order> PlacedOrders { get; } = new();
         public List<Order> CancelledOrders { get; } = new();
 
-        private readonly Security _security = new()
+        public Security Security { get; } = new()
         {
             Id = "TEST@TEST",
             PriceStep = 0.01m
@@ -250,37 +248,44 @@ public class OrderPositionManagerTests
             Name = "TEST"
         };
 
-        public TestStrategy()
-        {
-            // Set portfolio and security to avoid exceptions
-            Portfolio = _portfolio;
-            base.Security = _security;
+        public decimal Position { get; set; }
 
-            // Subscribe to order events to track placed and cancelled orders
-            OrderRegistering += order =>
+        private Order CreateAndRegisterOrder(decimal price, decimal volume, Sides side, OrderTypes type)
+        {
+            var order = new Order
             {
-                PlacedOrders.Add(order);
-                order.State = OrderStates.Active;
+                Security = Security,
+                Portfolio = _portfolio,
+                Price = price,
+                Volume = volume,
+                Side = side,
+                Type = type,
+                State = OrderStates.Active
             };
-
-            OrderCanceling += order =>
-            {
-                CancelledOrders.Add(order);
-                order.State = OrderStates.Done;
-            };
+            PlacedOrders.Add(order);
+            return order;
         }
 
-        public new decimal Position
+        public Order BuyLimit(decimal price, decimal volume)
+            => CreateAndRegisterOrder(price, volume, Sides.Buy, OrderTypes.Limit);
+
+        public Order SellLimit(decimal price, decimal volume)
+            => CreateAndRegisterOrder(price, volume, Sides.Sell, OrderTypes.Limit);
+
+        public Order BuyMarket(decimal volume)
+            => CreateAndRegisterOrder(0, volume, Sides.Buy, OrderTypes.Market);
+
+        public Order SellMarket(decimal volume)
+            => CreateAndRegisterOrder(0, volume, Sides.Sell, OrderTypes.Market);
+
+        public void CancelOrder(Order order)
         {
-            get => _position;
-            set => _position = value;
+            CancelledOrders.Add(order);
+            order.State = OrderStates.Done;
         }
 
-        public new Security Security
-        {
-            get => _security;
-            set { }  // No-op setter to allow assignment in constructor
-        }
+        public void LogInfo(string format, params object[] args) { }
+        public void LogWarning(string format, params object[] args) { }
     }
 
     #endregion

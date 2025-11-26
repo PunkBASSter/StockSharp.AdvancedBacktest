@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Ecng.Collections;
 using StockSharp.Algo;
 using StockSharp.Algo.Storages;
@@ -258,6 +259,11 @@ public class OptimizerRunner<TStrategy> where TStrategy : CustomStrategyBase, ne
 
     protected void ValidateHistory()
     {
+        ValidateHistoryAsync().GetAwaiter().GetResult();
+    }
+
+    protected async Task ValidateHistoryAsync(CancellationToken cancellationToken = default)
+    {
         using var dataDrive = new LocalMarketDataDrive(_config.HistoryPath);
         using var tempRegistry = new StorageRegistry { DefaultDrive = dataDrive };
         var securities = GetSecuritiesFromConfig();
@@ -271,7 +277,7 @@ public class OptimizerRunner<TStrategy> where TStrategy : CustomStrategyBase, ne
                 lowestTimeFrame,
                 format: StorageFormats.Binary);
 
-            var dates = candleStorage.Dates.ToArray();
+            var dates = (await candleStorage.GetDatesAsync(cancellationToken)).ToArray();
             if (dates.Length == 0)
             {
                 throw new InvalidOperationException($"No data found for security {security.Id} with timeframe {lowestTimeFrame}");

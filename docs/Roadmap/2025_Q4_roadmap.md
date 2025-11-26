@@ -1,16 +1,9 @@
 # 2025 Q4 Roadmap
 
-## 1. Adopt an LLM-agent-friendly framework for feature specifications
-- Transition from traditional PRD/TRD documents to LLM-agent-friendly specifications.
-- Ensure all requirements are structured for easy parsing by LLM agents.
-- Consider GitHub SpecKit or AB-method as potential frameworks:
-    - https://github.com/github/spec-kit (In progress)
-    - https://github.com/ayoubben18/ab-method (postponed)
-- Do I need a RAG system for better context retrieval and documentation search? (skip for now)
-NEXT STEPS TODO:
-- Do I need to commit the auto-generated files? (Yes, to ensure consistency and versioning)
-- I start using SpecKit not from scratch, how exactly to integrate it into existing projects? (Follow SpecKit integration guidelines, adapt existing docs)
-- What if my existing docs are stale or incomplete? (Update them to align with SpecKit standards)
+## 1. Remaining Warnings (non-breaking)
+- Some OnStarted method is obsolete (use OnStarted2 instead)
+- Some GetCandleMessageStorage overload is obsolete (use DataType overload)
+- Various ThreadingHelper methods are obsolete (prefer Task-based async)
 
 ## 2. Add .claude/CLAUDE.md definitions
 - For each sub-project (e.g., StockSharp.AdvancedBacktest, StockSharp.AdvancedBacktest.LauncherTemplate), create a CLAUDE.md file defining the main agents and their responsibilities.

@@ -73,7 +73,7 @@ public class DebugModeExporterTests : IDisposable
 
     private class TestIndicatorValue : StockSharp.Algo.Indicators.SingleIndicatorValue<decimal>
     {
-        public TestIndicatorValue(StockSharp.Algo.Indicators.IIndicator indicator, decimal value, DateTimeOffset time)
+        public TestIndicatorValue(StockSharp.Algo.Indicators.IIndicator indicator, decimal value, DateTime time)
             : base(indicator, value, time)
         {
         }
@@ -792,8 +792,8 @@ public class DebugModeExporterTests : IDisposable
     {
         return new Messages.TimeFrameCandleMessage
         {
-            OpenTime = time,
-            CloseTime = time.AddHours(1),
+            OpenTime = time.UtcDateTime,
+            CloseTime = time.AddHours(1).UtcDateTime,
             OpenPrice = 100,
             HighPrice = 105,
             LowPrice = 99,
@@ -819,7 +819,7 @@ public class DebugModeExporterTests : IDisposable
         var shift = 5;
         var indicator = new TestIndicator();
         var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(
-            indicator, 8300m, shift, currentTime, true);
+            indicator, 8300m, shift, currentTime.UtcDateTime, true);
 
         var adjustedTime = exporter.GetAdjustedIndicatorTimestamp(indicatorValue, currentTime);
 
@@ -840,7 +840,7 @@ public class DebugModeExporterTests : IDisposable
         var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
         var indicator = new TestIndicator();
         var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(
-            indicator, 8300m, 5, currentTime, true);
+            indicator, 8300m, 5, currentTime.UtcDateTime, true);
 
         var adjustedTime = exporter.GetAdjustedIndicatorTimestamp(indicatorValue, currentTime);
 
@@ -859,7 +859,7 @@ public class DebugModeExporterTests : IDisposable
 
         var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
         var indicator = new TestIndicator();
-        var indicatorValue = new TestIndicatorValue(indicator, 8300m, currentTime);
+        var indicatorValue = new TestIndicatorValue(indicator, 8300m, currentTime.UtcDateTime);
 
         var adjustedTime = exporter.GetAdjustedIndicatorTimestamp(indicatorValue, currentTime);
 
@@ -879,7 +879,7 @@ public class DebugModeExporterTests : IDisposable
         var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
         var indicator = new TestIndicator();
         var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(
-            indicator, 8300m, 0, currentTime, true);
+            indicator, 8300m, 0, currentTime.UtcDateTime, true);
 
         var adjustedTime = exporter.GetAdjustedIndicatorTimestamp(indicatorValue, currentTime);
 
@@ -901,7 +901,7 @@ public class DebugModeExporterTests : IDisposable
         var value = 8300m;
         var indicator = new TestIndicator();
         var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(
-            indicator, value, shift, currentTime, true);
+            indicator, value, shift, currentTime.UtcDateTime, true);
         indicatorValue.IsFormed = true;
 
         var dataPoint = exporter.CreateIndicatorDataPoint(indicatorValue);
@@ -925,7 +925,7 @@ public class DebugModeExporterTests : IDisposable
 
         var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
         var indicator = new TestIndicator();
-        var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(indicator, currentTime);
+        var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(indicator, currentTime.UtcDateTime);
 
         var dataPoint = exporter.CreateIndicatorDataPoint(indicatorValue);
 
@@ -945,7 +945,7 @@ public class DebugModeExporterTests : IDisposable
         var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
         var indicator = new TestIndicator();
         var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(
-            indicator, 0m, 0, currentTime, true);
+            indicator, 0m, 0, currentTime.UtcDateTime, true);
 
         var dataPoint = exporter.CreateIndicatorDataPoint(indicatorValue);
 
@@ -965,7 +965,7 @@ public class DebugModeExporterTests : IDisposable
         var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
         var value = 8300m;
         var indicator = new TestIndicator();
-        var indicatorValue = new TestIndicatorValue(indicator, value, currentTime);
+        var indicatorValue = new TestIndicatorValue(indicator, value, currentTime.UtcDateTime);
         indicatorValue.IsFormed = true;
 
         var dataPoint = exporter.CreateIndicatorDataPoint(indicatorValue);

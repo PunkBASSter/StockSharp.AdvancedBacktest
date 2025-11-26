@@ -78,13 +78,13 @@ public class DebugModeIntegrationTests : IDisposable
 		exporter.SubscribeToIndicator(sma);
 
 		// Act - Process values through indicator
-		var value1 = new DecimalIndicatorValue(sma, 100m, DateTimeOffset.UtcNow) { IsFinal = true };
+		var value1 = new DecimalIndicatorValue(sma, 100m, DateTime.UtcNow) { IsFinal = true };
 		var result1 = sma.Process(value1);
 
-		var value2 = new DecimalIndicatorValue(sma, 102m, DateTimeOffset.UtcNow.AddSeconds(1)) { IsFinal = true };
+		var value2 = new DecimalIndicatorValue(sma, 102m, DateTime.UtcNow.AddSeconds(1)) { IsFinal = true };
 		var result2 = sma.Process(value2);
 
-		var value3 = new DecimalIndicatorValue(sma, 104m, DateTimeOffset.UtcNow.AddSeconds(2)) { IsFinal = true };
+		var value3 = new DecimalIndicatorValue(sma, 104m, DateTime.UtcNow.AddSeconds(2)) { IsFinal = true };
 		var result3 = sma.Process(value3);
 
 		// Wait for buffer flush
@@ -122,7 +122,7 @@ public class DebugModeIntegrationTests : IDisposable
 		{
 			for (int i = 0; i < 15; i++)
 			{
-				var value = new DecimalIndicatorValue(indicator, 100m + i, DateTimeOffset.UtcNow.AddSeconds(i)) { IsFinal = true };
+				var value = new DecimalIndicatorValue(indicator, 100m + i, DateTime.UtcNow.AddSeconds(i)) { IsFinal = true };
 				indicator.Process(value);
 			}
 		}
@@ -156,7 +156,7 @@ public class DebugModeIntegrationTests : IDisposable
 		// Act - Process 10 values (only last 6 should be captured after formation)
 		for (int i = 0; i < 10; i++)
 		{
-			var value = new DecimalIndicatorValue(sma, 100m + i, DateTimeOffset.UtcNow.AddSeconds(i)) { IsFinal = true };
+			var value = new DecimalIndicatorValue(sma, 100m + i, DateTime.UtcNow.AddSeconds(i)) { IsFinal = true };
 			var result = sma.Process(value);
 
 			if (result.IsFormed)
@@ -191,7 +191,7 @@ public class DebugModeIntegrationTests : IDisposable
 		var securityId = new SecurityId { SecurityCode = "BTCUSDT", BoardCode = "BINANCE" };
 		var candle = new TimeFrameCandleMessage
 		{
-			OpenTime = DateTimeOffset.UtcNow,
+			OpenTime = DateTime.UtcNow,
 			OpenPrice = 50000m,
 			HighPrice = 50100m,
 			LowPrice = 49900m,
@@ -230,7 +230,7 @@ public class DebugModeIntegrationTests : IDisposable
 		{
 			var candle = new TimeFrameCandleMessage
 			{
-				OpenTime = DateTimeOffset.UtcNow.AddMinutes(i),
+				OpenTime = DateTime.UtcNow.AddMinutes(i),
 				OpenPrice = 3000m + i,
 				HighPrice = 3010m + i,
 				LowPrice = 2990m + i,
@@ -312,7 +312,7 @@ public class DebugModeIntegrationTests : IDisposable
 		// Act - Process value after cleanup (should not be captured)
 		for (int i = 0; i < 5; i++)
 		{
-			var value = new DecimalIndicatorValue(sma, 100m + i, DateTimeOffset.UtcNow.AddSeconds(i)) { IsFinal = true };
+			var value = new DecimalIndicatorValue(sma, 100m + i, DateTime.UtcNow.AddSeconds(i)) { IsFinal = true };
 			sma.Process(value);
 		}
 

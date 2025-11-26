@@ -1,4 +1,3 @@
-using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Utilities;
 using StockSharp.BusinessEntities;
 using StockSharp.Messages;
@@ -13,12 +12,12 @@ namespace StockSharp.AdvancedBacktest.OrderManagement;
 /// <remarks>
 /// Creates a new OrderPositionManager for the specified strategy.
 /// </remarks>
-/// <param name="strategy">The parent strategy.</param>
-public class OrderPositionManager(CustomStrategyBase strategy)
+/// <param name="strategy">The parent strategy operations.</param>
+public class OrderPositionManager(IStrategyOrderOperations strategy)
 {
     public record MyOrder(Order EntryOrder, Order? SlOrder, Order? TpOrder);
 
-    private readonly CustomStrategyBase _strategy = strategy ?? throw new ArgumentNullException(nameof(strategy));
+    private readonly IStrategyOrderOperations _strategy = strategy ?? throw new ArgumentNullException(nameof(strategy));
 
     private MyOrder? _order;
     public MyOrder? Order => _order;

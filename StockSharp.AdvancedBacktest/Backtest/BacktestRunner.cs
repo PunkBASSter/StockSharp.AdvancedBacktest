@@ -345,7 +345,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
         {
             var tradeDataPoint = new Export.TradeDataPoint
             {
-                Time = trade.Trade.ServerTime.ToUnixTimeMilliseconds(),
+                Time = new DateTimeOffset(trade.Trade.ServerTime, TimeSpan.Zero).ToUnixTimeMilliseconds(),
                 Price = (double)trade.Trade.Price,
                 Volume = (double)trade.Trade.Volume,
                 Side = trade.Order.Side == Sides.Buy ? "Buy" : "Sell",

@@ -98,7 +98,7 @@ public class ReportBuilderTests
         {
             var candle = new TimeFrameCandleMessage
             {
-                OpenTime = DateTimeOffset.UtcNow.AddMinutes(i * 5),
+                OpenTime = DateTime.UtcNow.AddMinutes(i * 5),
                 ClosePrice = 100m + i
             };
             indicator.Process(candle);
@@ -177,7 +177,7 @@ public class ReportBuilderTests
         {
             var candle = new TimeFrameCandleMessage
             {
-                OpenTime = DateTimeOffset.UtcNow.AddMinutes(i * 5),
+                OpenTime = DateTime.UtcNow.AddMinutes(i * 5),
                 ClosePrice = 100m + i
             };
             indicator.Process(candle);
@@ -250,7 +250,7 @@ public class ReportBuilderTests
         {
             var candle = new TimeFrameCandleMessage
             {
-                OpenTime = DateTimeOffset.UtcNow.AddMinutes(i * 15),
+                OpenTime = DateTime.UtcNow.AddMinutes(i * 15),
                 ClosePrice = 100m + i
             };
             indicator.Process(candle);
@@ -289,7 +289,7 @@ public class ReportBuilderTests
         {
             var candle = new TimeFrameCandleMessage
             {
-                OpenTime = DateTimeOffset.UtcNow.AddMinutes(i * 5),
+                OpenTime = DateTime.UtcNow.AddMinutes(i * 5),
                 ClosePrice = 100m + i
             };
             indicator.Process(candle);
