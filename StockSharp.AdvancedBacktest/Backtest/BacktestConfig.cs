@@ -1,4 +1,5 @@
 using StockSharp.Algo.Commissions;
+using StockSharp.Algo.Storages;
 
 namespace StockSharp.AdvancedBacktest.Backtest;
 
@@ -27,6 +28,7 @@ public class BacktestConfig
 {
     public required PeriodConfig ValidationPeriod { get; set; }
     public required string HistoryPath { get; set; }
+    public StorageFormats StorageFormat { get; set; } = StorageFormats.Binary;
 
     /// <summary>
     /// Match order if historical price touched the limit order price.

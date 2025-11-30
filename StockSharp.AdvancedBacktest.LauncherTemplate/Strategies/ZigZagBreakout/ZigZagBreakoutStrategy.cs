@@ -15,6 +15,13 @@ public class ZigZagBreakout : CustomStrategyBase
     private readonly List<IIndicatorValue> _dzzHistory = [];
     private TimeSpan? _candleInterval;
 
+    public override IEnumerable<(Security sec, DataType dt)> GetWorkingSecurities()
+    {
+        // Return securities from the Securities dictionary with their candle types
+        return Securities.SelectMany(kvp =>
+            kvp.Value.Select(timespan => (kvp.Key, timespan.TimeFrame())));
+    }
+
     protected override void OnReseted()
     {
         base.OnReseted();
@@ -22,7 +29,7 @@ public class ZigZagBreakout : CustomStrategyBase
         _dzzHistory.Clear();
     }
 
-    protected override void OnStarted(DateTimeOffset time)
+    protected override void OnStarted2(DateTime time)
     {
         _config = new ZigZagBreakoutConfig
         {
@@ -39,11 +46,11 @@ public class ZigZagBreakout : CustomStrategyBase
             MinimumThreshold = PriceStepHelper.GetDefaultDelta(Security, multiplier: 10)
         };
 
-        // Register indicators BEFORE calling base.OnStarted so debug mode can subscribe to them
+        // Register indicators BEFORE calling base.OnStarted2 so debug mode can subscribe to them
         Indicators.Add(_dzz);
 
         // Now call base to initialize debug mode with the indicators already registered
-        base.OnStarted(time);
+        base.OnStarted2(time);
 
         var timeframe = Securities.First().Value.First();
 

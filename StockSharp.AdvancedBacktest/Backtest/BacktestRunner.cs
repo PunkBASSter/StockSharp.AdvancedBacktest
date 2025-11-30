@@ -457,6 +457,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
 
         _connector.HistoryMessageAdapter.StartDate = _config.ValidationPeriod.StartDate.UtcDateTime;
         _connector.HistoryMessageAdapter.StopDate = _config.ValidationPeriod.EndDate.UtcDateTime;
+        _connector.HistoryMessageAdapter.StorageFormat = _config.StorageFormat;
 
         _strategy.Connector = _connector;
 

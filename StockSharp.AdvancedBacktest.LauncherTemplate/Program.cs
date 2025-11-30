@@ -3,6 +3,7 @@ using StockSharp.AdvancedBacktest.Backtest;
 using StockSharp.AdvancedBacktest.Export;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.ZigZagBreakout;
 using StockSharp.AdvancedBacktest.Parameters;
+using StockSharp.Algo.Storages;
 using StockSharp.BusinessEntities;
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate;
@@ -43,12 +44,18 @@ public class Program
         try
         {
             // Configuration
-            const string historyPath = @"C:\Users\Andrew\OneDrive\Документы\StockSharp\Hydra\Storage";
+            var historyPath = Environment.GetEnvironmentVariable("StockSharp__HistoryPath")
+                ?? @".\History";
+            var storageFormatEnv = Environment.GetEnvironmentVariable("StockSharp__StorageFormat");
+            var storageFormat = Enum.TryParse<StorageFormats>(storageFormatEnv, ignoreCase: true, out var parsed)
+                ? parsed
+                : StorageFormats.Binary;
             var startDate = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
             var endDate = new DateTimeOffset(2023, 12, 31, 23, 59, 59, TimeSpan.Zero);
             const decimal initialCapital = 10000m;
 
             Console.WriteLine($"History Path: {historyPath}");
+            Console.WriteLine($"Storage Format: {storageFormat}");
             Console.WriteLine($"Period: {startDate:yyyy-MM-dd} to {endDate:yyyy-MM-dd}");
             Console.WriteLine($"Initial Capital: {initialCapital:N2}");
             Console.WriteLine();
@@ -77,6 +84,7 @@ public class Program
                     EndDate = endDate
                 },
                 HistoryPath = historyPath,
+                StorageFormat = storageFormat,
                 MatchOnTouch = false
             };
 
