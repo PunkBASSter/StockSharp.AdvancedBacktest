@@ -15,6 +15,7 @@ using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Utilities;
 using StockSharp.AdvancedBacktest.Statistics;
+using StockSharp.AdvancedBacktest.Storages;
 
 namespace StockSharp.AdvancedBacktest.Optimization;
 
@@ -36,10 +37,11 @@ public class OptimizerRunner<TStrategy> where TStrategy : CustomStrategyBase, ne
         var secProvider = new CollectionSecurityProvider(securities.Keys);
         var pfProvider = new CollectionPortfolioProvider([portfolio]);
         var localMarketDataDrive = new LocalMarketDataDrive(_config.HistoryPath);
-        var storageRegistry = new StorageRegistry
+        var innerRegistry = new StorageRegistry
         {
             DefaultDrive = localMarketDataDrive,
         };
+        var storageRegistry = new SharedStorageRegistry(innerRegistry);
         _optimizer = new BruteForceOptimizer(secProvider, pfProvider, storageRegistry);
         _optimizer.EmulationSettings.BatchSize = config.ParallelWorkers;
         _optimizer.EmulationSettings.CommissionRules = config.CommissionRules;

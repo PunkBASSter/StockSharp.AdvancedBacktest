@@ -10,6 +10,7 @@ using StockSharp.Algo.Storages;
 using StockSharp.Algo.Strategies;
 using StockSharp.Messages;
 using StockSharp.AdvancedBacktest.PerformanceValidation;
+using StockSharp.AdvancedBacktest.Storages;
 using StockSharp.AdvancedBacktest.Strategies;
 
 namespace StockSharp.AdvancedBacktest.Export;
@@ -162,7 +163,8 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
         var historyPath = model.HistoryPath;
         var securities = model.Strategy.Securities;
         using var dataDrive = new LocalMarketDataDrive(historyPath);
-        using var tempRegistry = new StorageRegistry { DefaultDrive = dataDrive };
+        using var innerRegistry = new StorageRegistry { DefaultDrive = dataDrive };
+        var tempRegistry = new SharedStorageRegistry(innerRegistry);
         var candles = new List<CandleDataPoint>();
         var security = model.Strategy.Security ?? securities.Keys.FirstOrDefault();
         if (security == null)
