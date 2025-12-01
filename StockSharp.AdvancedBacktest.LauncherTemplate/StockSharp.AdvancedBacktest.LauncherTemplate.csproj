@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -11,13 +11,17 @@
     <ProjectReference Include="..\StockSharp.AdvancedBacktest\StockSharp.AdvancedBacktest.csproj" />
   </ItemGroup>
 
+  <!-- Exclude LiveMode files that require StockSharp.Binance NuGet package (not available from submodule) -->
   <ItemGroup>
-    <PackageReference Include="FluentValidation" Version="12.0.0" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.0" />
+    <Compile Remove="LiveMode\BinanceConnectorWrapper.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="11.*" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.*" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="8.*" />
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.0" />
-    <PackageReference Include="StockSharp.Binance" Version="5.*" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.*" />
   </ItemGroup>
 
   <ItemGroup>
