@@ -9,4 +9,6 @@ public interface IEventRepository
 	Task WriteEventAsync(EventEntity eventEntity);
 	Task<EventEntity?> GetEventByIdAsync(string eventId);
 	Task<EventQueryResult> QueryEventsAsync(EventQueryParameters parameters);
+	Task<EventQueryResult> QueryEventsByEntityAsync(EntityReferenceQueryParameters parameters);
+	Task<EventSequenceQueryResult> QueryEventSequenceAsync(EventSequenceQueryParameters parameters);
 }

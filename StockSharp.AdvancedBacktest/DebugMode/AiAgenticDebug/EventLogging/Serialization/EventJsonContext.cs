@@ -25,6 +25,10 @@ namespace StockSharp.AdvancedBacktest.DebugMode.AiAgenticDebug.EventLogging.Seri
 [JsonSerializable(typeof(EventType))]
 [JsonSerializable(typeof(EventSeverity))]
 [JsonSerializable(typeof(EventCategory))]
+[JsonSerializable(typeof(GetEventsByEntityResponse))]
+[JsonSerializable(typeof(QueryEventSequenceResponse))]
+[JsonSerializable(typeof(EventSequenceDto))]
+[JsonSerializable(typeof(SequenceMetadataDto))]
 public partial class EventJsonContext : JsonSerializerContext
 {
 }

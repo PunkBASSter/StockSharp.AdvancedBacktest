@@ -148,6 +148,225 @@ public sealed class SqliteEventRepository : IEventRepository
 		};
 	}
 
+	public async Task<EventQueryResult> QueryEventsByEntityAsync(EntityReferenceQueryParameters parameters)
+	{
+		var stopwatch = Stopwatch.StartNew();
+
+		var validEntityTypes = new[] { "OrderId", "SecuritySymbol", "PositionId", "IndicatorName" };
+		if (!validEntityTypes.Contains(parameters.EntityType))
+			throw new ArgumentException($"Invalid entity type: {parameters.EntityType}");
+
+		var whereClauseBuilder = new StringBuilder();
+		whereClauseBuilder.Append("WHERE RunId = @runId");
+		whereClauseBuilder.Append($" AND json_extract(Properties, '$.{parameters.EntityType}') = @entityValue");
+
+		if (parameters.EventTypeFilter?.Length > 0)
+		{
+			var eventTypeParams = string.Join(", ", parameters.EventTypeFilter.Select((_, i) => $"@eventType{i}"));
+			whereClauseBuilder.Append($" AND EventType IN ({eventTypeParams})");
+		}
+
+		var whereClause = whereClauseBuilder.ToString();
+
+		int totalCount;
+		using (var countCommand = _connection.CreateCommand())
+		{
+			countCommand.CommandText = $"SELECT COUNT(*) FROM Events {whereClause}";
+			AddEntityQueryParameters(countCommand, parameters);
+			totalCount = Convert.ToInt32(await countCommand.ExecuteScalarAsync());
+		}
+
+		var queryBuilder = new StringBuilder();
+		queryBuilder.Append($"SELECT * FROM Events {whereClause}");
+		queryBuilder.Append(" ORDER BY Timestamp");
+		queryBuilder.Append($" LIMIT {parameters.PageSize} OFFSET {parameters.PageIndex * parameters.PageSize}");
+
+		using var command = _connection.CreateCommand();
+		command.CommandText = queryBuilder.ToString();
+		AddEntityQueryParameters(command, parameters);
+
+		var events = new List<EventEntity>();
+		using (var reader = await command.ExecuteReaderAsync())
+		{
+			while (await reader.ReadAsync())
+			{
+				events.Add(MapEventEntity(reader));
+			}
+		}
+
+		stopwatch.Stop();
+
+		return new EventQueryResult
+		{
+			Events = events,
+			Metadata = new QueryResultMetadata
+			{
+				TotalCount = totalCount,
+				ReturnedCount = events.Count,
+				PageIndex = parameters.PageIndex,
+				PageSize = parameters.PageSize,
+				HasMore = (parameters.PageIndex + 1) * parameters.PageSize < totalCount,
+				QueryTimeMs = (int)stopwatch.ElapsedMilliseconds,
+				Truncated = false
+			}
+		};
+	}
+
+	public async Task<EventSequenceQueryResult> QueryEventSequenceAsync(EventSequenceQueryParameters parameters)
+	{
+		var stopwatch = Stopwatch.StartNew();
+		var sequences = new List<EventSequence>();
+
+		if (!string.IsNullOrEmpty(parameters.RootEventId))
+		{
+			var sequence = await GetEventChainAsync(parameters.RunId, parameters.RootEventId, parameters.MaxDepth);
+			if (sequence != null)
+			{
+				var complete = EvaluateSequenceCompleteness(sequence, parameters.SequencePattern);
+				sequences.Add(new EventSequence
+				{
+					RootEventId = parameters.RootEventId,
+					Events = sequence,
+					Complete = complete.IsComplete,
+					MissingEventTypes = complete.MissingTypes
+				});
+			}
+		}
+		else
+		{
+			var rootEvents = await GetRootEventsAsync(parameters.RunId, parameters.SequencePattern?.FirstOrDefault());
+
+			foreach (var rootEvent in rootEvents)
+			{
+				var chain = await GetEventChainAsync(parameters.RunId, rootEvent.EventId, parameters.MaxDepth);
+				if (chain == null) continue;
+
+				var complete = EvaluateSequenceCompleteness(chain, parameters.SequencePattern);
+
+				if (!parameters.FindIncomplete && !complete.IsComplete)
+					continue;
+
+				if (parameters.SequencePattern != null && !PatternMatches(chain, parameters.SequencePattern) && !parameters.FindIncomplete)
+					continue;
+
+				sequences.Add(new EventSequence
+				{
+					RootEventId = rootEvent.EventId,
+					Events = chain,
+					Complete = complete.IsComplete,
+					MissingEventTypes = complete.MissingTypes
+				});
+			}
+		}
+
+		stopwatch.Stop();
+
+		var totalSequences = sequences.Count;
+		var pagedSequences = sequences
+			.Skip(parameters.PageIndex * parameters.PageSize)
+			.Take(parameters.PageSize)
+			.ToList();
+
+		return new EventSequenceQueryResult
+		{
+			Sequences = pagedSequences,
+			Metadata = new SequenceQueryMetadata
+			{
+				TotalSequences = totalSequences,
+				ReturnedCount = pagedSequences.Count,
+				PageIndex = parameters.PageIndex,
+				PageSize = parameters.PageSize,
+				HasMore = (parameters.PageIndex + 1) * parameters.PageSize < totalSequences,
+				QueryTimeMs = (int)stopwatch.ElapsedMilliseconds
+			}
+		};
+	}
+
+	private async Task<List<EventEntity>?> GetEventChainAsync(string runId, string rootEventId, int maxDepth)
+	{
+		using var command = _connection.CreateCommand();
+		command.CommandText = @"
+			WITH RECURSIVE EventChain AS (
+				SELECT *, 1 as depth FROM Events WHERE EventId = @rootEventId AND RunId = @runId
+				UNION ALL
+				SELECT e.*, ec.depth + 1 FROM Events e
+				INNER JOIN EventChain ec ON e.ParentEventId = ec.EventId
+				WHERE ec.depth < @maxDepth
+			)
+			SELECT Id, EventId, RunId, Timestamp, EventType, Severity, Category, Properties, ParentEventId, ValidationErrors
+			FROM EventChain ORDER BY Timestamp";
+
+		command.Parameters.AddWithValue("@rootEventId", rootEventId);
+		command.Parameters.AddWithValue("@runId", runId);
+		command.Parameters.AddWithValue("@maxDepth", maxDepth);
+
+		var events = new List<EventEntity>();
+		using (var reader = await command.ExecuteReaderAsync())
+		{
+			while (await reader.ReadAsync())
+			{
+				events.Add(MapEventEntity(reader));
+			}
+		}
+
+		return events.Count > 0 ? events : null;
+	}
+
+	private async Task<List<EventEntity>> GetRootEventsAsync(string runId, EventType? filterType)
+	{
+		using var command = _connection.CreateCommand();
+		var whereClause = "WHERE RunId = @runId AND ParentEventId IS NULL";
+		if (filterType.HasValue)
+			whereClause += " AND EventType = @eventType";
+
+		command.CommandText = $"SELECT * FROM Events {whereClause} ORDER BY Timestamp";
+		command.Parameters.AddWithValue("@runId", runId);
+		if (filterType.HasValue)
+			command.Parameters.AddWithValue("@eventType", filterType.Value.ToString());
+
+		var events = new List<EventEntity>();
+		using (var reader = await command.ExecuteReaderAsync())
+		{
+			while (await reader.ReadAsync())
+			{
+				events.Add(MapEventEntity(reader));
+			}
+		}
+		return events;
+	}
+
+	private static (bool IsComplete, EventType[]? MissingTypes) EvaluateSequenceCompleteness(
+		IReadOnlyList<EventEntity> chain, EventType[]? pattern)
+	{
+		if (pattern == null || pattern.Length == 0)
+			return (true, null);
+
+		var chainTypes = chain.Select(e => e.EventType).ToHashSet();
+		var missing = pattern.Where(p => !chainTypes.Contains(p)).ToArray();
+
+		return (missing.Length == 0, missing.Length > 0 ? missing : null);
+	}
+
+	private static bool PatternMatches(IReadOnlyList<EventEntity> chain, EventType[] pattern)
+	{
+		var chainTypes = chain.Select(e => e.EventType).ToList();
+		return pattern.All(p => chainTypes.Contains(p));
+	}
+
+	private static void AddEntityQueryParameters(SqliteCommand command, EntityReferenceQueryParameters parameters)
+	{
+		command.Parameters.AddWithValue("@runId", parameters.RunId);
+		command.Parameters.AddWithValue("@entityValue", parameters.EntityValue);
+
+		if (parameters.EventTypeFilter?.Length > 0)
+		{
+			for (int i = 0; i < parameters.EventTypeFilter.Length; i++)
+			{
+				command.Parameters.AddWithValue($"@eventType{i}", parameters.EventTypeFilter[i].ToString());
+			}
+		}
+	}
+
 	private static void AddQueryParameters(SqliteCommand command, EventQueryParameters parameters)
 	{
 		command.Parameters.AddWithValue("@runId", parameters.RunId);
