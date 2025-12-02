@@ -10,7 +10,7 @@
       },
       "Microsoft.Extensions.Logging": {
         "type": "Direct",
-        "requested": "[8.*, )",
+        "requested": "[8.0.1, )",
         "resolved": "8.0.1",
         "contentHash": "4x+pzsQEbqxhNf1QYRr5TDkLP9UsLT3A6MdRKDDEgrW7h1ljiEPgTNhKYUhNCCAaVpQECVQ+onA91PTPnIp6Lw==",
         "dependencies": {
@@ -230,17 +230,17 @@
       },
       "Microsoft.Data.Sqlite": {
         "type": "Transitive",
-        "resolved": "8.0.22",
-        "contentHash": "vPqCMcGbioWfehIZvyh68Jy1jRPXFQ89ZlAnrquYm+yrH891SHPdqWCDeA8h70pWN/L78eK/Ze7un9TPI6EsZA==",
+        "resolved": "8.0.11",
+        "contentHash": "6JocV6S1akKlXaDVpRmmwc9d/M7wXBmiEZ7RxB5lxDk+er9Xi3P+yVYVnh+6IJ+Y6v8pecGWhGwcgH1mONcLuw==",
         "dependencies": {
-          "Microsoft.Data.Sqlite.Core": "8.0.22",
+          "Microsoft.Data.Sqlite.Core": "8.0.11",
           "SQLitePCLRaw.bundle_e_sqlite3": "2.1.6"
         }
       },
       "Microsoft.Data.Sqlite.Core": {
         "type": "Transitive",
-        "resolved": "8.0.22",
-        "contentHash": "x09ObAhKeabVMKRi3/jU0HvIcm0T/RxjSdqGmwbTeya/Iev+aPIB69atBuR+kfbZ9P+EspBSAQ0kQ5Qc/REsXQ==",
+        "resolved": "8.0.11",
+        "contentHash": "PrDkI9SeU/MEP/IHriczeYmRVbzEcfp66UlZRjL5ikHIJGIYOrby55GoehLCJzJiTwJ+rGkjSRctZnWgfC95fg==",
         "dependencies": {
           "SQLitePCLRaw.core": "2.1.6"
         }
@@ -790,11 +790,11 @@
       "stocksharp.advancedbacktest": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Data.Sqlite": "[8.*, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[8.*, )",
-          "Microsoft.Extensions.Hosting": "[8.*, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[8.*, )",
-          "Microsoft.Extensions.Options": "[8.*, )",
+          "Microsoft.Data.Sqlite": "[8.0.11, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[8.0.2, )",
+          "Microsoft.Extensions.Hosting": "[8.0.1, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[8.0.3, )",
+          "Microsoft.Extensions.Options": "[8.0.2, )",
           "ModelContextProtocol": "[0.4.0-preview.3, )",
           "StockSharp.Algo": "[5.0.0, )",
           "StockSharp.BusinessEntities": "[5.0.0, )",

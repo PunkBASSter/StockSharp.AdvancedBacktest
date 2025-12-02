@@ -4,23 +4,23 @@
     "net8.0": {
       "Microsoft.Data.Sqlite": {
         "type": "Direct",
-        "requested": "[8.*, )",
-        "resolved": "8.0.22",
-        "contentHash": "vPqCMcGbioWfehIZvyh68Jy1jRPXFQ89ZlAnrquYm+yrH891SHPdqWCDeA8h70pWN/L78eK/Ze7un9TPI6EsZA==",
+        "requested": "[8.0.11, )",
+        "resolved": "8.0.11",
+        "contentHash": "6JocV6S1akKlXaDVpRmmwc9d/M7wXBmiEZ7RxB5lxDk+er9Xi3P+yVYVnh+6IJ+Y6v8pecGWhGwcgH1mONcLuw==",
         "dependencies": {
-          "Microsoft.Data.Sqlite.Core": "8.0.22",
+          "Microsoft.Data.Sqlite.Core": "8.0.11",
           "SQLitePCLRaw.bundle_e_sqlite3": "2.1.6"
         }
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "Direct",
-        "requested": "[8.*, )",
+        "requested": "[8.0.2, )",
         "resolved": "8.0.2",
         "contentHash": "3iE7UF7MQkCv1cxzCahz+Y/guQbTqieyxyaWKhrRO91itI9cOKO76OHeQDahqG4MmW5umr3CcCvGmK92lWNlbg=="
       },
       "Microsoft.Extensions.Hosting": {
         "type": "Direct",
-        "requested": "[8.*, )",
+        "requested": "[8.0.1, )",
         "resolved": "8.0.1",
         "contentHash": "bP9EEkHBEfjgYiG8nUaXqMk/ujwJrffOkNPP7onpRMO8R+OUSESSP4xHkCAXgYZ1COP2Q9lXlU5gkMFh20gRuw==",
         "dependencies": {
@@ -50,7 +50,7 @@
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "Direct",
-        "requested": "[8.*, )",
+        "requested": "[8.0.3, )",
         "resolved": "8.0.3",
         "contentHash": "dL0QGToTxggRLMYY4ZYX5AMwBb+byQBd/5dMiZE07Nv73o6I5Are3C7eQTh7K2+A4ct0PVISSr7TZANbiNb2yQ==",
         "dependencies": {
@@ -59,7 +59,7 @@
       },
       "Microsoft.Extensions.Options": {
         "type": "Direct",
-        "requested": "[8.*, )",
+        "requested": "[8.0.2, )",
         "resolved": "8.0.2",
         "contentHash": "dWGKvhFybsaZpGmzkGCbNNwBD1rVlWzrZKANLW/CcbFJpCEceMCGzT7zZwHOGBCbwM0SzBuceMj5HN1LKV1QqA==",
         "dependencies": {
@@ -239,8 +239,8 @@
       },
       "Microsoft.Data.Sqlite.Core": {
         "type": "Transitive",
-        "resolved": "8.0.22",
-        "contentHash": "x09ObAhKeabVMKRi3/jU0HvIcm0T/RxjSdqGmwbTeya/Iev+aPIB69atBuR+kfbZ9P+EspBSAQ0kQ5Qc/REsXQ==",
+        "resolved": "8.0.11",
+        "contentHash": "PrDkI9SeU/MEP/IHriczeYmRVbzEcfp66UlZRjL5ikHIJGIYOrby55GoehLCJzJiTwJ+rGkjSRctZnWgfC95fg==",
         "dependencies": {
           "SQLitePCLRaw.core": "2.1.6"
         }
