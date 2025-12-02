@@ -61,7 +61,7 @@ public class ExportFlowIntegrationTests : IDisposable
                 kvp.Value.Select(timespan => (kvp.Key, timespan.TimeFrame())));
         }
 
-        protected override void OnStarted(DateTimeOffset time)
+        protected override void OnStarted2(DateTime time)
         {
             // Subscribe to candles - just use the primary security
             // (multiple securities cause issues with limited test data)
@@ -74,7 +74,7 @@ public class ExportFlowIntegrationTests : IDisposable
                 subscription.Start();
             }
 
-            base.OnStarted(time);
+            base.OnStarted2(time);
         }
     }
 

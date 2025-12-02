@@ -43,7 +43,7 @@ public class BacktestRunnerTests
         public override IEnumerable<(Security sec, DataType dt)> GetWorkingSecurities()
             => [(Security, CandleType)];
 
-        protected override void OnStarted(DateTimeOffset time)
+        protected override void OnStarted2(DateTime time)
         {
             OnStartedCalled = true;
 
@@ -51,7 +51,7 @@ public class BacktestRunnerTests
             var subscription = SubscribeCandles(CandleType);
             subscription.Start();
 
-            base.OnStarted(time);
+            base.OnStarted2(time);
         }
     }
 
@@ -65,9 +65,9 @@ public class BacktestRunnerTests
         public override IEnumerable<(Security sec, DataType dt)> GetWorkingSecurities()
             => [(Security, CandleType)];
 
-        protected override void OnStarted(DateTimeOffset time)
+        protected override void OnStarted2(DateTime time)
         {
-            base.OnStarted(time);
+            base.OnStarted2(time);
             throw new InvalidOperationException("Test error");
         }
     }
@@ -86,7 +86,7 @@ public class BacktestRunnerTests
                 kvp.Value.Select(timespan => (kvp.Key, timespan.TimeFrame())));
         }
 
-        protected override void OnStarted(DateTimeOffset time)
+        protected override void OnStarted2(DateTime time)
         {
             // Subscribe to candles - just use the primary security
             // (multiple securities cause issues with limited test data)
@@ -99,7 +99,7 @@ public class BacktestRunnerTests
                 subscription.Start();
             }
 
-            base.OnStarted(time);
+            base.OnStarted2(time);
         }
     }
 

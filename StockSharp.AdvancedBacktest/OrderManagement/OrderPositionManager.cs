@@ -259,10 +259,10 @@ public class OrderPositionManager(IStrategyOrderOperations strategy)
         _strategy.LogInfo("Stop-loss filled at {0:F2}, Position: {1}",
             trade.Trade.Price, _strategy.Position);
 
-        if (IsOrderActive(_order!.TpOrder))
+        if (IsOrderActive(_order?.TpOrder))
         {
             _strategy.LogInfo("Canceling take-profit order");
-            _strategy.CancelOrder(_order.TpOrder);
+            _strategy.CancelOrder(_order!.TpOrder!);
         }
 
         // Clear state to allow new orders after SL closes the position
@@ -275,10 +275,10 @@ public class OrderPositionManager(IStrategyOrderOperations strategy)
         _strategy.LogInfo("Take-profit filled at {0:F2}, Position: {1}",
             trade.Trade.Price, _strategy.Position);
 
-        if (IsOrderActive(_order!.SlOrder))
+        if (IsOrderActive(_order?.SlOrder))
         {
             _strategy.LogInfo("Canceling stop-loss order");
-            _strategy.CancelOrder(_order.SlOrder);
+            _strategy.CancelOrder(_order!.SlOrder!);
         }
 
         // Clear state to allow new orders after TP closes the position
@@ -303,13 +303,13 @@ public class OrderPositionManager(IStrategyOrderOperations strategy)
         if (IsOrderActive(_order?.SlOrder))
         {
             _strategy.LogInfo("Canceling stop-loss order");
-            _strategy.CancelOrder(_order!.SlOrder);
+            _strategy.CancelOrder(_order!.SlOrder!);
         }
 
         if (IsOrderActive(_order?.TpOrder))
         {
             _strategy.LogInfo("Canceling take-profit order");
-            _strategy.CancelOrder(_order!.TpOrder);
+            _strategy.CancelOrder(_order!.TpOrder!);
         }
     }
 
