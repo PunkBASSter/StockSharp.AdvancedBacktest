@@ -171,7 +171,7 @@ public class BacktestRunnerTests
         var result = await runner.RunAsync();
 
         // Assert
-        Assert.True(result.IsSuccessful);
+        Assert.True(result.IsSuccessful, $"Backtest failed: {result.ErrorMessage}");
         Assert.Null(result.ErrorMessage);
         Assert.NotNull(result.Strategy);
         Assert.NotNull(result.Metrics);

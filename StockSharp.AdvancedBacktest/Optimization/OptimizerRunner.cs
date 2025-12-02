@@ -274,9 +274,8 @@ public class OptimizerRunner<TStrategy> where TStrategy : CustomStrategyBase, ne
             var lowestTimeFrame = securities[security].FirstOrDefault();
             var securityId = security.Id.ToSecurityId();
             var candleStorage = tempRegistry.GetCandleMessageStorage(
-                typeof(TimeFrameCandleMessage),
                 securityId,
-                lowestTimeFrame,
+                DataType.Create<TimeFrameCandleMessage>(lowestTimeFrame),
                 format: StorageFormats.Binary);
 
             var dates = (await candleStorage.GetDatesAsync(cancellationToken)).ToArray();

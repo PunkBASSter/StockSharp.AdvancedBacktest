@@ -174,9 +174,8 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
             var lowestTimeFrame = securities[security].FirstOrDefault();
             var securityId = security.Id.ToSecurityId();
             var candleStorage = tempRegistry.GetCandleMessageStorage(
-                typeof(TimeFrameCandleMessage),
                 securityId,
-                lowestTimeFrame,
+                DataType.Create<TimeFrameCandleMessage>(lowestTimeFrame),
                 format: StorageFormats.Binary);
 
             // Filter dates to only include those within the StartDate to EndDate range

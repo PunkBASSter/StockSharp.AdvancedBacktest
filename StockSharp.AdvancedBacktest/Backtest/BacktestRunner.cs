@@ -5,6 +5,7 @@ using StockSharp.Algo.Strategies;
 using StockSharp.Algo.Testing;
 using StockSharp.AdvancedBacktest.Models;
 using StockSharp.AdvancedBacktest.Statistics;
+using StockSharp.AdvancedBacktest.Storages;
 using StockSharp.AdvancedBacktest.DebugMode;
 using StockSharp.AdvancedBacktest.DebugMode.AiAgenticDebug.Integration;
 using StockSharp.Messages;
@@ -439,10 +440,12 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
             Logger?.AddInfoLog("Portfolio Name not set, defaulting to 'Simulator'");
         }
 
-        var storageRegistry = new StorageRegistry
+        var innerRegistry = new StorageRegistry
         {
             DefaultDrive = new LocalMarketDataDrive(_config.HistoryPath)
         };
+        // Wrap with SharedStorageRegistry to work around await using disposal bug in BasketMarketDataStorage
+        var storageRegistry = new SharedStorageRegistry(innerRegistry);
 
         var securityProvider = new CollectionSecurityProvider(securities);
         var portfolioProvider = new CollectionPortfolioProvider([_strategy.Portfolio]);
@@ -470,13 +473,29 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
         Logger?.AddInfoLog($"Connector configured for period {_config.ValidationPeriod.StartDate:yyyy-MM-dd} to {_config.ValidationPeriod.EndDate:yyyy-MM-dd}");
     }
 
+    private Exception? _lastConnectorError;
+
     private void SubscribeToEvents()
     {
         if (_connector == null || _strategy == null)
             throw new InvalidOperationException("Connector and strategy must be configured first");
 
         _connector.StateChanged2 += OnConnectorStateChanged;
+        _connector.Error += OnConnectorError;
+        _connector.ConnectionError += OnConnectionError;
         _strategy.Error += OnStrategyError;
+    }
+
+    private void OnConnectorError(Exception error)
+    {
+        _lastConnectorError = error;
+        Logger?.AddErrorLog(error, "Connector error occurred");
+    }
+
+    private void OnConnectionError(Exception error)
+    {
+        _lastConnectorError = error;
+        Logger?.AddErrorLog(error, "Connection error occurred");
     }
 
     private void OnConnectorStateChanged(ChannelStates state)
@@ -496,8 +515,11 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
                 }
                 else
                 {
-                    Logger?.AddWarningLog("Backtest stopped but not finished");
-                    var result = CreateErrorResult(new InvalidOperationException("Backtest stopped unexpectedly"));
+                    var errorMessage = _lastConnectorError != null
+                        ? $"Backtest stopped with error: {_lastConnectorError.Message}"
+                        : "Backtest stopped unexpectedly (IsFinished=false, no error captured)";
+                    Logger?.AddWarningLog(errorMessage);
+                    var result = CreateErrorResult(_lastConnectorError ?? new InvalidOperationException(errorMessage));
                     _completionSource?.TrySetResult(result);
                 }
             }
@@ -564,6 +586,8 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
             if (_connector != null)
             {
                 _connector.StateChanged2 -= OnConnectorStateChanged;
+                _connector.Error -= OnConnectorError;
+                _connector.ConnectionError -= OnConnectionError;
 
                 // Unsubscribe from debug mode events
                 _connector.CandleReceived -= OnCandleReceivedForDebug;
