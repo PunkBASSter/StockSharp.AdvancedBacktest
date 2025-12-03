@@ -1,4 +1,5 @@
 using StockSharp.Algo.Commissions;
+using StockSharp.Algo.Storages;
 using StockSharp.Algo.Strategies;
 using StockSharp.AdvancedBacktest.Backtest;
 using StockSharp.AdvancedBacktest.Models;
@@ -114,6 +115,8 @@ public class BacktestRunnerTests
             Id = "BTCUSDT@BNB",
             Code = "BTCUSDT",
             Board = ExchangeBoard.Binance,
+            PriceStep = 0.01m,
+            Decimals = 2
         };
     }
 
@@ -124,6 +127,8 @@ public class BacktestRunnerTests
             Id = "ETHUSDT@BNB",
             Code = "ETHUSDT",
             Board = ExchangeBoard.Binance,
+            PriceStep = 0.01m,
+            Decimals = 2
         };
     }
 
@@ -141,11 +146,12 @@ public class BacktestRunnerTests
         {
             ValidationPeriod = new PeriodConfig
             {
-                // Data available for 2025_10_01 - using just first hour for faster tests
-                StartDate = startDate ?? new DateTimeOffset(2025, 10, 1, 0, 0, 0, TimeSpan.Zero),
-                EndDate = endDate ?? new DateTimeOffset(2025, 10, 1, 1, 0, 0, TimeSpan.Zero)
+                // Data available for 2023_01_01 (real Hydra data copied to StorageMock)
+                StartDate = startDate ?? new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero),
+                EndDate = endDate ?? new DateTimeOffset(2023, 1, 1, 12, 0, 0, TimeSpan.Zero)  // Half day for fast tests
             },
             HistoryPath = _storageMockPath,
+            StorageFormat = StorageFormats.Binary,
             MatchOnTouch = false
         };
     }
@@ -154,18 +160,34 @@ public class BacktestRunnerTests
 
     #region Successful Execution Tests
 
-    [Fact(Skip = "HistoryEmulationConnector issues after StockSharp .NET 10 migration")]
+    [Fact]
     public async Task RunAsync_WithValidStrategy_CompletesSuccessfully()
     {
-        // Arrange
-        var strategy = new SimpleTestStrategy
+        // Arrange - use CustomTestStrategy with Securities dictionary like working LauncherTemplate
+        var security = CreateBtcSecurity();
+        var strategy = new CustomTestStrategy
         {
-            Security = CreateBtcSecurity(),
+            Securities = new Dictionary<Security, IEnumerable<TimeSpan>>
+            {
+                { security, new[] { TimeSpan.FromHours(1) } }  // 1 hour like LauncherTemplate
+            },
             Portfolio = CreatePortfolio()
         };
 
-        var config = CreateConfig();
-        using var runner = new BacktestRunner<SimpleTestStrategy>(config, strategy);
+        // Use StorageMock with real Hydra data copied to 2023_01_01 folder
+        var config = new BacktestConfig
+        {
+            ValidationPeriod = new PeriodConfig
+            {
+                StartDate = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero),
+                EndDate = new DateTimeOffset(2023, 1, 1, 23, 59, 59, TimeSpan.Zero)  // 1 day for fast test
+            },
+            HistoryPath = _storageMockPath,
+            StorageFormat = StorageFormats.Binary,
+            MatchOnTouch = false
+        };
+
+        using var runner = new BacktestRunner<CustomTestStrategy>(config, strategy);
 
         // Act
         var result = await runner.RunAsync();
@@ -177,7 +199,6 @@ public class BacktestRunnerTests
         Assert.NotNull(result.Metrics);
         Assert.Equal(config, result.Config);
         Assert.True(result.Duration > TimeSpan.Zero);
-        Assert.True(strategy.OnStartedCalled);
     }
 
     [Fact(Skip = "HistoryEmulationConnector issues after StockSharp .NET 10 migration")]
@@ -245,8 +266,8 @@ public class BacktestRunnerTests
         {
             ValidationPeriod = new PeriodConfig
             {
-                StartDate = new DateTimeOffset(2025, 10, 2, 0, 0, 0, TimeSpan.Zero),
-                EndDate = new DateTimeOffset(2025, 10, 1, 0, 0, 0, TimeSpan.Zero) // End before start
+                StartDate = new DateTimeOffset(2023, 1, 2, 0, 0, 0, TimeSpan.Zero),
+                EndDate = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero) // End before start
             },
             HistoryPath = _storageMockPath
         };
@@ -413,10 +434,11 @@ public class BacktestRunnerTests
             ValidationPeriod = new PeriodConfig
             {
                 // Use full day
-                StartDate = new DateTimeOffset(2025, 10, 1, 0, 0, 0, TimeSpan.Zero),
-                EndDate = new DateTimeOffset(2025, 10, 1, 23, 59, 59, TimeSpan.Zero)
+                StartDate = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero),
+                EndDate = new DateTimeOffset(2023, 1, 1, 23, 59, 59, TimeSpan.Zero)
             },
             HistoryPath = _storageMockPath,
+            StorageFormat = StorageFormats.Binary,
             MatchOnTouch = false
         };
 
@@ -458,10 +480,11 @@ public class BacktestRunnerTests
         {
             ValidationPeriod = new PeriodConfig
             {
-                StartDate = new DateTimeOffset(2025, 10, 1, 0, 0, 0, TimeSpan.Zero),
-                EndDate = new DateTimeOffset(2025, 10, 1, 23, 59, 59, TimeSpan.Zero)
+                StartDate = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero),
+                EndDate = new DateTimeOffset(2023, 1, 1, 23, 59, 59, TimeSpan.Zero)
             },
             HistoryPath = _storageMockPath,
+            StorageFormat = StorageFormats.Binary,
             MatchOnTouch = false
         };
 

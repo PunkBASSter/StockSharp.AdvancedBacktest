@@ -95,55 +95,57 @@ specs/[###-feature]/
 ```text
 StockSharp.AdvancedBacktest/
 ├── DebugMode/
-│   ├── EventLogging/                    # NEW: Event logging infrastructure
-│   │   ├── Models/                      # Event entity models
-│   │   │   ├── BacktestRunEntity.cs
-│   │   │   ├── EventEntity.cs
-│   │   │   └── ValidationMetadata.cs
-│   │   ├── Storage/                     # SQLite storage layer
-│   │   │   ├── IEventRepository.cs
-│   │   │   ├── SqliteEventRepository.cs
-│   │   │   ├── DatabaseSchema.cs
-│   │   │   └── BatchEventWriter.cs
-│   │   ├── Serialization/               # JSON converters
-│   │   │   └── EventJsonContext.cs      # Source-generated JSON context
-│   │   └── Integration/                 # Integration with existing DebugMode
-│   │       └── DebugModeEventLogger.cs
-│   ├── DebugModeExporter.cs             # EXISTING - will integrate with EventLogger
-│   ├── DebugEventBuffer.cs              # EXISTING
-│   └── FileBasedWriter.cs               # EXISTING
-│
-├── McpServer/                            # NEW: MCP server implementation
-│   ├── Tools/                            # MCP tool implementations
-│   │   ├── GetEventsByTypeToolBuilder.cs
-│   │   ├── AggregateMetricsToolBuilder.cs
-│   │   ├── GetEventsByEntityToolBuilder.cs
-│   │   ├── GetStateSnapshotToolBuilder.cs
-│   │   └── QueryEventSequenceToolBuilder.cs
-│   ├── Models/                           # Tool parameter models
-│   │   ├── EventQueryParameters.cs
-│   │   ├── AggregationParameters.cs
-│   │   └── QueryResultMetadata.cs
-│   └── BacktestEventMcpServer.cs         # Main MCP server
+│   ├── AiAgenticDebug/                   # NEW: AI-agent-friendly event logging
+│   │   ├── EventLogging/                 # Event logging infrastructure
+│   │   │   ├── Models/                   # Event entity models
+│   │   │   │   ├── BacktestRunEntity.cs
+│   │   │   │   ├── EventEntity.cs
+│   │   │   │   ├── EventType.cs
+│   │   │   │   ├── EventSeverity.cs
+│   │   │   │   ├── EventCategory.cs
+│   │   │   │   └── ValidationMetadata.cs
+│   │   │   ├── Storage/                  # SQLite storage layer
+│   │   │   │   ├── IEventRepository.cs
+│   │   │   │   ├── SqliteEventRepository.cs
+│   │   │   │   ├── DatabaseSchema.cs
+│   │   │   │   ├── BatchEventWriter.cs
+│   │   │   │   ├── EventQueryParameters.cs
+│   │   │   │   ├── EventQueryResult.cs
+│   │   │   │   └── QueryResultMetadata.cs
+│   │   │   ├── Serialization/            # JSON converters (System.Text.Json)
+│   │   │   │   ├── EventJsonContext.cs   # Source-generated JSON context
+│   │   │   │   └── DecimalConverter.cs
+│   │   │   └── Integration/              # Integration with existing DebugMode
+│   │   │       ├── EventLogger.cs
+│   │   │       └── AgenticEventLogger.cs
+│   │   └── McpServer/                    # MCP server implementation
+│   │       ├── Tools/                    # MCP tool implementations
+│   │       │   └── GetEventsByTypeTool.cs
+│   │       ├── Models/                   # Tool response DTOs
+│   │       │   └── GetEventsByTypeResponse.cs
+│   │       └── BacktestEventMcpServer.cs # Main MCP server with STDIO transport
+│   ├── DebugModeExporter.cs              # EXISTING - will integrate with EventLogger
+│   ├── DebugEventBuffer.cs               # EXISTING
+│   └── FileBasedWriter.cs                # EXISTING
 
 StockSharp.AdvancedBacktest.Tests/
-├── EventLogging/                         # NEW: Event logging tests
+├── EventLogging/                          # Event logging tests
 │   ├── Storage/
-│   │   ├── SqliteEventRepositoryTests.cs
-│   │   └── BatchEventWriterTests.cs
+│   │   └── DatabaseSchemaTests.cs
+│   ├── Models/
+│   │   ├── EventEntityTests.cs
+│   │   └── ValidationMetadataTests.cs
 │   ├── Integration/
-│   │   └── DebugModeEventLoggerTests.cs
+│   │   └── EventQueryIntegrationTests.cs
 │   └── Serialization/
 │       └── EventJsonContextTests.cs
 │
-└── McpServer/                            # NEW: MCP server tests
-    ├── Tools/
-    │   ├── GetEventsByTypeToolTests.cs
-    │   ├── AggregateMetricsToolTests.cs
-    │   └── QueryEventSequenceToolTests.cs
-    └── Integration/
-        └── BacktestEventMcpServerTests.cs
+└── McpServer/                             # MCP server tests
+    └── Tools/
+        └── GetEventsByTypeToolTests.cs
 ```
+
+**Note**: Structure updated 2025-11-17 to reflect actual implementation. Uses `AiAgenticDebug` namespace (intentional design choice for clarity between debug export and AI-agent-specific infrastructure).
 
 **Structure Decision**: Single project extension following existing StockSharp.AdvancedBacktest structure. Event logging components added under `DebugMode/EventLogging/` to maintain separation from existing file-based export. MCP server is new top-level namespace `McpServer/` as it's an independent infrastructure component. Tests mirror source structure in StockSharp.AdvancedBacktest.Tests.
 

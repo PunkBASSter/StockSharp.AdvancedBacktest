@@ -1,10 +1,5 @@
 # 2025 Q4 Roadmap
 
-## 1. Remaining Warnings (non-breaking)
-- Some OnStarted method is obsolete (use OnStarted2 instead)
-- Some GetCandleMessageStorage overload is obsolete (use DataType overload)
-- Various ThreadingHelper methods are obsolete (prefer Task-based async)
-
 ## 2. Add .claude/CLAUDE.md definitions
 - For each sub-project (e.g., StockSharp.AdvancedBacktest, StockSharp.AdvancedBacktest.LauncherTemplate), create a CLAUDE.md file defining the main agents and their responsibilities.
 - Define the roles of Product Manager Agent, Tech Lead Agent, Backend Implementer Agent, QA Tester Agent, and Documentation Specialist Agent and map them to specific subagents.

@@ -38,6 +38,17 @@
           "Castle.Core": "5.1.1"
         }
       },
+      "StockSharp.Binance": {
+        "type": "Direct",
+        "requested": "[5.*, )",
+        "resolved": "5.0.201",
+        "contentHash": "hQqEeAAtQfwy9HLozeI7AERDUJ5024TjXKqf9q6gbNrQPwT9ijHeH5c+ro7HY34rji0fT5jLueYu9TlBiVcrmw==",
+        "dependencies": {
+          "Ecng.Net.SocketIO": "1.0.430",
+          "StockSharp.Media.Names": "5.0.1",
+          "StockSharp.Messages": "5.0.222"
+        }
+      },
       "xunit": {
         "type": "Direct",
         "requested": "[2.9.3, )",
@@ -65,8 +76,8 @@
       },
       "Ecng.Collections": {
         "type": "Transitive",
-        "resolved": "1.0.247",
-        "contentHash": "Pq+qGRbwTN6gNYlpvJpt/KNAw35Jet1Fvc5gfBV1P7ONvlq0U4DZgvBA7sgAUqtusYIKHfTNu9lrlnfyx54o/w==",
+        "resolved": "1.0.250",
+        "contentHash": "jBj8HMtl+JRxkZvGg4rPGcnl32f18Qjb+P73n+Zc8jMiJgvQGOYrAHJt4GN9/axpxJX90wTXZhQCHnjZ2/bsMw==",
         "dependencies": {
           "Ecng.Common": "1.0.223"
         }
@@ -84,19 +95,19 @@
       },
       "Ecng.Compilation": {
         "type": "Transitive",
-        "resolved": "1.0.230",
-        "contentHash": "xseHA9XiyvjI/KKdX1BKT7N2p33SRsSx4Uubl9ou/A1Q4m3gtiW9wJ9mXs8txklPD7PUF8JNFLPhKRtQOox+TQ==",
+        "resolved": "1.0.233",
+        "contentHash": "fwacm0e8JpKY0LGM72r1+paMdP21ZfJvh5+zUyYY1ibyQxkzxXis0PWadIW5X5jGA7kMrP7iAb+8SPFj8PDvGw==",
         "dependencies": {
-          "Ecng.ComponentModel": "1.0.367"
+          "Ecng.ComponentModel": "1.0.370"
         }
       },
       "Ecng.ComponentModel": {
         "type": "Transitive",
-        "resolved": "1.0.367",
-        "contentHash": "gGcXFcWQtg6sH9JJf4cL/cpQ9kG4vQIteBnaY2AgModsRNRfDJy+Asnxg1H7lKNdgChpRPb0QaLrPEULT6F0fQ==",
+        "resolved": "1.0.370",
+        "contentHash": "+F+RRSwwZuzrqV80DkrXwJ3KKcGwfpu6IKuMVCp6PyEIQP1c7ss04A1aDsuRtaphCP2Eq0yfKHQRvkgL/m2RJg==",
         "dependencies": {
           "Ecng.Localization": "1.0.217",
-          "Ecng.Serialization": "1.0.292"
+          "Ecng.Serialization": "1.0.295"
         }
       },
       "Ecng.Configuration": {
@@ -152,10 +163,10 @@
       },
       "Ecng.Logging": {
         "type": "Transitive",
-        "resolved": "1.0.87",
-        "contentHash": "uE30ZFGThiBqfJGr5G1d9bWJe3XhEVHtJ2ezdFNNTOCv/9zG1m1sgTlUgPEbrDpz9JsgC8ts4RC9zTbQkW5A1Q==",
+        "resolved": "1.0.90",
+        "contentHash": "Aq018lLA4KWcgQS2ef+Azthx2mIXWQJFsBU6pEcYJORlFdtk5HsEsZpSvpBjgK9zxyOmi3fRq4duxHPXWXqKjg==",
         "dependencies": {
-          "Ecng.ComponentModel": "1.0.367",
+          "Ecng.ComponentModel": "1.0.370",
           "Ecng.Localization": "1.0.217"
         }
       },
@@ -171,35 +182,45 @@
       },
       "Ecng.Net": {
         "type": "Transitive",
-        "resolved": "1.0.431",
-        "contentHash": "sTCsC66c12cMgytEqCVwTJu70zq1Gi3AHj1/1XiLGkC7EvsLHWYXtvzToZ6fdFRcmGC/teornD3O9YWdyFVx3w==",
+        "resolved": "1.0.434",
+        "contentHash": "wE1Aw9zFs8k98Gr1ihvFa82Wp056H5R58YbK3NASpL8N5R0R19uD+NGH02x7ynIlpPRFrhdz66H40DBW/GvSrg==",
         "dependencies": {
-          "Ecng.ComponentModel": "1.0.367"
+          "Ecng.ComponentModel": "1.0.370"
+        }
+      },
+      "Ecng.Net.SocketIO": {
+        "type": "Transitive",
+        "resolved": "1.0.430",
+        "contentHash": "qWlSWhzBmhkfsaG6K3A3DUxYijmjz7q7aAtIKGlP4J94mAYd0hclJHlMaLFVaztm2JeBOerbAeuaE/A+7m6S/g==",
+        "dependencies": {
+          "Ecng.Localization": "1.0.197",
+          "Ecng.Net": "1.0.398",
+          "RestSharp": "112.0.0"
         }
       },
       "Ecng.Reflection": {
         "type": "Transitive",
-        "resolved": "1.0.260",
-        "contentHash": "s/zRxi+RhwaOwaUGjjGotfKVozvNI3KNC7m8ij0GQleFXIOw2LxTy/Hs253OqBqFdkQtWO4zxcXua2SeKPaGuA==",
+        "resolved": "1.0.263",
+        "contentHash": "qRQ4svC7Ye+mjI48hDl3dWxhSMLBCS6Gp3oEBfmL+ehRoaoYsKiqv1TK9hOM6LpdauyOdw/LnAb75DE0PvHr+A==",
         "dependencies": {
-          "Ecng.Collections": "1.0.247"
+          "Ecng.Collections": "1.0.250"
         }
       },
       "Ecng.Security": {
         "type": "Transitive",
-        "resolved": "1.0.253",
-        "contentHash": "fgio7czPjH2kWbVXq+e75AcgIGcCpB32c0wEsC15wX0T27QwgEkB3BadYVSFYRCg7I/kFc+PXr4j46uucEzw+A==",
+        "resolved": "1.0.256",
+        "contentHash": "CcdGSpkRlhpmcfYkEW8wOa2+7BstxlKNjFO61ZQoYceszWhiATBiF4aCYSNZXnUwveiJVvKSNesskT7IRhcMvw==",
         "dependencies": {
-          "Ecng.Collections": "1.0.247"
+          "Ecng.Collections": "1.0.250"
         }
       },
       "Ecng.Serialization": {
         "type": "Transitive",
-        "resolved": "1.0.292",
-        "contentHash": "LEG5vAcRR7x2tlRijQdcfCOgjd0AhonMFjqIcnckO7PMNH9lNOsg7ogzaazPqMuxE8QnRK4w+jQxi9wOO4LXCA==",
+        "resolved": "1.0.295",
+        "contentHash": "JSqns/mh3nwnf20nO7HEeDLYA9/Bnb5jUiIu4fmw7BpZi1R+cZCbu6TIKxgLPkoZng15P8uj9pzLC5sHpbCELQ==",
         "dependencies": {
-          "Ecng.Reflection": "1.0.260",
-          "Ecng.Security": "1.0.253"
+          "Ecng.Reflection": "1.0.263",
+          "Ecng.Security": "1.0.256"
         }
       },
       "Ecng.SmartFormat": {
@@ -212,10 +233,10 @@
       },
       "Ecng.StringSearch": {
         "type": "Transitive",
-        "resolved": "1.0.204",
-        "contentHash": "8ek5R6k7L015YnVoYi67R5owmW09EKTrfYSzjpajbQ/Ge6fcp1Oq6cpesWUOngD/F0wQWIn6WJ31rCmuoJMGUQ==",
+        "resolved": "1.0.207",
+        "contentHash": "OEARr2m9a8o5WNDlJRM8t4/OgkTNCftdT1jqOKMS52IB43GmWB4V/ZC6u2sKTz5SgluMaO00G1v45ZLzGG+l1w==",
         "dependencies": {
-          "Ecng.Collections": "1.0.247"
+          "Ecng.Collections": "1.0.250"
         }
       },
       "GeneticSharp": {
@@ -658,6 +679,11 @@
         "resolved": "6.14.0",
         "contentHash": "xZ37J58DQAkVUX29qoMwla26iBYRScdcfSGNe1FIZjCX1tpafN9n7TinrkRxaJqYzW0D8Ob8a3eRSYhwEUauCA=="
       },
+      "RestSharp": {
+        "type": "Transitive",
+        "resolved": "112.0.0",
+        "contentHash": "vezxJ6DLk0eDx+rmXwVHQvJ3elZCJfnLd8neRrkA+IvTs9falf2CEAolsjI1YKkkHTOvG13xWTnHK7gU0zgaaw=="
+      },
       "SQLitePCLRaw.bundle_e_sqlite3": {
         "type": "Transitive",
         "resolved": "2.1.6",
@@ -687,6 +713,11 @@
         "dependencies": {
           "SQLitePCLRaw.core": "2.1.6"
         }
+      },
+      "StockSharp.Media.Names": {
+        "type": "Transitive",
+        "resolved": "5.0.1",
+        "contentHash": "NAS8DbvRMiWkuBfC7s7RnAC8AFek5GV0d92+5rGirNTvXm58bSjcnBiCZxUNX81ROi3r9kwPjf0lWNPeMUqyWQ=="
       },
       "System.Collections.Immutable": {
         "type": "Transitive",

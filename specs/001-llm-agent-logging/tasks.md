@@ -50,6 +50,20 @@
 - **TDD Compliance**: Tests written retroactively for this session (constitution violation noted, but 100% coverage achieved)
 - **MCP Integration**: DebugModeExporter integration (T041) deferred - MCP server can operate standalone
 
+### ⚠️ Constitution Compliance Acknowledgment
+
+**Principle II Violation (Test-First Development)**: Phases 1-3 implementation did not follow strict TDD - tests were written retroactively rather than failing first. While 82 tests now pass with comprehensive coverage, the red-green-refactor cycle was not enforced.
+
+**Justification**: Initial implementation prioritized proving architecture viability. Retroactive test coverage validates correctness but misses TDD's specification-first benefit.
+
+**Remediation Commitment**: All remaining phases (4-12) MUST follow strict TDD:
+1. Write FAILING tests first (verify they fail)
+2. Implement until tests pass
+3. Refactor while keeping tests green
+4. No implementation code without corresponding failing test first
+
+See task T000 (added to Phase 4) for compliance gate.
+
 ### 🎯 Next Steps (If Continuing)
 1. Implement User Story 2 (Event Sequences) - Independent, can start immediately
 2. Implement User Story 3 (Aggregations) - Independent, can start immediately
@@ -213,6 +227,10 @@ Following single project structure from plan.md:
 
 **Independent Test**: Create backtest with order → execution → position update sequence, query for event chain, verify all related events returned in order
 
+### TDD Compliance Gate (Constitution Principle II)
+
+- [ ] T000 [US2] **GATE**: Before ANY implementation task in this phase, verify all test tasks (T042-T044, T049-T050) are complete with FAILING tests. Implementation MUST NOT proceed until tests exist and fail. This gate enforces constitution Principle II remediation.
+
 ### Tests for User Story 2
 
 - [ ] T042 [P] [US2] Write FAILING test for querying events by entity reference in StockSharp.AdvancedBacktest.Tests/EventLogging/Integration/QueryEventsByEntityTests.cs
@@ -360,8 +378,10 @@ Following single project structure from plan.md:
 **Purpose**: Ensure performance meets success criteria from spec.md
 
 - [ ] T100 Write performance test: query 10,000 events in <2 seconds (SC-001) in StockSharp.AdvancedBacktest.Tests/EventLogging/Performance/QueryPerformanceTests.cs
+- [ ] T100b Write concurrent query stress test: 100 simultaneous agent queries without degradation (SC-004) in StockSharp.AdvancedBacktest.Tests/EventLogging/Performance/ConcurrentQueryTests.cs
 - [ ] T101 Write performance test: aggregate 100,000 events in <500ms (SC-005) in StockSharp.AdvancedBacktest.Tests/EventLogging/Performance/AggregationPerformanceTests.cs
 - [ ] T102 Write performance test: handle 1M events without timeout (SC-008) in StockSharp.AdvancedBacktest.Tests/EventLogging/Performance/ScalabilityTests.cs
+- [ ] T102b Write token reduction benchmark: compare query result size vs equivalent JSONL parsing (SC-002, SC-006) in StockSharp.AdvancedBacktest.Tests/EventLogging/Performance/TokenEfficiencyTests.cs
 - [ ] T103 Profile SQL queries and add missing indexes if needed
 - [ ] T104 [P] Optimize batch writer commit frequency based on profiling results
 - [ ] T105 [P] Add computed columns with indexes for frequently queried JSON paths (if profiling shows benefit)
