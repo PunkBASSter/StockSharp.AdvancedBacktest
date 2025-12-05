@@ -41,20 +41,18 @@ public class PerformanceMetricsCalculatorTests
         Assert.Equal(0, metrics.ProfitFactor);
     }
 
-    [Fact]
-    public void Constructor_WithDefaultRiskFreeRate_SetsCorrectValue()
+    [Theory]
+    [InlineData(null, 0.02)]      // Default value when not specified
+    [InlineData(0.01, 0.01)]
+    [InlineData(0.05, 0.05)]
+    [InlineData(0.10, 0.10)]
+    public void Constructor_WithRiskFreeRate_SetsCorrectValue(double? inputRate, double expectedRate)
     {
-        var calculator = new PerformanceMetricsCalculator();
+        var calculator = inputRate.HasValue
+            ? new PerformanceMetricsCalculator(inputRate.Value)
+            : new PerformanceMetricsCalculator();
 
-        Assert.Equal(0.02, calculator.RiskFreeRate);
-    }
-
-    [Fact]
-    public void Constructor_WithCustomRiskFreeRate_SetsCorrectValue()
-    {
-        var calculator = new PerformanceMetricsCalculator(0.05);
-
-        Assert.Equal(0.05, calculator.RiskFreeRate);
+        Assert.Equal(expectedRate, calculator.RiskFreeRate);
     }
 
     [Fact]

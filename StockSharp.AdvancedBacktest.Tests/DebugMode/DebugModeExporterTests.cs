@@ -519,46 +519,25 @@ public class DebugModeExporterTests : IDisposable
 
     #region Constructor Tests
 
-    [Fact]
-    public void Constructor_NullOutputPath_ThrowsException()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Constructor_InvalidOutputPath_ThrowsArgumentException(string? outputPath)
     {
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => new DebugModeExporter(null!));
+        Assert.Throws<ArgumentException>(() => new DebugModeExporter(outputPath!));
     }
 
-    [Fact]
-    public void Constructor_EmptyOutputPath_ThrowsException()
-    {
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() => new DebugModeExporter(""));
-    }
-
-    [Fact]
-    public void Constructor_NegativeFlushInterval_ThrowsException()
-    {
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() =>
-            new DebugModeExporter(GetTestFilePath(), flushIntervalMs: -1));
-    }
-
-    [Fact]
-    public void Constructor_ZeroFlushInterval_ThrowsException()
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(0)]
+    [InlineData(-100)]
+    public void Constructor_InvalidFlushInterval_ThrowsArgumentException(int invalidInterval)
     {
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            new DebugModeExporter(GetTestFilePath(), flushIntervalMs: 0));
-    }
-
-    [Fact(Skip = "MaxFileSizeMB parameter removed for simplicity")]
-    public void Constructor_NegativeMaxFileSize_ThrowsException()
-    {
-        // Test disabled - maxFileSizeMB parameter removed
-    }
-
-    [Fact(Skip = "MaxFileSizeMB parameter removed for simplicity")]
-    public void Constructor_ZeroMaxFileSize_ThrowsException()
-    {
-        // Test disabled - maxFileSizeMB parameter removed
+            new DebugModeExporter(GetTestFilePath(), flushIntervalMs: invalidInterval));
     }
 
     [Fact]

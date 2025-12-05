@@ -44,8 +44,10 @@ public class WalkForwardValidatorTests
         };
     }
 
-    [Fact]
-    public void WalkForward_Anchored_ThreeWindows_ProducesResults()
+    [Theory]
+    [InlineData(WindowGenerationMode.Anchored)]
+    [InlineData(WindowGenerationMode.Rolling)]
+    public void WalkForward_WithWindowMode_ProducesResults(WindowGenerationMode mode)
     {
         var baseConfig = CreateMockConfig();
 
@@ -70,7 +72,7 @@ public class WalkForwardValidatorTests
             WindowSize = TimeSpan.FromDays(30),
             StepSize = TimeSpan.FromDays(10),
             ValidationSize = TimeSpan.FromDays(10),
-            Mode = WindowGenerationMode.Anchored
+            Mode = mode
         };
 
         var startDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
@@ -81,45 +83,7 @@ public class WalkForwardValidatorTests
         Assert.NotNull(result);
         Assert.True(result.Windows.Count > 0);
         Assert.Equal(result.Windows.Count, result.TotalWindows);
-    }
-
-    [Fact]
-    public void WalkForward_Rolling_ThreeWindows_ProducesResults()
-    {
-        var baseConfig = CreateMockConfig();
-
-        Func<OptimizationConfig, Dictionary<string, OptimizationResult<MockStrategy>>> mockOptimizer = (config) =>
-        {
-            return new Dictionary<string, OptimizationResult<MockStrategy>>
-            {
-                ["result1"] = new OptimizationResult<MockStrategy>
-                {
-                    Config = config,
-                    TrainedStrategy = new MockStrategy(),
-                    TrainingMetrics = new PerformanceMetrics { TotalReturn = 25.0, SharpeRatio = 2.5 },
-                    ValidationMetrics = new PerformanceMetrics { TotalReturn = 20.0, SharpeRatio = 2.0 }
-                }
-            };
-        };
-
-        var validator = new WalkForwardValidator<MockStrategy>(null!, baseConfig, mockOptimizer);
-
-        var wfConfig = new WalkForwardConfig
-        {
-            WindowSize = TimeSpan.FromDays(30),
-            StepSize = TimeSpan.FromDays(10),
-            ValidationSize = TimeSpan.FromDays(10),
-            Mode = WindowGenerationMode.Rolling
-        };
-
-        var startDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        var endDate = new DateTimeOffset(2024, 2, 20, 0, 0, 0, TimeSpan.Zero);
-
-        var result = validator.Validate(wfConfig, startDate, endDate);
-
-        Assert.NotNull(result);
-        Assert.True(result.Windows.Count > 0);
-        Assert.Equal(WindowGenerationMode.Rolling, wfConfig.Mode);
+        Assert.Equal(mode, wfConfig.Mode);
     }
 
     [Fact]

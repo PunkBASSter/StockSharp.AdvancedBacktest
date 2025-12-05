@@ -391,25 +391,25 @@ public class DebugEventBufferTests
 
 	#region Constructor Tests
 
-	[Fact]
-	public void Constructor_NegativeInterval_ThrowsException()
+	[Theory]
+	[InlineData(-1)]
+	[InlineData(0)]
+	[InlineData(-100)]
+	public void Constructor_InvalidInterval_ThrowsArgumentException(int invalidInterval)
 	{
 		// Act & Assert
-		Assert.Throws<ArgumentException>(() => new DebugEventBuffer(-1));
+		Assert.Throws<ArgumentException>(() => new DebugEventBuffer(invalidInterval));
 	}
 
-	[Fact]
-	public void Constructor_ZeroInterval_ThrowsException()
-	{
-		// Act & Assert
-		Assert.Throws<ArgumentException>(() => new DebugEventBuffer(0));
-	}
-
-	[Fact]
-	public void Constructor_ValidInterval_CreatesBuffer()
+	[Theory]
+	[InlineData(1)]
+	[InlineData(100)]
+	[InlineData(500)]
+	[InlineData(10000)]
+	public void Constructor_ValidInterval_CreatesBuffer(int validInterval)
 	{
 		// Act & Assert - Should not throw
-		using var buffer = new DebugEventBuffer(500);
+		using var buffer = new DebugEventBuffer(validInterval);
 		Assert.NotNull(buffer);
 	}
 
