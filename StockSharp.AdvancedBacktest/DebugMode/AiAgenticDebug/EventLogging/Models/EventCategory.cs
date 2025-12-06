@@ -4,7 +4,10 @@ public enum EventCategory
 {
 	Execution,
 	MarketData,
+	Data,
 	Indicators,
+	Analysis,
 	Risk,
-	Performance
+	Performance,
+	Portfolio
 }
