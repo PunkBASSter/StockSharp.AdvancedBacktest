@@ -11,4 +11,6 @@ public interface IEventRepository
 	Task<EventQueryResult> QueryEventsAsync(EventQueryParameters parameters);
 	Task<EventQueryResult> QueryEventsByEntityAsync(EntityReferenceQueryParameters parameters);
 	Task<EventSequenceQueryResult> QueryEventSequenceAsync(EventSequenceQueryParameters parameters);
+	Task<EventQueryResult> QueryEventsWithValidationErrorsAsync(ValidationErrorQueryParameters parameters);
+	Task<AggregationResult> AggregateMetricsAsync(AggregationParameters parameters);
 }

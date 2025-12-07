@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using Microsoft.Data.Sqlite;
 using StockSharp.AdvancedBacktest.DebugMode.AiAgenticDebug.EventLogging.Models;
+using StockSharp.AdvancedBacktest.DebugMode.AiAgenticDebug.EventLogging.Validation;
 
 namespace StockSharp.AdvancedBacktest.DebugMode.AiAgenticDebug.EventLogging.Storage;
 
@@ -50,6 +51,8 @@ public sealed class SqliteEventRepository : IEventRepository
 
 	public async Task WriteEventAsync(EventEntity eventEntity)
 	{
+		CircularReferenceDetector.ThrowIfSelfReference(eventEntity);
+
 		using var command = _connection.CreateCommand();
 		command.CommandText = @"
 			INSERT INTO Events (EventId, RunId, Timestamp, EventType, Severity, Category, Properties, ParentEventId, ValidationErrors)
@@ -280,6 +283,227 @@ public sealed class SqliteEventRepository : IEventRepository
 				QueryTimeMs = (int)stopwatch.ElapsedMilliseconds
 			}
 		};
+	}
+
+	public async Task<EventQueryResult> QueryEventsWithValidationErrorsAsync(ValidationErrorQueryParameters parameters)
+	{
+		var stopwatch = Stopwatch.StartNew();
+
+		var whereClauseBuilder = new StringBuilder();
+		whereClauseBuilder.Append("WHERE RunId = @runId AND ValidationErrors IS NOT NULL");
+
+		if (!string.IsNullOrEmpty(parameters.SeverityFilter))
+		{
+			whereClauseBuilder.Append($" AND ValidationErrors LIKE @severityPattern");
+		}
+
+		var whereClause = whereClauseBuilder.ToString();
+
+		int totalCount;
+		using (var countCommand = _connection.CreateCommand())
+		{
+			countCommand.CommandText = $"SELECT COUNT(*) FROM Events {whereClause}";
+			countCommand.Parameters.AddWithValue("@runId", parameters.RunId);
+			if (!string.IsNullOrEmpty(parameters.SeverityFilter))
+			{
+				countCommand.Parameters.AddWithValue("@severityPattern", $"%\"Severity\":\"{parameters.SeverityFilter}\"%");
+			}
+			totalCount = Convert.ToInt32(await countCommand.ExecuteScalarAsync());
+		}
+
+		var queryBuilder = new StringBuilder();
+		queryBuilder.Append($"SELECT * FROM Events {whereClause}");
+		queryBuilder.Append(" ORDER BY Timestamp");
+		queryBuilder.Append($" LIMIT {parameters.PageSize} OFFSET {parameters.PageIndex * parameters.PageSize}");
+
+		using var command = _connection.CreateCommand();
+		command.CommandText = queryBuilder.ToString();
+		command.Parameters.AddWithValue("@runId", parameters.RunId);
+		if (!string.IsNullOrEmpty(parameters.SeverityFilter))
+		{
+			command.Parameters.AddWithValue("@severityPattern", $"%\"Severity\":\"{parameters.SeverityFilter}\"%");
+		}
+
+		var events = new List<EventEntity>();
+		using (var reader = await command.ExecuteReaderAsync())
+		{
+			while (await reader.ReadAsync())
+			{
+				events.Add(MapEventEntity(reader));
+			}
+		}
+
+		stopwatch.Stop();
+
+		return new EventQueryResult
+		{
+			Events = events,
+			Metadata = new QueryResultMetadata
+			{
+				TotalCount = totalCount,
+				ReturnedCount = events.Count,
+				PageIndex = parameters.PageIndex,
+				PageSize = parameters.PageSize,
+				HasMore = (parameters.PageIndex + 1) * parameters.PageSize < totalCount,
+				QueryTimeMs = (int)stopwatch.ElapsedMilliseconds,
+				Truncated = false
+			}
+		};
+	}
+
+	public async Task<AggregationResult> AggregateMetricsAsync(AggregationParameters parameters)
+	{
+		var stopwatch = Stopwatch.StartNew();
+
+		ValidatePropertyPath(parameters.PropertyPath);
+
+		var whereClauseBuilder = new StringBuilder();
+		whereClauseBuilder.Append("WHERE RunId = @runId AND EventType = @eventType");
+
+		if (parameters.StartTime.HasValue)
+			whereClauseBuilder.Append(" AND Timestamp >= @startTime");
+
+		if (parameters.EndTime.HasValue)
+			whereClauseBuilder.Append(" AND Timestamp <= @endTime");
+
+		var whereClause = whereClauseBuilder.ToString();
+
+		// Build aggregation SQL
+		var aggregateColumns = new List<string>();
+		aggregateColumns.Add("COUNT(*) as cnt");
+
+		var requestedAggregations = parameters.Aggregations.Select(a => a.ToLowerInvariant()).ToHashSet();
+
+		if (requestedAggregations.Contains("sum"))
+			aggregateColumns.Add($"SUM(CAST(json_extract(Properties, @propertyPath) AS REAL)) as sum_val");
+
+		// Always calculate avg if stddev is requested (needed for stddev calculation)
+		if (requestedAggregations.Contains("avg") || requestedAggregations.Contains("stddev"))
+			aggregateColumns.Add($"AVG(CAST(json_extract(Properties, @propertyPath) AS REAL)) as avg_val");
+
+		if (requestedAggregations.Contains("min"))
+			aggregateColumns.Add($"MIN(CAST(json_extract(Properties, @propertyPath) AS REAL)) as min_val");
+
+		if (requestedAggregations.Contains("max"))
+			aggregateColumns.Add($"MAX(CAST(json_extract(Properties, @propertyPath) AS REAL)) as max_val");
+
+		using var command = _connection.CreateCommand();
+		command.CommandText = $"SELECT {string.Join(", ", aggregateColumns)} FROM Events {whereClause}";
+
+		command.Parameters.AddWithValue("@runId", parameters.RunId);
+		command.Parameters.AddWithValue("@eventType", parameters.EventType.ToString());
+		command.Parameters.AddWithValue("@propertyPath", parameters.PropertyPath);
+
+		if (parameters.StartTime.HasValue)
+			command.Parameters.AddWithValue("@startTime", parameters.StartTime.Value.ToString("o"));
+
+		if (parameters.EndTime.HasValue)
+			command.Parameters.AddWithValue("@endTime", parameters.EndTime.Value.ToString("o"));
+
+		int count = 0;
+		decimal? sum = null, avg = null, min = null, max = null;
+
+		using (var reader = await command.ExecuteReaderAsync())
+		{
+			if (await reader.ReadAsync())
+			{
+				count = reader.GetInt32(reader.GetOrdinal("cnt"));
+
+				if (requestedAggregations.Contains("sum") && !reader.IsDBNull(reader.GetOrdinal("sum_val")))
+					sum = (decimal)reader.GetDouble(reader.GetOrdinal("sum_val"));
+
+				// Read avg if requested, or if stddev is requested (needed for stddev calculation)
+				if ((requestedAggregations.Contains("avg") || requestedAggregations.Contains("stddev")) && !reader.IsDBNull(reader.GetOrdinal("avg_val")))
+					avg = (decimal)reader.GetDouble(reader.GetOrdinal("avg_val"));
+
+				if (requestedAggregations.Contains("min") && !reader.IsDBNull(reader.GetOrdinal("min_val")))
+					min = (decimal)reader.GetDouble(reader.GetOrdinal("min_val"));
+
+				if (requestedAggregations.Contains("max") && !reader.IsDBNull(reader.GetOrdinal("max_val")))
+					max = (decimal)reader.GetDouble(reader.GetOrdinal("max_val"));
+			}
+		}
+
+		// Calculate standard deviation in application layer (SQLite doesn't have STDDEV)
+		decimal? stddev = null;
+		if (requestedAggregations.Contains("stddev") && count > 0 && avg.HasValue)
+		{
+			stddev = await CalculateStdDevAsync(parameters, avg.Value, count);
+		}
+
+		stopwatch.Stop();
+
+		return new AggregationResult
+		{
+			Aggregations = new AggregationValues
+			{
+				Count = count,
+				Sum = sum,
+				Avg = avg,
+				Min = min,
+				Max = max,
+				StdDev = stddev
+			},
+			Metadata = new AggregationMetadata
+			{
+				TotalEvents = count,
+				QueryTimeMs = (int)stopwatch.ElapsedMilliseconds,
+				EventType = parameters.EventType.ToString(),
+				PropertyPath = parameters.PropertyPath
+			}
+		};
+	}
+
+	private async Task<decimal> CalculateStdDevAsync(AggregationParameters parameters, decimal mean, int count)
+	{
+		var whereClauseBuilder = new StringBuilder();
+		whereClauseBuilder.Append("WHERE RunId = @runId AND EventType = @eventType");
+
+		if (parameters.StartTime.HasValue)
+			whereClauseBuilder.Append(" AND Timestamp >= @startTime");
+
+		if (parameters.EndTime.HasValue)
+			whereClauseBuilder.Append(" AND Timestamp <= @endTime");
+
+		using var command = _connection.CreateCommand();
+		command.CommandText = $@"
+			SELECT SUM((CAST(json_extract(Properties, @propertyPath) AS REAL) - @mean) *
+			           (CAST(json_extract(Properties, @propertyPath) AS REAL) - @mean)) as variance_sum
+			FROM Events {whereClauseBuilder}";
+
+		command.Parameters.AddWithValue("@runId", parameters.RunId);
+		command.Parameters.AddWithValue("@eventType", parameters.EventType.ToString());
+		command.Parameters.AddWithValue("@propertyPath", parameters.PropertyPath);
+		command.Parameters.AddWithValue("@mean", (double)mean);
+
+		if (parameters.StartTime.HasValue)
+			command.Parameters.AddWithValue("@startTime", parameters.StartTime.Value.ToString("o"));
+
+		if (parameters.EndTime.HasValue)
+			command.Parameters.AddWithValue("@endTime", parameters.EndTime.Value.ToString("o"));
+
+		var varianceSum = await command.ExecuteScalarAsync();
+		if (varianceSum == null || varianceSum == DBNull.Value)
+			return 0m;
+
+		var variance = (double)varianceSum / count;
+		return (decimal)Math.Sqrt(variance);
+	}
+
+	private static void ValidatePropertyPath(string propertyPath)
+	{
+		// Validate property path to prevent SQL injection
+		// Valid format: $.PropertyName or $.Parent.Child
+		if (string.IsNullOrEmpty(propertyPath))
+			throw new ArgumentException("Property path cannot be empty", nameof(propertyPath));
+
+		if (!propertyPath.StartsWith("$."))
+			throw new ArgumentException("Property path must start with '$.'", nameof(propertyPath));
+
+		// Only allow alphanumeric characters, underscores, and dots after the $. prefix
+		var pathWithoutPrefix = propertyPath[2..];
+		if (!System.Text.RegularExpressions.Regex.IsMatch(pathWithoutPrefix, @"^[a-zA-Z0-9_\.]+$"))
+			throw new ArgumentException("Property path contains invalid characters", nameof(propertyPath));
 	}
 
 	private async Task<List<EventEntity>?> GetEventChainAsync(string runId, string rootEventId, int maxDepth)

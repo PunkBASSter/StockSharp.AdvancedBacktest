@@ -217,9 +217,12 @@ Functional grouping for organizing event queries.
 |-------|-------------|-------------|
 | Execution | Order and trade execution | TradeExecution, OrderRejection |
 | MarketData | Market data processing | MarketDataEvent |
+| Data | Raw data events (candles, ticks) | MarketDataEvent (candle data) |
 | Indicators | Technical indicator calculations | IndicatorCalculation |
+| Analysis | Indicator and signal analysis | IndicatorCalculation (analysis context) |
 | Risk | Risk management events | RiskEvent |
 | Performance | Strategy state and metrics | PositionUpdate, StateChange |
+| Portfolio | Position and PnL tracking | PositionUpdate, StateChange (portfolio context) |
 
 ---
 
