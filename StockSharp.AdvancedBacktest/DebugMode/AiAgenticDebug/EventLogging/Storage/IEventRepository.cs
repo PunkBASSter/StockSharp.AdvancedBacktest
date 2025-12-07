@@ -13,4 +13,6 @@ public interface IEventRepository
 	Task<EventSequenceQueryResult> QueryEventSequenceAsync(EventSequenceQueryParameters parameters);
 	Task<EventQueryResult> QueryEventsWithValidationErrorsAsync(ValidationErrorQueryParameters parameters);
 	Task<AggregationResult> AggregateMetricsAsync(AggregationParameters parameters);
+	Task<StateSnapshotResult> GetStateSnapshotAsync(StateSnapshotQueryParameters parameters);
+	Task<StateDeltaResult> GetStateDeltaAsync(StateDeltaQueryParameters parameters);
 }

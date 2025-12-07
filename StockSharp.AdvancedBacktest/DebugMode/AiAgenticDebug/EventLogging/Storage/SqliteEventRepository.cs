@@ -611,6 +611,460 @@ public sealed class SqliteEventRepository : IEventRepository
 			command.Parameters.AddWithValue("@endTime", parameters.EndTime.Value.ToString("o"));
 	}
 
+	public async Task<StateSnapshotResult> GetStateSnapshotAsync(StateSnapshotQueryParameters parameters)
+	{
+		var stopwatch = Stopwatch.StartNew();
+
+		var positions = await ReconstructPositionsAsync(parameters);
+		var indicators = parameters.IncludeIndicators
+			? await ReconstructIndicatorsAsync(parameters)
+			: [];
+		var activeOrders = parameters.IncludeActiveOrders
+			? await ReconstructActiveOrdersAsync(parameters)
+			: [];
+		var pnl = await ReconstructPnLAsync(parameters);
+
+		stopwatch.Stop();
+
+		return new StateSnapshotResult
+		{
+			Timestamp = parameters.Timestamp,
+			RunId = parameters.RunId,
+			State = new StrategyState
+			{
+				Positions = positions,
+				Indicators = indicators,
+				ActiveOrders = activeOrders,
+				Pnl = pnl
+			},
+			Metadata = new StateSnapshotMetadata
+			{
+				QueryTimeMs = (int)stopwatch.ElapsedMilliseconds,
+				Reconstructed = true
+			}
+		};
+	}
+
+	public async Task<StateDeltaResult> GetStateDeltaAsync(StateDeltaQueryParameters parameters)
+	{
+		var stopwatch = Stopwatch.StartNew();
+
+		var positionChanges = await CalculatePositionChangesAsync(parameters);
+		var indicatorChanges = await CalculateIndicatorChangesAsync(parameters);
+		var pnlChange = await CalculatePnLChangeAsync(parameters);
+
+		stopwatch.Stop();
+
+		return new StateDeltaResult
+		{
+			StartTimestamp = parameters.StartTimestamp,
+			EndTimestamp = parameters.EndTimestamp,
+			RunId = parameters.RunId,
+			PositionChanges = positionChanges,
+			IndicatorChanges = indicatorChanges,
+			PnlChange = pnlChange,
+			Metadata = new StateDeltaMetadata
+			{
+				QueryTimeMs = (int)stopwatch.ElapsedMilliseconds
+			}
+		};
+	}
+
+	private async Task<IReadOnlyList<PositionState>> ReconstructPositionsAsync(StateSnapshotQueryParameters parameters)
+	{
+		using var command = _connection.CreateCommand();
+
+		var whereClause = new StringBuilder();
+		whereClause.Append("WHERE RunId = @runId AND EventType = 'PositionUpdate' AND Timestamp <= @timestamp");
+
+		if (!string.IsNullOrEmpty(parameters.SecuritySymbol))
+		{
+			whereClause.Append(" AND UPPER(json_extract(Properties, '$.SecuritySymbol')) = UPPER(@securitySymbol)");
+		}
+
+		command.CommandText = $@"
+			WITH LatestPositions AS (
+				SELECT Properties,
+					   ROW_NUMBER() OVER (PARTITION BY json_extract(Properties, '$.SecuritySymbol') ORDER BY Timestamp DESC) as rn
+				FROM Events
+				{whereClause}
+			)
+			SELECT Properties FROM LatestPositions WHERE rn = 1";
+
+		command.Parameters.AddWithValue("@runId", parameters.RunId);
+		command.Parameters.AddWithValue("@timestamp", parameters.Timestamp.ToString("o"));
+		if (!string.IsNullOrEmpty(parameters.SecuritySymbol))
+		{
+			command.Parameters.AddWithValue("@securitySymbol", parameters.SecuritySymbol);
+		}
+
+		var positions = new List<PositionState>();
+		using (var reader = await command.ExecuteReaderAsync())
+		{
+			while (await reader.ReadAsync())
+			{
+				var props = System.Text.Json.JsonSerializer.Deserialize<PositionProperties>(reader.GetString(0));
+				if (props != null)
+				{
+					positions.Add(new PositionState
+					{
+						SecuritySymbol = props.SecuritySymbol,
+						Quantity = props.Quantity,
+						AveragePrice = props.AveragePrice,
+						UnrealizedPnL = props.UnrealizedPnL,
+						RealizedPnL = props.RealizedPnL
+					});
+				}
+			}
+		}
+
+		return positions;
+	}
+
+	private async Task<IReadOnlyList<IndicatorState>> ReconstructIndicatorsAsync(StateSnapshotQueryParameters parameters)
+	{
+		using var command = _connection.CreateCommand();
+
+		var whereClause = new StringBuilder();
+		whereClause.Append("WHERE RunId = @runId AND EventType = 'IndicatorCalculation' AND Timestamp <= @timestamp");
+
+		if (!string.IsNullOrEmpty(parameters.SecuritySymbol))
+		{
+			whereClause.Append(" AND UPPER(json_extract(Properties, '$.SecuritySymbol')) = UPPER(@securitySymbol)");
+		}
+
+		command.CommandText = $@"
+			WITH LatestIndicators AS (
+				SELECT Properties,
+					   ROW_NUMBER() OVER (PARTITION BY json_extract(Properties, '$.IndicatorName'), json_extract(Properties, '$.SecuritySymbol') ORDER BY Timestamp DESC) as rn
+				FROM Events
+				{whereClause}
+			)
+			SELECT Properties FROM LatestIndicators WHERE rn = 1";
+
+		command.Parameters.AddWithValue("@runId", parameters.RunId);
+		command.Parameters.AddWithValue("@timestamp", parameters.Timestamp.ToString("o"));
+		if (!string.IsNullOrEmpty(parameters.SecuritySymbol))
+		{
+			command.Parameters.AddWithValue("@securitySymbol", parameters.SecuritySymbol);
+		}
+
+		var indicators = new List<IndicatorState>();
+		using (var reader = await command.ExecuteReaderAsync())
+		{
+			while (await reader.ReadAsync())
+			{
+				var props = System.Text.Json.JsonSerializer.Deserialize<IndicatorProperties>(reader.GetString(0));
+				if (props != null)
+				{
+					indicators.Add(new IndicatorState
+					{
+						Name = props.IndicatorName,
+						SecuritySymbol = props.SecuritySymbol,
+						Value = props.Value,
+						Parameters = props.Parameters
+					});
+				}
+			}
+		}
+
+		return indicators;
+	}
+
+	private async Task<IReadOnlyList<ActiveOrderState>> ReconstructActiveOrdersAsync(StateSnapshotQueryParameters parameters)
+	{
+		using var command = _connection.CreateCommand();
+
+		var whereClause = new StringBuilder();
+		whereClause.Append("WHERE RunId = @runId AND Timestamp <= @timestamp");
+		whereClause.Append(" AND EventType = 'StateChange'");
+		whereClause.Append(" AND json_extract(Properties, '$.OrderStatus') = 'Placed'");
+
+		if (!string.IsNullOrEmpty(parameters.SecuritySymbol))
+		{
+			whereClause.Append(" AND UPPER(json_extract(Properties, '$.SecuritySymbol')) = UPPER(@securitySymbol)");
+		}
+
+		command.CommandText = $@"
+			SELECT Properties, json_extract(Properties, '$.OrderId') as OrderId
+			FROM Events
+			{whereClause}
+			AND json_extract(Properties, '$.OrderId') NOT IN (
+				SELECT json_extract(Properties, '$.OrderId')
+				FROM Events
+				WHERE RunId = @runId AND Timestamp <= @timestamp
+				AND EventType = 'TradeExecution'
+			)";
+
+		command.Parameters.AddWithValue("@runId", parameters.RunId);
+		command.Parameters.AddWithValue("@timestamp", parameters.Timestamp.ToString("o"));
+		if (!string.IsNullOrEmpty(parameters.SecuritySymbol))
+		{
+			command.Parameters.AddWithValue("@securitySymbol", parameters.SecuritySymbol);
+		}
+
+		var activeOrders = new List<ActiveOrderState>();
+		using (var reader = await command.ExecuteReaderAsync())
+		{
+			while (await reader.ReadAsync())
+			{
+				var props = System.Text.Json.JsonSerializer.Deserialize<OrderProperties>(reader.GetString(0));
+				if (props != null)
+				{
+					activeOrders.Add(new ActiveOrderState
+					{
+						OrderId = props.OrderId,
+						SecuritySymbol = props.SecuritySymbol,
+						Direction = props.Direction,
+						Quantity = props.Quantity,
+						Price = props.Price
+					});
+				}
+			}
+		}
+
+		return activeOrders;
+	}
+
+	private async Task<PnLState> ReconstructPnLAsync(StateSnapshotQueryParameters parameters)
+	{
+		if (!string.IsNullOrEmpty(parameters.SecuritySymbol))
+		{
+			return await ReconstructSecurityPnLAsync(parameters);
+		}
+
+		using var command = _connection.CreateCommand();
+		command.CommandText = @"
+			WITH LatestPnL AS (
+				SELECT Properties,
+					   ROW_NUMBER() OVER (ORDER BY Timestamp DESC) as rn
+				FROM Events
+				WHERE RunId = @runId AND EventType = 'StateChange' AND Timestamp <= @timestamp
+				AND json_extract(Properties, '$.StateType') = 'PnL'
+			)
+			SELECT Properties FROM LatestPnL WHERE rn = 1";
+
+		command.Parameters.AddWithValue("@runId", parameters.RunId);
+		command.Parameters.AddWithValue("@timestamp", parameters.Timestamp.ToString("o"));
+
+		var result = await command.ExecuteScalarAsync();
+		if (result == null || result == DBNull.Value)
+		{
+			return new PnLState { Total = 0, Realized = 0, Unrealized = 0 };
+		}
+
+		var props = System.Text.Json.JsonSerializer.Deserialize<StateChangeProperties>(result.ToString()!);
+		if (props?.StateAfter != null)
+		{
+			return new PnLState
+			{
+				Realized = props.StateAfter.RealizedPnL,
+				Unrealized = props.StateAfter.UnrealizedPnL,
+				Total = props.StateAfter.RealizedPnL + props.StateAfter.UnrealizedPnL
+			};
+		}
+
+		return new PnLState { Total = 0, Realized = 0, Unrealized = 0 };
+	}
+
+	private async Task<PnLState> ReconstructSecurityPnLAsync(StateSnapshotQueryParameters parameters)
+	{
+		using var command = _connection.CreateCommand();
+		command.CommandText = @"
+			WITH LatestPosition AS (
+				SELECT Properties,
+					   ROW_NUMBER() OVER (ORDER BY Timestamp DESC) as rn
+				FROM Events
+				WHERE RunId = @runId AND EventType = 'PositionUpdate' AND Timestamp <= @timestamp
+				AND UPPER(json_extract(Properties, '$.SecuritySymbol')) = UPPER(@securitySymbol)
+			)
+			SELECT Properties FROM LatestPosition WHERE rn = 1";
+
+		command.Parameters.AddWithValue("@runId", parameters.RunId);
+		command.Parameters.AddWithValue("@timestamp", parameters.Timestamp.ToString("o"));
+		command.Parameters.AddWithValue("@securitySymbol", parameters.SecuritySymbol!);
+
+		var result = await command.ExecuteScalarAsync();
+		if (result == null || result == DBNull.Value)
+		{
+			return new PnLState { Total = 0, Realized = 0, Unrealized = 0 };
+		}
+
+		var props = System.Text.Json.JsonSerializer.Deserialize<PositionProperties>(result.ToString()!);
+		if (props != null)
+		{
+			return new PnLState
+			{
+				Realized = props.RealizedPnL,
+				Unrealized = props.UnrealizedPnL,
+				Total = props.RealizedPnL + props.UnrealizedPnL
+			};
+		}
+
+		return new PnLState { Total = 0, Realized = 0, Unrealized = 0 };
+	}
+
+	private async Task<IReadOnlyList<PositionChange>> CalculatePositionChangesAsync(StateDeltaQueryParameters parameters)
+	{
+		var beforeParams = new StateSnapshotQueryParameters
+		{
+			RunId = parameters.RunId,
+			Timestamp = parameters.StartTimestamp,
+			SecuritySymbol = parameters.SecuritySymbol,
+			IncludeIndicators = false,
+			IncludeActiveOrders = false
+		};
+
+		var afterParams = new StateSnapshotQueryParameters
+		{
+			RunId = parameters.RunId,
+			Timestamp = parameters.EndTimestamp,
+			SecuritySymbol = parameters.SecuritySymbol,
+			IncludeIndicators = false,
+			IncludeActiveOrders = false
+		};
+
+		var beforePositions = await ReconstructPositionsAsync(beforeParams);
+		var afterPositions = await ReconstructPositionsAsync(afterParams);
+
+		var allSymbols = beforePositions.Select(p => p.SecuritySymbol)
+			.Union(afterPositions.Select(p => p.SecuritySymbol))
+			.Distinct()
+			.ToList();
+
+		using var command = _connection.CreateCommand();
+		var whereClause = new StringBuilder();
+		whereClause.Append("WHERE RunId = @runId AND EventType = 'PositionUpdate'");
+		whereClause.Append(" AND Timestamp > @startTime AND Timestamp <= @endTime");
+
+		if (!string.IsNullOrEmpty(parameters.SecuritySymbol))
+		{
+			whereClause.Append(" AND UPPER(json_extract(Properties, '$.SecuritySymbol')) = UPPER(@securitySymbol)");
+		}
+
+		command.CommandText = $"SELECT DISTINCT json_extract(Properties, '$.SecuritySymbol') FROM Events {whereClause}";
+		command.Parameters.AddWithValue("@runId", parameters.RunId);
+		command.Parameters.AddWithValue("@startTime", parameters.StartTimestamp.ToString("o"));
+		command.Parameters.AddWithValue("@endTime", parameters.EndTimestamp.ToString("o"));
+		if (!string.IsNullOrEmpty(parameters.SecuritySymbol))
+		{
+			command.Parameters.AddWithValue("@securitySymbol", parameters.SecuritySymbol);
+		}
+
+		var changedSymbols = new List<string>();
+		using (var reader = await command.ExecuteReaderAsync())
+		{
+			while (await reader.ReadAsync())
+			{
+				if (!reader.IsDBNull(0))
+					changedSymbols.Add(reader.GetString(0));
+			}
+		}
+
+		var changes = new List<PositionChange>();
+		foreach (var symbol in changedSymbols)
+		{
+			var before = beforePositions.FirstOrDefault(p => p.SecuritySymbol.Equals(symbol, StringComparison.OrdinalIgnoreCase));
+			var after = afterPositions.FirstOrDefault(p => p.SecuritySymbol.Equals(symbol, StringComparison.OrdinalIgnoreCase));
+
+			changes.Add(new PositionChange
+			{
+				SecuritySymbol = symbol,
+				QuantityBefore = before?.Quantity ?? 0,
+				QuantityAfter = after?.Quantity ?? 0,
+				AveragePriceBefore = before?.AveragePrice ?? 0,
+				AveragePriceAfter = after?.AveragePrice ?? 0
+			});
+		}
+
+		return changes;
+	}
+
+	private async Task<IReadOnlyList<IndicatorChange>> CalculateIndicatorChangesAsync(StateDeltaQueryParameters parameters)
+	{
+		using var command = _connection.CreateCommand();
+		var whereClause = new StringBuilder();
+		whereClause.Append("WHERE RunId = @runId AND EventType = 'IndicatorCalculation'");
+		whereClause.Append(" AND Timestamp > @startTime AND Timestamp <= @endTime");
+
+		if (!string.IsNullOrEmpty(parameters.SecuritySymbol))
+		{
+			whereClause.Append(" AND UPPER(json_extract(Properties, '$.SecuritySymbol')) = UPPER(@securitySymbol)");
+		}
+
+		command.CommandText = $@"
+			WITH LatestIndicators AS (
+				SELECT Properties,
+					   json_extract(Properties, '$.IndicatorName') as Name,
+					   json_extract(Properties, '$.SecuritySymbol') as Symbol,
+					   ROW_NUMBER() OVER (PARTITION BY json_extract(Properties, '$.IndicatorName'), json_extract(Properties, '$.SecuritySymbol') ORDER BY Timestamp DESC) as rn
+				FROM Events
+				{whereClause}
+			)
+			SELECT Properties, Name, Symbol FROM LatestIndicators WHERE rn = 1";
+
+		command.Parameters.AddWithValue("@runId", parameters.RunId);
+		command.Parameters.AddWithValue("@startTime", parameters.StartTimestamp.ToString("o"));
+		command.Parameters.AddWithValue("@endTime", parameters.EndTimestamp.ToString("o"));
+		if (!string.IsNullOrEmpty(parameters.SecuritySymbol))
+		{
+			command.Parameters.AddWithValue("@securitySymbol", parameters.SecuritySymbol);
+		}
+
+		var changes = new List<IndicatorChange>();
+		using (var reader = await command.ExecuteReaderAsync())
+		{
+			while (await reader.ReadAsync())
+			{
+				var props = System.Text.Json.JsonSerializer.Deserialize<IndicatorProperties>(reader.GetString(0));
+				if (props != null)
+				{
+					changes.Add(new IndicatorChange
+					{
+						Name = props.IndicatorName,
+						SecuritySymbol = props.SecuritySymbol,
+						ValueBefore = null,
+						ValueAfter = props.Value
+					});
+				}
+			}
+		}
+
+		return changes;
+	}
+
+	private async Task<PnLChange?> CalculatePnLChangeAsync(StateDeltaQueryParameters parameters)
+	{
+		var beforeParams = new StateSnapshotQueryParameters
+		{
+			RunId = parameters.RunId,
+			Timestamp = parameters.StartTimestamp,
+			SecuritySymbol = parameters.SecuritySymbol,
+			IncludeIndicators = false,
+			IncludeActiveOrders = false
+		};
+
+		var afterParams = new StateSnapshotQueryParameters
+		{
+			RunId = parameters.RunId,
+			Timestamp = parameters.EndTimestamp,
+			SecuritySymbol = parameters.SecuritySymbol,
+			IncludeIndicators = false,
+			IncludeActiveOrders = false
+		};
+
+		var beforePnL = await ReconstructPnLAsync(beforeParams);
+		var afterPnL = await ReconstructPnLAsync(afterParams);
+
+		return new PnLChange
+		{
+			RealizedBefore = beforePnL.Realized,
+			RealizedAfter = afterPnL.Realized,
+			UnrealizedBefore = beforePnL.Unrealized,
+			UnrealizedAfter = afterPnL.Unrealized
+		};
+	}
+
 	private static EventEntity MapEventEntity(SqliteDataReader reader)
 	{
 		return new EventEntity
@@ -626,5 +1080,43 @@ public sealed class SqliteEventRepository : IEventRepository
 			ParentEventId = reader.IsDBNull(8) ? null : reader.GetString(8),
 			ValidationErrors = reader.IsDBNull(9) ? null : reader.GetString(9)
 		};
+	}
+
+	private sealed class PositionProperties
+	{
+		public required string SecuritySymbol { get; init; }
+		public decimal Quantity { get; init; }
+		public decimal AveragePrice { get; init; }
+		public decimal UnrealizedPnL { get; init; }
+		public decimal RealizedPnL { get; init; }
+	}
+
+	private sealed class IndicatorProperties
+	{
+		public required string IndicatorName { get; init; }
+		public required string SecuritySymbol { get; init; }
+		public decimal Value { get; init; }
+		public Dictionary<string, object>? Parameters { get; init; }
+	}
+
+	private sealed class OrderProperties
+	{
+		public required string OrderId { get; init; }
+		public required string SecuritySymbol { get; init; }
+		public required string Direction { get; init; }
+		public decimal Quantity { get; init; }
+		public decimal Price { get; init; }
+	}
+
+	private sealed class StateChangeProperties
+	{
+		public required string StateType { get; init; }
+		public PnLStateProperties? StateAfter { get; init; }
+	}
+
+	private sealed class PnLStateProperties
+	{
+		public decimal UnrealizedPnL { get; init; }
+		public decimal RealizedPnL { get; init; }
 	}
 }
