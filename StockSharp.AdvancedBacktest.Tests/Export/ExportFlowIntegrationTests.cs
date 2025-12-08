@@ -61,7 +61,7 @@ public class ExportFlowIntegrationTests : IDisposable
                 kvp.Value.Select(timespan => (kvp.Key, timespan.TimeFrame())));
         }
 
-        protected override void OnStarted(DateTimeOffset time)
+        protected override void OnStarted2(DateTime time)
         {
             // Subscribe to candles - just use the primary security
             // (multiple securities cause issues with limited test data)
@@ -74,7 +74,7 @@ public class ExportFlowIntegrationTests : IDisposable
                 subscription.Start();
             }
 
-            base.OnStarted(time);
+            base.OnStarted2(time);
         }
     }
 
@@ -106,11 +106,12 @@ public class ExportFlowIntegrationTests : IDisposable
         {
             ValidationPeriod = new PeriodConfig
             {
-                // Use 1 hour of data for fast tests
-                StartDate = new DateTimeOffset(2025, 10, 1, 0, 0, 0, TimeSpan.Zero),
-                EndDate = new DateTimeOffset(2025, 10, 1, 1, 0, 0, TimeSpan.Zero)
+                // Use full day of 2023-01-01 data (real Hydra data copied to StorageMock)
+                StartDate = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero),
+                EndDate = new DateTimeOffset(2023, 1, 1, 23, 59, 59, TimeSpan.Zero)
             },
             HistoryPath = _storageMockPath,
+            StorageFormat = StockSharp.Algo.Storages.StorageFormats.Binary,
             MatchOnTouch = false
         };
 
@@ -131,19 +132,19 @@ public class ExportFlowIntegrationTests : IDisposable
 
     #region Test 1: Full Backtest with Debug Mode
 
-    [Fact(Skip = "Candles not being captured - needs investigation of HistoryEmulationConnector candle event flow")]
+    [Fact(Skip = "Debug mode candle event capture needs investigation - events are exported but 'eventType' property format differs")]
     public async Task FullBacktestWithDebugMode_ExportsAllEventTypes()
     {
         // Arrange
         var debugOutputDirectory = Path.Combine(_testDirectory, "debug_output_1");
         var security = CreateBtcSecurity();
-        var candleInterval = TimeSpan.FromMinutes(1);
+        var candleInterval = TimeSpan.FromHours(1);  // Use hourly candles to match StorageMock data
 
         var strategy = new TestStrategyWithIndicators
         {
             Securities = new Dictionary<Security, IEnumerable<TimeSpan>>
             {
-                { security, new[] { candleInterval } }
+                { security, [candleInterval] }
             },
             Portfolio = CreatePortfolio()
         };
@@ -216,13 +217,13 @@ public class ExportFlowIntegrationTests : IDisposable
     {
         // Arrange
         var security = CreateBtcSecurity();
-        var candleInterval = TimeSpan.FromMinutes(1);
+        var candleInterval = TimeSpan.FromHours(1);  // Use hourly candles to match StorageMock data
 
         var strategy = new TestStrategyWithIndicators
         {
             Securities = new Dictionary<Security, IEnumerable<TimeSpan>>
             {
-                { security, new[] { candleInterval } }
+                { security, [candleInterval] }
             },
             Portfolio = CreatePortfolio()
         };
@@ -287,13 +288,13 @@ public class ExportFlowIntegrationTests : IDisposable
         // Arrange
         var debugOutputDirectory = Path.Combine(_testDirectory, "debug_output_3");
         var security = CreateBtcSecurity();
-        var candleInterval = TimeSpan.FromMinutes(1);
+        var candleInterval = TimeSpan.FromHours(1);  // Use hourly candles to match StorageMock data
 
         var strategy = new TestStrategyWithIndicators
         {
             Securities = new Dictionary<Security, IEnumerable<TimeSpan>>
             {
-                { security, new[] { candleInterval } }
+                { security, [candleInterval] }
             },
             Portfolio = CreatePortfolio()
         };
@@ -360,13 +361,13 @@ public class ExportFlowIntegrationTests : IDisposable
         // Arrange
         var debugOutputDirectory = Path.Combine(_testDirectory, "debug_output_4");
         var security = CreateBtcSecurity();
-        var candleInterval = TimeSpan.FromMinutes(1);
+        var candleInterval = TimeSpan.FromHours(1);  // Use hourly candles to match StorageMock data
 
         var strategy = new TestStrategyWithIndicators
         {
             Securities = new Dictionary<Security, IEnumerable<TimeSpan>>
             {
-                { security, new[] { candleInterval } }
+                { security, [candleInterval] }
             },
             Portfolio = CreatePortfolio()
         };
@@ -432,13 +433,13 @@ public class ExportFlowIntegrationTests : IDisposable
     {
         // Arrange - Create strategy without explicit candle interval in debug config
         var security = CreateBtcSecurity();
-        var candleInterval = TimeSpan.FromMinutes(1);
+        var candleInterval = TimeSpan.FromHours(1);  // Use hourly candles to match StorageMock data
 
         var strategy = new TestStrategyWithIndicators
         {
             Securities = new Dictionary<Security, IEnumerable<TimeSpan>>
             {
-                { security, new[] { candleInterval } }
+                { security, [candleInterval] }
             },
             Portfolio = CreatePortfolio()
         };

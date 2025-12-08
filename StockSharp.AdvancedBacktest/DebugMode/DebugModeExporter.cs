@@ -377,7 +377,7 @@ public class DebugModeExporter : IDisposable
 
             var dataPoint = new CandleDataPoint
             {
-                Time = candle.OpenTime.ToUnixTimeMilliseconds(),
+                Time = new DateTimeOffset(candle.OpenTime, TimeSpan.Zero).ToUnixTimeMilliseconds(),
                 Open = (double)candle.OpenPrice,
                 High = (double)candle.HighPrice,
                 Low = (double)candle.LowPrice,

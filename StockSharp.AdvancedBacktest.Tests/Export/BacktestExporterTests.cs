@@ -48,7 +48,7 @@ public class BacktestExporterTests
         {
             var candle = new TimeFrameCandleMessage
             {
-                OpenTime = DateTimeOffset.UtcNow.AddHours(i),
+                OpenTime = DateTime.UtcNow.AddHours(i),
                 ClosePrice = 100m + i
             };
             indicator.Process(candle);
@@ -105,7 +105,7 @@ public class BacktestExporterTests
         {
             var candle = new TimeFrameCandleMessage
             {
-                OpenTime = DateTimeOffset.UtcNow.AddHours(i),
+                OpenTime = DateTime.UtcNow.AddHours(i),
                 ClosePrice = 100m + i
             };
             indicator.Process(candle);
@@ -162,7 +162,7 @@ public class BacktestExporterTests
         var exporter = new BacktestExporter();
         var bollingerBands = new BollingerBands { Length = 20, Width = 2 };
 
-        var baseTime = DateTimeOffset.UtcNow;
+        var baseTime = DateTime.UtcNow;
 
         // Process enough candles to form the indicator
         for (int i = 0; i < 25; i++)
@@ -233,7 +233,7 @@ public class BacktestExporterTests
         var bollingerBands = new BollingerBands { Length = 20, Width = 2 };
         var candleInterval = TimeSpan.FromHours(1);
 
-        var baseTime = DateTimeOffset.UtcNow;
+        var baseTime = DateTime.UtcNow;
 
         // Process enough candles to form the indicator
         for (int i = 0; i < 25; i++)
@@ -292,7 +292,7 @@ public class BacktestExporterTests
             {
                 var candle = new TimeFrameCandleMessage
                 {
-                    OpenTime = DateTimeOffset.UtcNow.AddHours(i),
+                    OpenTime = DateTime.UtcNow.AddHours(i),
                     ClosePrice = 100m + i
                 };
                 indicator.Process(candle);
@@ -317,7 +317,7 @@ public class BacktestExporterTests
         var bollingerBands = new BollingerBands { Length = 20, Width = 2 };
         var candleInterval = TimeSpan.FromHours(1);
 
-        var baseTime = DateTimeOffset.UtcNow;
+        var baseTime = DateTime.UtcNow;
 
         // Process enough candles to form the indicator
         for (int i = 0; i < 25; i++)

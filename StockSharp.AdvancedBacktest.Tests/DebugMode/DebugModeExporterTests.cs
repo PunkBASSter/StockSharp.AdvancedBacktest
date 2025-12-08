@@ -73,7 +73,7 @@ public class DebugModeExporterTests : IDisposable
 
     private class TestIndicatorValue : StockSharp.Algo.Indicators.SingleIndicatorValue<decimal>
     {
-        public TestIndicatorValue(StockSharp.Algo.Indicators.IIndicator indicator, decimal value, DateTimeOffset time)
+        public TestIndicatorValue(StockSharp.Algo.Indicators.IIndicator indicator, decimal value, DateTime time)
             : base(indicator, value, time)
         {
         }
@@ -519,46 +519,25 @@ public class DebugModeExporterTests : IDisposable
 
     #region Constructor Tests
 
-    [Fact]
-    public void Constructor_NullOutputPath_ThrowsException()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Constructor_InvalidOutputPath_ThrowsArgumentException(string? outputPath)
     {
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => new DebugModeExporter(null!));
+        Assert.Throws<ArgumentException>(() => new DebugModeExporter(outputPath!));
     }
 
-    [Fact]
-    public void Constructor_EmptyOutputPath_ThrowsException()
-    {
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() => new DebugModeExporter(""));
-    }
-
-    [Fact]
-    public void Constructor_NegativeFlushInterval_ThrowsException()
-    {
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() =>
-            new DebugModeExporter(GetTestFilePath(), flushIntervalMs: -1));
-    }
-
-    [Fact]
-    public void Constructor_ZeroFlushInterval_ThrowsException()
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(0)]
+    [InlineData(-100)]
+    public void Constructor_InvalidFlushInterval_ThrowsArgumentException(int invalidInterval)
     {
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            new DebugModeExporter(GetTestFilePath(), flushIntervalMs: 0));
-    }
-
-    [Fact(Skip = "MaxFileSizeMB parameter removed for simplicity")]
-    public void Constructor_NegativeMaxFileSize_ThrowsException()
-    {
-        // Test disabled - maxFileSizeMB parameter removed
-    }
-
-    [Fact(Skip = "MaxFileSizeMB parameter removed for simplicity")]
-    public void Constructor_ZeroMaxFileSize_ThrowsException()
-    {
-        // Test disabled - maxFileSizeMB parameter removed
+            new DebugModeExporter(GetTestFilePath(), flushIntervalMs: invalidInterval));
     }
 
     [Fact]
@@ -792,8 +771,8 @@ public class DebugModeExporterTests : IDisposable
     {
         return new Messages.TimeFrameCandleMessage
         {
-            OpenTime = time,
-            CloseTime = time.AddHours(1),
+            OpenTime = time.UtcDateTime,
+            CloseTime = time.AddHours(1).UtcDateTime,
             OpenPrice = 100,
             HighPrice = 105,
             LowPrice = 99,
@@ -819,7 +798,7 @@ public class DebugModeExporterTests : IDisposable
         var shift = 5;
         var indicator = new TestIndicator();
         var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(
-            indicator, 8300m, shift, currentTime, true);
+            indicator, 8300m, shift, currentTime.UtcDateTime, true);
 
         var adjustedTime = exporter.GetAdjustedIndicatorTimestamp(indicatorValue, currentTime);
 
@@ -840,7 +819,7 @@ public class DebugModeExporterTests : IDisposable
         var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
         var indicator = new TestIndicator();
         var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(
-            indicator, 8300m, 5, currentTime, true);
+            indicator, 8300m, 5, currentTime.UtcDateTime, true);
 
         var adjustedTime = exporter.GetAdjustedIndicatorTimestamp(indicatorValue, currentTime);
 
@@ -859,7 +838,7 @@ public class DebugModeExporterTests : IDisposable
 
         var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
         var indicator = new TestIndicator();
-        var indicatorValue = new TestIndicatorValue(indicator, 8300m, currentTime);
+        var indicatorValue = new TestIndicatorValue(indicator, 8300m, currentTime.UtcDateTime);
 
         var adjustedTime = exporter.GetAdjustedIndicatorTimestamp(indicatorValue, currentTime);
 
@@ -879,7 +858,7 @@ public class DebugModeExporterTests : IDisposable
         var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
         var indicator = new TestIndicator();
         var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(
-            indicator, 8300m, 0, currentTime, true);
+            indicator, 8300m, 0, currentTime.UtcDateTime, true);
 
         var adjustedTime = exporter.GetAdjustedIndicatorTimestamp(indicatorValue, currentTime);
 
@@ -901,7 +880,7 @@ public class DebugModeExporterTests : IDisposable
         var value = 8300m;
         var indicator = new TestIndicator();
         var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(
-            indicator, value, shift, currentTime, true);
+            indicator, value, shift, currentTime.UtcDateTime, true);
         indicatorValue.IsFormed = true;
 
         var dataPoint = exporter.CreateIndicatorDataPoint(indicatorValue);
@@ -925,7 +904,7 @@ public class DebugModeExporterTests : IDisposable
 
         var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
         var indicator = new TestIndicator();
-        var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(indicator, currentTime);
+        var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(indicator, currentTime.UtcDateTime);
 
         var dataPoint = exporter.CreateIndicatorDataPoint(indicatorValue);
 
@@ -945,7 +924,7 @@ public class DebugModeExporterTests : IDisposable
         var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
         var indicator = new TestIndicator();
         var indicatorValue = new StockSharp.Algo.Indicators.ZigZagIndicatorValue(
-            indicator, 0m, 0, currentTime, true);
+            indicator, 0m, 0, currentTime.UtcDateTime, true);
 
         var dataPoint = exporter.CreateIndicatorDataPoint(indicatorValue);
 
@@ -965,7 +944,7 @@ public class DebugModeExporterTests : IDisposable
         var currentTime = new DateTimeOffset(2025, 1, 1, 21, 0, 0, TimeSpan.Zero);
         var value = 8300m;
         var indicator = new TestIndicator();
-        var indicatorValue = new TestIndicatorValue(indicator, value, currentTime);
+        var indicatorValue = new TestIndicatorValue(indicator, value, currentTime.UtcDateTime);
         indicatorValue.IsFormed = true;
 
         var dataPoint = exporter.CreateIndicatorDataPoint(indicatorValue);

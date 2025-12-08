@@ -53,8 +53,8 @@ public class DebugEventBufferTests
 		buffer.Add("candle", new CandleDataPoint { Time = 3 });
 		buffer.Add("trade", new TradeDataPoint { Time = 1 });
 
-		// Wait for flush
-		await Task.Delay(flushIntervalMs + 50);
+		// Wait for flush - increased delay to account for async Task.Run overhead
+		await Task.Delay(flushIntervalMs + 150);
 
 		// Assert
 		Assert.NotNull(flushedEvents);
@@ -84,24 +84,29 @@ public class DebugEventBufferTests
 	public async Task Flush_ClearsBufferAfterFlush()
 	{
 		// Arrange
-		const int flushIntervalMs = 200; // Increased for reliability on slow systems
+		const int flushIntervalMs = 300; // Increased for reliability on slow CI systems
 		using var buffer = new DebugEventBuffer(flushIntervalMs);
 
 		var flushCount = 0;
-		buffer.OnFlush += _ => flushCount++;
+		var lockObj = new object();
+		buffer.OnFlush += _ => { lock (lockObj) { flushCount++; } };
 
 		// Act - Add event, wait for flush, then wait again
 		buffer.Add("test", new { Value = 1 });
-		await Task.Delay(flushIntervalMs + 100); // Increased wait time
+		await Task.Delay(flushIntervalMs + 300); // Extra time for async Task.Run
 
-		var firstFlushCount = flushCount;
+		int firstFlushCount;
+		lock (lockObj) { firstFlushCount = flushCount; }
 
 		// Wait for another interval without adding events
-		await Task.Delay(flushIntervalMs + 100); // Increased wait time
+		await Task.Delay(flushIntervalMs + 300); // Extra time for async Task.Run
+
+		int finalFlushCount;
+		lock (lockObj) { finalFlushCount = flushCount; }
 
 		// Assert
 		Assert.Equal(1, firstFlushCount);
-		Assert.Equal(1, flushCount); // Should not flush empty buffer
+		Assert.Equal(1, finalFlushCount); // Should not flush empty buffer
 	}
 
 	#endregion
@@ -386,25 +391,25 @@ public class DebugEventBufferTests
 
 	#region Constructor Tests
 
-	[Fact]
-	public void Constructor_NegativeInterval_ThrowsException()
+	[Theory]
+	[InlineData(-1)]
+	[InlineData(0)]
+	[InlineData(-100)]
+	public void Constructor_InvalidInterval_ThrowsArgumentException(int invalidInterval)
 	{
 		// Act & Assert
-		Assert.Throws<ArgumentException>(() => new DebugEventBuffer(-1));
+		Assert.Throws<ArgumentException>(() => new DebugEventBuffer(invalidInterval));
 	}
 
-	[Fact]
-	public void Constructor_ZeroInterval_ThrowsException()
-	{
-		// Act & Assert
-		Assert.Throws<ArgumentException>(() => new DebugEventBuffer(0));
-	}
-
-	[Fact]
-	public void Constructor_ValidInterval_CreatesBuffer()
+	[Theory]
+	[InlineData(1)]
+	[InlineData(100)]
+	[InlineData(500)]
+	[InlineData(10000)]
+	public void Constructor_ValidInterval_CreatesBuffer(int validInterval)
 	{
 		// Act & Assert - Should not throw
-		using var buffer = new DebugEventBuffer(500);
+		using var buffer = new DebugEventBuffer(validInterval);
 		Assert.NotNull(buffer);
 	}
 

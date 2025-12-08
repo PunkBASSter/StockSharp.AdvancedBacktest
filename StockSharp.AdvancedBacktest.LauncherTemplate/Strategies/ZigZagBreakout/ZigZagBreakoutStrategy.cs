@@ -1,6 +1,7 @@
 using StockSharp.Algo.Indicators;
-using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.ZigZagBreakout.TrendFiltering;
+using StockSharp.AdvancedBacktest.OrderManagement;
 using StockSharp.AdvancedBacktest.Strategies;
+using StockSharp.AdvancedBacktest.Strategies.Modules.PositionSizing;
 using StockSharp.AdvancedBacktest.Utilities;
 using StockSharp.BusinessEntities;
 using StockSharp.Messages;
@@ -10,34 +11,41 @@ namespace StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.ZigZagBreakout
 public class ZigZagBreakout : CustomStrategyBase
 {
     private DeltaZigZag? _dzz;
-    private Jma? _jma;
     private ZigZagBreakoutConfig? _config;
-    private Order? _currentBuyOrder;
-    private Order? _currentStopLoss;
-    private Order? _currentTakeProfit;
+    private OrderPositionManager? _orderManager;
+    private IRiskAwarePositionSizer? _positionSizer;
     private readonly List<IIndicatorValue> _dzzHistory = [];
-    private readonly List<IIndicatorValue> _jmaHistory = [];
     private TimeSpan? _candleInterval;
+
+    public override IEnumerable<(Security sec, DataType dt)> GetWorkingSecurities()
+    {
+        // Return securities from the Securities dictionary with their candle types
+        return Securities.SelectMany(kvp =>
+            kvp.Value.Select(timespan => (kvp.Key, timespan.TimeFrame())));
+    }
 
     protected override void OnReseted()
     {
         base.OnReseted();
-        _currentBuyOrder = null;
-        _currentStopLoss = null;
-        _currentTakeProfit = null;
+        _orderManager?.Reset();
         _dzzHistory.Clear();
-        _jmaHistory.Clear();
     }
 
-    protected override void OnStarted(DateTimeOffset time)
+    protected override void OnStarted2(DateTime time)
     {
         _config = new ZigZagBreakoutConfig
         {
-            DzzDepth = GetParam<decimal>("DzzDepth"),
-            JmaLength = GetParam<int>("JmaLength"),
-            JmaPhase = GetParam<int>("JmaPhase"),
-            JmaUsage = GetParam<int>("JmaUsage")
+            DzzDepth = GetParam<decimal>("DzzDepth")
         };
+
+        // Initialize position sizer with fixed risk calculation
+        _positionSizer = new FixedRiskPositionSizer(
+            _config.RiskPercentPerTrade,
+            _config.MinPositionSize,
+            _config.MaxPositionSize);
+
+        // Initialize order manager
+        _orderManager = new OrderPositionManager(this);
 
         _dzz = new DeltaZigZag
         {
@@ -46,18 +54,11 @@ public class ZigZagBreakout : CustomStrategyBase
             MinimumThreshold = PriceStepHelper.GetDefaultDelta(Security, multiplier: 10)
         };
 
-        _jma = new Jma
-        {
-            Length = _config.JmaLength,
-            Phase = _config.JmaPhase
-        };
-
-        // Register indicators BEFORE calling base.OnStarted so debug mode can subscribe to them
+        // Register indicators BEFORE calling base.OnStarted2 so debug mode can subscribe to them
         Indicators.Add(_dzz);
-        Indicators.Add(_jma);
 
         // Now call base to initialize debug mode with the indicators already registered
-        base.OnStarted(time);
+        base.OnStarted2(time);
 
         var timeframe = Securities.First().Value.First();
 
@@ -71,12 +72,20 @@ public class ZigZagBreakout : CustomStrategyBase
         };
 
         SubscribeCandles(subscription)
-            .Bind(_dzz, _jma, OnProcessCandle)
+            .Bind(_dzz, OnProcessCandle)
             .Start();
     }
 
-    private void OnProcessCandle(ICandleMessage candle, decimal dzzValue, decimal jmaValue)
+    private void OnProcessCandle(ICandleMessage candle, decimal dzzValue)
     {
+        //A special bar that triggers open order and tp at the same time for testing
+        if (candle.OpenTime == new DateTimeOffset(2020, 4, 29, 1, 0, 0, TimeSpan.Zero))
+            LogDebug("last order timestamp"); // Stops from StandardProtection were placed but never triggered (as price moved too far)
+                                              //TODO: Also check how DZZ handles big candle with both local peak and trough
+
+        if (candle.OpenTime == new DateTimeOffset(2020, 2, 06, 9, 0, 0, TimeSpan.Zero))
+            LogDebug("last order timestamp"); //Stops were not placed here - custom order management was used
+
         if (candle.State != CandleStates.Finished)
             return;
 
@@ -92,46 +101,41 @@ public class ZigZagBreakout : CustomStrategyBase
             _dzzHistory.Add(dzzIndicatorValue);
         }
 
-        if (_jma!.IsFormed)
-        {
-            var jmaIndicatorValue = _jma.Container.GetValue(0).output;
-            _jmaHistory.Add(jmaIndicatorValue);
-        }
+        // Check stop-loss and take-profit BEFORE checking for new signals
+        // This ensures SL/TP can execute in the same candle as entry if needed
+        if (_orderManager!.CheckProtectionLevels(candle))
+            return; // Position was closed, no need to check for new signals
 
-        var signal = TryGetBuyOrder();
-        if (signal == null)
-        {
+        if (Position > 0)
             return;
-        }
 
-        var (price, sl, tp) = signal.Value;
+        var signalData = TryGetBuyOrder();
+        if (!signalData.HasValue)
+            return;
 
-        // Simple order management: place limit order at breakout price
-        if (_currentBuyOrder != null && _currentBuyOrder.State == OrderStates.Active)
+        var (price, sl, tp) = signalData.Value;
+        var volume = CalculatePositionSize(price, sl);
+
+        var signal = new TradeSignal
         {
-            // Cancel existing order if price changed
-            if (Math.Abs(_currentBuyOrder.Price - price) > PriceStepHelper.GetPriceStep(Security))
-            {
-                this.LogInfo("Canceling existing order due to price change");
-                CancelOrder(_currentBuyOrder);
-                _currentBuyOrder = null;
-            }
-        }
+            Direction = Sides.Buy,
+            EntryPrice = price,
+            Volume = volume,
+            StopLoss = sl,
+            TakeProfit = tp,
+            OrderType = OrderTypes.Limit
+        };
 
-        if (_currentBuyOrder == null && Position == 0)
-        {
-            // No existing order, create new one
-            this.LogInfo("BUY LIMIT at {0:F2} SL:{1:F2} TP:{2:F2}", price, sl, tp);
-            _currentBuyOrder = BuyLimit(price, 1m);
-        }
+        this.LogInfo("Signal: BUY LIMIT at {0:F2} SL:{1:F2} TP:{2:F2} Volume:{3}", price, sl, tp, volume);
+        _orderManager.HandleSignal(signal);
     }
 
     private (decimal price, decimal sl, decimal tp)? TryGetBuyOrder()
     {
-        if (_dzz == null || _jma == null || _config == null)
+        if (_dzz == null || _config == null)
             return null;
 
-        if (!_dzz.IsFormed || !_jma.IsFormed)
+        if (!_dzz.IsFormed)
             return null;
 
         // Need at least 20 values to extract pattern
@@ -155,23 +159,6 @@ public class ZigZagBreakout : CustomStrategyBase
         var price = nonZeroPoints[1];
         var l1 = nonZeroPoints[2];
 
-        // JMA trend filtering
-        if (_config.JmaUsage != 0 && _jmaHistory.Count >= 2)
-        {
-            var jma1 = _jmaHistory[^1].GetValue<decimal>();
-            var jma2 = _jmaHistory[^2].GetValue<decimal>();
-
-            bool trendOk = _config.JmaUsage switch
-            {
-                1 => jma1 >= jma2,   // Bullish: JMA rising
-                -1 => jma1 <= jma2,  // Bearish: JMA falling
-                _ => true
-            };
-
-            if (!trendOk)
-                return null;
-        }
-
         // Check pattern: sl < l1 < price and price > sl
         if (price > sl && sl < l1 && l1 < price)
         {
@@ -182,60 +169,25 @@ public class ZigZagBreakout : CustomStrategyBase
         return null;
     }
 
+    private decimal CalculatePositionSize(decimal entryPrice, decimal stopLoss)
+    {
+        if (_positionSizer == null || _config == null)
+            return _config?.MinPositionSize ?? 0.01m;
+
+        var volume = _positionSizer.Calculate(entryPrice, stopLoss, Portfolio, Security);
+
+        this.LogInfo("Position sizing - Account:{0:F2} Risk:{1}% SL Distance:{2:F4} Volume:{3}",
+            Portfolio.CurrentValue ?? Portfolio.BeginValue ?? 0,
+            _config.RiskPercentPerTrade,
+            Math.Abs(entryPrice - stopLoss),
+            volume);
+
+        return volume;
+    }
+
     protected override void OnOwnTradeReceived(MyTrade trade)
     {
         base.OnOwnTradeReceived(trade);
-
-        var order = trade.Order;
-
-        // Check if this was our buy order
-        if (order == _currentBuyOrder)
-        {
-            this.LogInfo("Buy order filled at {0:F2}, Position: {1}", trade.Trade.Price, Position);
-            _currentBuyOrder = null;
-
-            // Create protective orders based on the signal
-            var signal = TryGetBuyOrder();
-            if (signal != null)
-            {
-                var (_, sl, tp) = signal.Value;
-
-                // Create stop-loss order
-                _currentStopLoss = SellLimit(sl, Math.Abs(Position));
-                this.LogInfo("Stop-Loss order created at {0:F2}", sl);
-
-                // Create take-profit order
-                _currentTakeProfit = SellLimit(tp, Math.Abs(Position));
-                this.LogInfo("Take-Profit order created at {0:F2}", tp);
-            }
-        }
-        // Check if stop-loss was filled
-        else if (order == _currentStopLoss)
-        {
-            this.LogInfo("Stop-Loss filled at {0:F2}, Position: {1}", trade.Trade.Price, Position);
-            _currentStopLoss = null;
-
-            // Cancel the take-profit order
-            if (_currentTakeProfit != null && _currentTakeProfit.State == OrderStates.Active)
-            {
-                this.LogInfo("Canceling Take-Profit order");
-                CancelOrder(_currentTakeProfit);
-                _currentTakeProfit = null;
-            }
-        }
-        // Check if take-profit was filled
-        else if (order == _currentTakeProfit)
-        {
-            this.LogInfo("Take-Profit filled at {0:F2}, Position: {1}", trade.Trade.Price, Position);
-            _currentTakeProfit = null;
-
-            // Cancel the stop-loss order
-            if (_currentStopLoss != null && _currentStopLoss.State == OrderStates.Active)
-            {
-                this.LogInfo("Canceling Stop-Loss order");
-                CancelOrder(_currentStopLoss);
-                _currentStopLoss = null;
-            }
-        }
+        _orderManager?.OnOwnTradeReceived(trade);
     }
 }

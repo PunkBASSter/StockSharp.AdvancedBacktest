@@ -76,3 +76,7 @@ ConnectorFile.json
 *.jsonl
 **/DebugOutput/
 debug-output/
+nul
+
+# NuGet lock files in StockSharp submodule (only track our own lock files)
+StockSharp/**/packages.lock.json

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Ecng.Collections;
 using StockSharp.Algo;
 using StockSharp.Algo.Storages;
@@ -14,6 +15,7 @@ using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Utilities;
 using StockSharp.AdvancedBacktest.Statistics;
+using StockSharp.AdvancedBacktest.Storages;
 
 namespace StockSharp.AdvancedBacktest.Optimization;
 
@@ -35,10 +37,11 @@ public class OptimizerRunner<TStrategy> where TStrategy : CustomStrategyBase, ne
         var secProvider = new CollectionSecurityProvider(securities.Keys);
         var pfProvider = new CollectionPortfolioProvider([portfolio]);
         var localMarketDataDrive = new LocalMarketDataDrive(_config.HistoryPath);
-        var storageRegistry = new StorageRegistry
+        var innerRegistry = new StorageRegistry
         {
             DefaultDrive = localMarketDataDrive,
         };
+        var storageRegistry = new SharedStorageRegistry(innerRegistry);
         _optimizer = new BruteForceOptimizer(secProvider, pfProvider, storageRegistry);
         _optimizer.EmulationSettings.BatchSize = config.ParallelWorkers;
         _optimizer.EmulationSettings.CommissionRules = config.CommissionRules;
@@ -258,6 +261,11 @@ public class OptimizerRunner<TStrategy> where TStrategy : CustomStrategyBase, ne
 
     protected void ValidateHistory()
     {
+        ValidateHistoryAsync().GetAwaiter().GetResult();
+    }
+
+    protected async Task ValidateHistoryAsync(CancellationToken cancellationToken = default)
+    {
         using var dataDrive = new LocalMarketDataDrive(_config.HistoryPath);
         using var tempRegistry = new StorageRegistry { DefaultDrive = dataDrive };
         var securities = GetSecuritiesFromConfig();
@@ -266,12 +274,11 @@ public class OptimizerRunner<TStrategy> where TStrategy : CustomStrategyBase, ne
             var lowestTimeFrame = securities[security].FirstOrDefault();
             var securityId = security.Id.ToSecurityId();
             var candleStorage = tempRegistry.GetCandleMessageStorage(
-                typeof(TimeFrameCandleMessage),
                 securityId,
-                lowestTimeFrame,
+                DataType.Create<TimeFrameCandleMessage>(lowestTimeFrame),
                 format: StorageFormats.Binary);
 
-            var dates = candleStorage.Dates.ToArray();
+            var dates = (await candleStorage.GetDatesAsync(cancellationToken)).ToArray();
             if (dates.Length == 0)
             {
                 throw new InvalidOperationException($"No data found for security {security.Id} with timeframe {lowestTimeFrame}");

@@ -10,6 +10,7 @@ using StockSharp.Algo.Storages;
 using StockSharp.Algo.Strategies;
 using StockSharp.Messages;
 using StockSharp.AdvancedBacktest.PerformanceValidation;
+using StockSharp.AdvancedBacktest.Storages;
 using StockSharp.AdvancedBacktest.Strategies;
 
 namespace StockSharp.AdvancedBacktest.Export;
@@ -79,7 +80,7 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
             // 3. Export chartData.json (with indicator file references)
             var chartData = new ChartDataModel
             {
-                Candles = ExtractCandleData(model),
+                Candles = await ExtractCandleDataAsync(model),
                 IndicatorFiles = indicatorFiles,
                 Trades = ExtractTradeData(model.Strategy),
                 WalkForward = ExtractWalkForwardData(model.WalkForwardResult)
@@ -135,7 +136,7 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
     public void GenerateInteractiveChart(StrategySecurityChartModel model, bool openInBrowser = false)
     {
         var chartData = new ChartDataModel();
-        chartData.Candles = ExtractCandleData(model);
+        chartData.Candles = ExtractCandleDataAsync(model).GetAwaiter().GetResult();
         chartData.Trades = ExtractTradeData(model.Strategy);
         chartData.WalkForward = ExtractWalkForwardData(model.WalkForwardResult);
         var htmlContent = GenerateChartHtml(chartData);
@@ -157,12 +158,13 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
         }
     }
 
-    private List<CandleDataPoint> ExtractCandleData(StrategySecurityChartModel model)
+    private async Task<List<CandleDataPoint>> ExtractCandleDataAsync(StrategySecurityChartModel model, CancellationToken cancellationToken = default)
     {
         var historyPath = model.HistoryPath;
         var securities = model.Strategy.Securities;
         using var dataDrive = new LocalMarketDataDrive(historyPath);
-        using var tempRegistry = new StorageRegistry { DefaultDrive = dataDrive };
+        using var innerRegistry = new StorageRegistry { DefaultDrive = dataDrive };
+        var tempRegistry = new SharedStorageRegistry(innerRegistry);
         var candles = new List<CandleDataPoint>();
         var security = model.Strategy.Security ?? securities.Keys.FirstOrDefault();
         if (security == null)
@@ -172,23 +174,32 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
             var lowestTimeFrame = securities[security].FirstOrDefault();
             var securityId = security.Id.ToSecurityId();
             var candleStorage = tempRegistry.GetCandleMessageStorage(
-                typeof(TimeFrameCandleMessage),
                 securityId,
-                lowestTimeFrame,
+                DataType.Create<TimeFrameCandleMessage>(lowestTimeFrame),
                 format: StorageFormats.Binary);
 
             // Filter dates to only include those within the StartDate to EndDate range
             var startDate = model.StartDate.Date;
             var endDate = model.EndDate.Date;
-            var dates = candleStorage.Dates
+            var allDates = await candleStorage.GetDatesAsync(cancellationToken);
+            var dates = allDates
                 .Where(d => d >= startDate && d <= endDate)
                 .ToArray();
 
-            candles = dates.SelectMany(date => candleStorage.Load(date))
+            var candleList = new List<CandleMessage>();
+            foreach (var date in dates)
+            {
+                await foreach (var candle in candleStorage.LoadAsync(date, cancellationToken))
+                {
+                    candleList.Add(candle);
+                }
+            }
+
+            candles = candleList
                 .Where(c => c.OpenTime >= model.StartDate && c.OpenTime <= model.EndDate)
                 .Select(c => new CandleDataPoint
                 {
-                    Time = c.OpenTime.ToUnixTimeSeconds(),
+                    Time = new DateTimeOffset(c.OpenTime, TimeSpan.Zero).ToUnixTimeSeconds(),
                     Open = (double)c.OpenPrice,
                     High = (double)c.HighPrice,
                     Low = (double)c.LowPrice,
@@ -272,7 +283,7 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
 
             trades.Add(new TradeDataPoint
             {
-                Time = myTrade.Trade.ServerTime.ToUnixTimeSeconds(),
+                Time = new DateTimeOffset(myTrade.Trade.ServerTime, TimeSpan.Zero).ToUnixTimeSeconds(),
                 Price = (double)myTrade.Trade.Price,
                 Volume = (double)Math.Abs(myTrade.Trade.Volume),
                 Side = side,

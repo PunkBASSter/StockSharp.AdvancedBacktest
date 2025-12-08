@@ -1,7 +1,9 @@
+using System.CommandLine;
 using StockSharp.AdvancedBacktest.Backtest;
 using StockSharp.AdvancedBacktest.Export;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.ZigZagBreakout;
 using StockSharp.AdvancedBacktest.Parameters;
+using StockSharp.Algo.Storages;
 using StockSharp.BusinessEntities;
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate;
@@ -10,18 +12,50 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        var aiDebugOption = new Option<bool>(
+            name: "--ai-debug",
+            description: "Enable AI agentic debug mode (disables web app launcher)",
+            getDefaultValue: () => false);
+
+        var rootCommand = new RootCommand("ZigZag Breakout Strategy Backtest");
+        rootCommand.AddOption(aiDebugOption);
+
+        rootCommand.SetHandler(async (bool aiDebug) =>
+        {
+            await RunBacktestAsync(aiDebug);
+        }, aiDebugOption);
+
+        return await rootCommand.InvokeAsync(args);
+    }
+
+    private static async Task<int> RunBacktestAsync(bool aiDebug)
+    {
         Console.WriteLine("=== ZigZag Breakout Strategy Backtest ===");
         Console.WriteLine();
+
+        if (aiDebug)
+        {
+            Console.WriteLine("[AI Debug Mode Enabled]");
+            Console.WriteLine("  - Using SQLite event repository");
+            Console.WriteLine("  - Web app launcher disabled");
+            Console.WriteLine();
+        }
 
         try
         {
             // Configuration
-            const string historyPath = @"C:\Users\Andrew\OneDrive\Документы\StockSharp\Hydra\Storage";
+            var historyPath = Environment.GetEnvironmentVariable("StockSharp__HistoryPath")
+                ?? @".\History";
+            var storageFormatEnv = Environment.GetEnvironmentVariable("StockSharp__StorageFormat");
+            var storageFormat = Enum.TryParse<StorageFormats>(storageFormatEnv, ignoreCase: true, out var parsed)
+                ? parsed
+                : StorageFormats.Binary;
             var startDate = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
             var endDate = new DateTimeOffset(2023, 12, 31, 23, 59, 59, TimeSpan.Zero);
             const decimal initialCapital = 10000m;
 
             Console.WriteLine($"History Path: {historyPath}");
+            Console.WriteLine($"Storage Format: {storageFormat}");
             Console.WriteLine($"Period: {startDate:yyyy-MM-dd} to {endDate:yyyy-MM-dd}");
             Console.WriteLine($"Initial Capital: {initialCapital:N2}");
             Console.WriteLine();
@@ -33,7 +67,10 @@ public class Program
                 Code = "BTCUSDT",
                 Board = ExchangeBoard.Binance,
                 PriceStep = 0.01m,  // BTCUSDT typically trades with 2 decimal places
-                Decimals = 2
+                Decimals = 2,
+                VolumeStep = 0.001m,  // Binance BTCUSDT lot size
+                MinVolume = 0.001m,   // Minimum order size
+                MaxVolume = 9000m     // Maximum order size
             };
 
             // Create Portfolio
@@ -50,10 +87,29 @@ public class Program
                     EndDate = endDate
                 },
                 HistoryPath = historyPath,
-                MatchOnTouch = false,
-                // Enable debug mode for real-time visualization
-                // JSONL file is written directly to frontend's public folder
-                DebugMode = new DebugModeSettings
+                StorageFormat = storageFormat,
+                MatchOnTouch = false
+            };
+
+            // Configure debug mode based on --ai-debug flag
+            if (aiDebug)
+            {
+                // AI Agentic Debug Mode - SQLite event repository for AI agent analysis
+                config.AgenticLogging = new AgenticLoggingSettings
+                {
+                    Enabled = true,
+                    DatabasePath = "debug/events.db",
+                    BatchSize = 1000,
+                    FlushInterval = TimeSpan.FromSeconds(30),
+                    LogIndicators = true,
+                    LogTrades = true,
+                    LogMarketData = false  // Disable to reduce database size
+                };
+            }
+            else
+            {
+                // Standard Debug Mode - Real-time browser visualization
+                config.DebugMode = new DebugModeSettings
                 {
                     Enabled = true,
                     OutputDirectory = WebAppPath(@"public\debug-mode"),
@@ -61,8 +117,8 @@ public class Program
                     WebAppPath = WebAppPath(),
                     WebAppUrl = "http://localhost:3000",
                     DebugPagePath = "/debug-mode"
-                }
-            };
+                };
+            }
 
             // Create Strategy Instance
             var strategy = new ZigZagBreakout
@@ -77,18 +133,12 @@ public class Program
             // Set Strategy Parameters using CustomParams
             var parameters = new List<ICustomParam>
             {
-                new NumberParam<decimal>("DzzDepth", 5m),
-                new NumberParam<int>("JmaLength", 7),
-                new NumberParam<int>("JmaPhase", 0),
-                new NumberParam<int>("JmaUsage", 0)  // Bearish trend filter
+                new NumberParam<decimal>("DzzDepth", 5m)
             };
             strategy.ParamsContainer = new CustomParamsContainer(parameters);
 
             Console.WriteLine("Strategy Parameters:");
             Console.WriteLine($"  DzzDepth: 5");
-            Console.WriteLine($"  JmaLength: 7");
-            Console.WriteLine($"  JmaPhase: 0");
-            Console.WriteLine($"  JmaUsage: -1 (Bearish trend filter)");
             Console.WriteLine();
 
             // Create and Run Backtest

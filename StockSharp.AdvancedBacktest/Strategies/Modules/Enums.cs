@@ -4,7 +4,8 @@ public enum PositionSizingMethod
 {
     Fixed,
     PercentOfEquity,
-    ATRBased
+    ATRBased,
+    FixedRisk
 }
 
 public enum StopLossMethod

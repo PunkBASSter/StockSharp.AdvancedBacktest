@@ -5,7 +5,9 @@ using StockSharp.Algo.Strategies;
 using StockSharp.Algo.Testing;
 using StockSharp.AdvancedBacktest.Models;
 using StockSharp.AdvancedBacktest.Statistics;
+using StockSharp.AdvancedBacktest.Storages;
 using StockSharp.AdvancedBacktest.DebugMode;
+using StockSharp.AdvancedBacktest.DebugMode.AiAgenticDebug.Integration;
 using StockSharp.Messages;
 using StockSharp.BusinessEntities;
 
@@ -27,6 +29,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
     private bool _disposed;
     private DebugModeExporter? _debugExporter;
     private DebugWebAppLauncher? _webLauncher;
+    private AgenticEventLogger? _agenticLogger;
 
     public ILogReceiver? Logger { get; set; }
 
@@ -64,17 +67,32 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
             // Initialize debug mode if enabled
             InitializeDebugMode();
 
+            // Initialize agentic logging if enabled
+            await InitializeAgenticLoggingAsync();
+
             // Subscribe to indicators after strategy starts (they are created in OnStarted)
-            if (_debugExporter != null && _strategy is Strategies.CustomStrategyBase customStrategy)
+            if (_strategy is Strategies.CustomStrategyBase customStrategy)
             {
-                _strategy.ProcessStateChanged += (s) =>
+                if (_debugExporter != null || _agenticLogger != null)
                 {
-                    if (s.ProcessState == ProcessStates.Started)
+                    _strategy.ProcessStateChanged += (s) =>
                     {
-                        _debugExporter.SubscribeToIndicators(customStrategy.Indicators);
-                        Logger?.AddInfoLog($"Debug mode subscribed to {customStrategy.Indicators.Count} indicators");
-                    }
-                };
+                        if (s.ProcessState == ProcessStates.Started)
+                        {
+                            if (_debugExporter != null)
+                            {
+                                _debugExporter.SubscribeToIndicators(customStrategy.Indicators);
+                                Logger?.AddInfoLog($"Debug mode subscribed to {customStrategy.Indicators.Count} indicators");
+                            }
+
+                            if (_agenticLogger != null)
+                            {
+                                _agenticLogger.SubscribeToIndicators(customStrategy.Indicators);
+                                Logger?.AddInfoLog($"Agentic logging subscribed to {customStrategy.Indicators.Count} indicators");
+                            }
+                        }
+                    };
+                }
             }
 
             Logger?.AddInfoLog("Starting backtest...");
@@ -111,6 +129,13 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
 
     private async Task LaunchDebugWebServerAsync()
     {
+        // Skip web app if agentic logging is enabled (avoid startup overhead)
+        if (_config.AgenticLogging?.Enabled == true)
+        {
+            Logger?.AddInfoLog("Agentic logging enabled. Skipping web app launch.");
+            return;
+        }
+
         if (_config.DebugMode?.Enabled != true)
             return;
 
@@ -221,6 +246,61 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
         }
     }
 
+    private async Task InitializeAgenticLoggingAsync()
+    {
+        if (_config.AgenticLogging?.Enabled != true)
+            return;
+
+        if (_strategy is not Strategies.CustomStrategyBase customStrategy)
+        {
+            Logger?.AddWarningLog($"Strategy type {_strategy.GetType().Name} is not CustomStrategyBase. Agentic logging requires CustomStrategyBase.");
+            return;
+        }
+
+        try
+        {
+            _agenticLogger = new AgenticEventLogger(customStrategy, _config.AgenticLogging);
+
+            var strategyConfigHash = customStrategy.ParamsHash ?? "unknown";
+            await _agenticLogger.StartRunAsync(
+                _config.ValidationPeriod.StartDate,
+                _config.ValidationPeriod.EndDate,
+                strategyConfigHash);
+
+            // Subscribe to connector events for candles
+            if (_connector != null && _config.AgenticLogging.LogMarketData)
+            {
+                _connector.CandleReceived += OnCandleReceivedForAgentic;
+                Logger?.AddInfoLog("Agentic logging subscribed to connector candle events");
+            }
+
+            // Subscribe to strategy candle events
+            if (_config.AgenticLogging.LogMarketData)
+            {
+                _strategy.CandleReceived += OnCandleReceivedForAgentic;
+                Logger?.AddInfoLog("Agentic logging subscribed to strategy candle events");
+            }
+
+            // Subscribe to strategy trade events
+            if (_config.AgenticLogging.LogTrades)
+            {
+                _strategy.OwnTradeReceived += OnOwnTradeReceivedForAgentic;
+                Logger?.AddInfoLog("Agentic logging subscribed to trade events");
+            }
+
+            Logger?.AddInfoLog("Agentic logging initialized successfully");
+        }
+        catch (Exception ex)
+        {
+            Logger?.AddErrorLog(ex, "Failed to initialize agentic logging");
+            if (_agenticLogger != null)
+            {
+                await _agenticLogger.DisposeAsync();
+                _agenticLogger = null;
+            }
+        }
+    }
+
     private TimeSpan? ExtractCandleInterval(TStrategy strategy)
     {
         if (strategy is Strategies.CustomStrategyBase customStrategy)
@@ -266,7 +346,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
         {
             var tradeDataPoint = new Export.TradeDataPoint
             {
-                Time = trade.Trade.ServerTime.ToUnixTimeMilliseconds(),
+                Time = new DateTimeOffset(trade.Trade.ServerTime, TimeSpan.Zero).ToUnixTimeMilliseconds(),
                 Price = (double)trade.Trade.Price,
                 Volume = (double)trade.Trade.Volume,
                 Side = trade.Order.Side == Sides.Buy ? "Buy" : "Sell",
@@ -279,6 +359,54 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
         catch (Exception ex)
         {
             Logger?.AddErrorLog(ex, "Error capturing trade for debug mode");
+        }
+    }
+
+    private void OnCandleReceivedForAgentic(Subscription subscription, ICandleMessage candle)
+    {
+        if (_agenticLogger == null)
+            return;
+
+        try
+        {
+            var securityId = subscription?.SecurityId;
+            if (securityId == null && _strategy is Strategies.CustomStrategyBase customStrategy)
+            {
+                securityId = customStrategy.Securities.Keys.FirstOrDefault()?.ToSecurityId() ?? default;
+            }
+
+            _agenticLogger.LogCandleAsync(candle, securityId ?? default).Wait();
+        }
+        catch (Exception ex)
+        {
+            Logger?.AddErrorLog(ex, "Error logging candle for agentic debug");
+        }
+    }
+
+    private void OnOwnTradeReceivedForAgentic(Subscription subscription, MyTrade trade)
+    {
+        if (_agenticLogger == null)
+            return;
+
+        try
+        {
+            var tradeDetails = new
+            {
+                Time = trade.Trade.ServerTime,
+                Price = trade.Trade.Price,
+                Volume = trade.Trade.Volume,
+                Side = trade.Order.Side.ToString(),
+                PnL = trade.PnL ?? 0m,
+                OrderId = trade.Order.Id,
+                OrderType = trade.Order.Type.ToString(),
+                Commission = trade.Commission ?? 0m
+            };
+
+            _agenticLogger.LogTradeAsync(tradeDetails).Wait();
+        }
+        catch (Exception ex)
+        {
+            Logger?.AddErrorLog(ex, "Error logging trade for agentic debug");
         }
     }
 
@@ -312,10 +440,12 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
             Logger?.AddInfoLog("Portfolio Name not set, defaulting to 'Simulator'");
         }
 
-        var storageRegistry = new StorageRegistry
+        var innerRegistry = new StorageRegistry
         {
             DefaultDrive = new LocalMarketDataDrive(_config.HistoryPath)
         };
+        // Wrap with SharedStorageRegistry to work around await using disposal bug in BasketMarketDataStorage
+        var storageRegistry = new SharedStorageRegistry(innerRegistry);
 
         var securityProvider = new CollectionSecurityProvider(securities);
         var portfolioProvider = new CollectionPortfolioProvider([_strategy.Portfolio]);
@@ -330,6 +460,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
 
         _connector.HistoryMessageAdapter.StartDate = _config.ValidationPeriod.StartDate.UtcDateTime;
         _connector.HistoryMessageAdapter.StopDate = _config.ValidationPeriod.EndDate.UtcDateTime;
+        _connector.HistoryMessageAdapter.StorageFormat = _config.StorageFormat;
 
         _strategy.Connector = _connector;
 
@@ -342,13 +473,29 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
         Logger?.AddInfoLog($"Connector configured for period {_config.ValidationPeriod.StartDate:yyyy-MM-dd} to {_config.ValidationPeriod.EndDate:yyyy-MM-dd}");
     }
 
+    private Exception? _lastConnectorError;
+
     private void SubscribeToEvents()
     {
         if (_connector == null || _strategy == null)
             throw new InvalidOperationException("Connector and strategy must be configured first");
 
         _connector.StateChanged2 += OnConnectorStateChanged;
+        _connector.Error += OnConnectorError;
+        _connector.ConnectionError += OnConnectionError;
         _strategy.Error += OnStrategyError;
+    }
+
+    private void OnConnectorError(Exception error)
+    {
+        _lastConnectorError = error;
+        Logger?.AddErrorLog(error, "Connector error occurred");
+    }
+
+    private void OnConnectionError(Exception error)
+    {
+        _lastConnectorError = error;
+        Logger?.AddErrorLog(error, "Connection error occurred");
     }
 
     private void OnConnectorStateChanged(ChannelStates state)
@@ -368,8 +515,11 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
                 }
                 else
                 {
-                    Logger?.AddWarningLog("Backtest stopped but not finished");
-                    var result = CreateErrorResult(new InvalidOperationException("Backtest stopped unexpectedly"));
+                    var errorMessage = _lastConnectorError != null
+                        ? $"Backtest stopped with error: {_lastConnectorError.Message}"
+                        : "Backtest stopped unexpectedly (IsFinished=false, no error captured)";
+                    Logger?.AddWarningLog(errorMessage);
+                    var result = CreateErrorResult(_lastConnectorError ?? new InvalidOperationException(errorMessage));
                     _completionSource?.TrySetResult(result);
                 }
             }
@@ -436,9 +586,14 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
             if (_connector != null)
             {
                 _connector.StateChanged2 -= OnConnectorStateChanged;
+                _connector.Error -= OnConnectorError;
+                _connector.ConnectionError -= OnConnectionError;
 
                 // Unsubscribe from debug mode events
                 _connector.CandleReceived -= OnCandleReceivedForDebug;
+
+                // Unsubscribe from agentic logging events
+                _connector.CandleReceived -= OnCandleReceivedForAgentic;
             }
 
             if (_strategy != null)
@@ -448,12 +603,23 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
                 // Unsubscribe from debug mode events
                 _strategy.CandleReceived -= OnCandleReceivedForDebug;
                 _strategy.OwnTradeReceived -= OnOwnTradeReceivedForDebug;
+
+                // Unsubscribe from agentic logging events
+                _strategy.CandleReceived -= OnCandleReceivedForAgentic;
+                _strategy.OwnTradeReceived -= OnOwnTradeReceivedForAgentic;
             }
 
             // Cleanup debug exporter
             _debugExporter?.Cleanup();
             _debugExporter?.Dispose();
             _debugExporter = null;
+
+            // Cleanup agentic logger
+            if (_agenticLogger != null)
+            {
+                _agenticLogger.DisposeAsync().AsTask().Wait();
+                _agenticLogger = null;
+            }
         }
         catch (Exception ex)
         {

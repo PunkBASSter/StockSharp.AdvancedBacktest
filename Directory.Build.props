@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <!-- Enable NuGet package lock files for reproducible builds -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+
+    <!--
+      Locked mode: When true, restore fails if lock file is out of sync.
+      Set RestoreLockedMode=false when running restore to update lock files:
+      dotnet restore - -force-evaluate
+    -->
+    <RestoreLockedMode Condition="'$(RestoreLockedMode)' == ''">true</RestoreLockedMode>
+  </PropertyGroup>
+</Project>

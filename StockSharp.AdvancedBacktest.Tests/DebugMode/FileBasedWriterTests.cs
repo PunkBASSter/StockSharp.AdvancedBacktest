@@ -171,32 +171,6 @@ public class FileBasedWriterTests : IDisposable
 
     #endregion
 
-    #region File Rotation Tests
-
-    // NOTE: File rotation tests removed - rotation feature was simplified out
-    // Debug mode now writes to a single latest.jsonl file per run
-    // If rotation is needed in the future, these tests can be restored
-
-    [Fact(Skip = "File rotation feature removed for simplicity")]
-    public void WriteEvent_ExceedsMaxSize_CreatesRotatedFile()
-    {
-        // Test disabled - rotation feature removed
-    }
-
-    [Fact(Skip = "File rotation feature removed for simplicity")]
-    public void WriteEvent_MultipleRotations_CreatesSequentialFiles()
-    {
-        // Test disabled - rotation feature removed
-    }
-
-    [Fact(Skip = "File rotation feature removed for simplicity")]
-    public void CurrentFilePath_AfterRotation_ReturnsNewPath()
-    {
-        // Test disabled - rotation feature removed
-    }
-
-    #endregion
-
     #region Thread Safety Tests
 
     [Fact]
@@ -356,30 +330,14 @@ public class FileBasedWriterTests : IDisposable
 
     #region Constructor Tests
 
-    [Fact]
-    public void Constructor_NullFilePath_ThrowsException()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Constructor_InvalidFilePath_ThrowsException(string? filePath)
     {
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => new FileBasedWriter(null!));
-    }
-
-    [Fact]
-    public void Constructor_EmptyFilePath_ThrowsException()
-    {
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() => new FileBasedWriter(""));
-    }
-
-    [Fact(Skip = "MaxFileSizeMB parameter removed for simplicity")]
-    public void Constructor_NegativeMaxSize_ThrowsException()
-    {
-        // Test disabled - maxFileSizeMB parameter removed
-    }
-
-    [Fact(Skip = "MaxFileSizeMB parameter removed for simplicity")]
-    public void Constructor_ZeroMaxSize_ThrowsException()
-    {
-        // Test disabled - maxFileSizeMB parameter removed
+        Assert.Throws<ArgumentException>(() => new FileBasedWriter(filePath!));
     }
 
     [Fact]
@@ -401,8 +359,10 @@ public class FileBasedWriterTests : IDisposable
 
     #region Validation Tests
 
-    [Fact]
-    public void WriteEvent_NullEventType_ThrowsException()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void WriteEvent_InvalidEventType_ThrowsArgumentException(string? eventType)
     {
         // Arrange
         var filePath = GetTestFilePath();
@@ -410,23 +370,11 @@ public class FileBasedWriterTests : IDisposable
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            writer.WriteEvent(null!, new { Value = 1 }));
+            writer.WriteEvent(eventType!, new { Value = 1 }));
     }
 
     [Fact]
-    public void WriteEvent_EmptyEventType_ThrowsException()
-    {
-        // Arrange
-        var filePath = GetTestFilePath();
-        using var writer = new FileBasedWriter(filePath);
-
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() =>
-            writer.WriteEvent("", new { Value = 1 }));
-    }
-
-    [Fact]
-    public void WriteEvent_NullEventData_ThrowsException()
+    public void WriteEvent_NullEventData_ThrowsArgumentNullException()
     {
         // Arrange
         var filePath = GetTestFilePath();

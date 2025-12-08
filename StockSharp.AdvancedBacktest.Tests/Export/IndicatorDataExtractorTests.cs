@@ -18,7 +18,7 @@ public class IndicatorDataExtractorTests
 
     private class TestIndicatorValue : SingleIndicatorValue<decimal>
     {
-        public TestIndicatorValue(IIndicator indicator, decimal value, DateTimeOffset time)
+        public TestIndicatorValue(IIndicator indicator, decimal value, DateTime time)
             : base(indicator, value, time)
         {
             IsFormed = true;
@@ -183,7 +183,7 @@ public class IndicatorDataExtractorTests
         // Arrange
         var extractor = new IndicatorDataExtractor();
         var indicator = new ZigZag();
-        var emptyValue = new ZigZagIndicatorValue(indicator, DateTimeOffset.UtcNow);
+        var emptyValue = new ZigZagIndicatorValue(indicator, DateTime.UtcNow);
 
         // Act
         var result = extractor.ExtractFromValue(emptyValue, TimeSpan.FromHours(1));
@@ -198,7 +198,7 @@ public class IndicatorDataExtractorTests
         // Arrange
         var extractor = new IndicatorDataExtractor();
         var indicator = new TestIndicator();
-        var zeroValue = new TestIndicatorValue(indicator, 0m, DateTimeOffset.UtcNow);
+        var zeroValue = new TestIndicatorValue(indicator, 0m, DateTime.UtcNow);
 
         // Act
         var result = extractor.ExtractFromValue(zeroValue, TimeSpan.FromHours(1));
@@ -217,7 +217,7 @@ public class IndicatorDataExtractorTests
         // Process one value - won't be formed yet (needs 3)
         var candle = new TimeFrameCandleMessage
         {
-            OpenTime = DateTimeOffset.UtcNow,
+            OpenTime = DateTime.UtcNow,
             ClosePrice = 100m
         };
         var result = indicator.Process(candle);
@@ -236,7 +236,7 @@ public class IndicatorDataExtractorTests
         var extractor = new IndicatorDataExtractor();
         var indicator = new TestIndicator();
         var time = new DateTimeOffset(2025, 1, 1, 12, 0, 0, TimeSpan.Zero);
-        var value = new TestIndicatorValue(indicator, 123.45m, time);
+        var value = new TestIndicatorValue(indicator, 123.45m, time.UtcDateTime);
 
         // Act
         var result = extractor.ExtractFromValue(value, TimeSpan.FromHours(1));
@@ -257,7 +257,7 @@ public class IndicatorDataExtractorTests
         var shift = 3;
         var candleInterval = TimeSpan.FromHours(1);
 
-        var shiftedValue = new ZigZagIndicatorValue(indicator, 8500m, shift, currentTime, true)
+        var shiftedValue = new ZigZagIndicatorValue(indicator, 8500m, shift, currentTime.UtcDateTime, true)
         {
             IsFormed = true
         };
@@ -281,7 +281,7 @@ public class IndicatorDataExtractorTests
         var extractor = new IndicatorDataExtractor();
         var indicator = new TestIndicator();
         var time = new DateTimeOffset(2025, 1, 1, 12, 0, 0, TimeSpan.Zero);
-        var value = new TestIndicatorValue(indicator, 100m, time);
+        var value = new TestIndicatorValue(indicator, 100m, time.UtcDateTime);
 
         // Act
         var result = extractor.ExtractFromValue(value, null);
@@ -313,7 +313,7 @@ public class IndicatorDataExtractorTests
         var extractor = new IndicatorDataExtractor();
         var indicator = new TestIndicator { Name = "SimpleEMA" };
 
-        var time = DateTimeOffset.UtcNow;
+        var time = DateTime.UtcNow;
         var value = new TestIndicatorValue(indicator, 100m, time);
         indicator.Process(value);
 
@@ -334,7 +334,7 @@ public class IndicatorDataExtractorTests
         // Use actual BollingerBands indicator which has InnerIndicators
         var bollingerBands = new BollingerBands { Length = 20, Width = 2 };
 
-        var baseTime = DateTimeOffset.UtcNow;
+        var baseTime = DateTime.UtcNow;
 
         // Process enough candles to form the indicator
         for (int i = 0; i < 25; i++)

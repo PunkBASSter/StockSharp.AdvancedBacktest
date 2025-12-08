@@ -5,12 +5,13 @@ using StockSharp.Messages;
 using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.AdvancedBacktest.Statistics;
 using StockSharp.AdvancedBacktest.Utilities;
+using StockSharp.AdvancedBacktest.OrderManagement;
 using System.Security.Cryptography;
 using System.Text;
 
 namespace StockSharp.AdvancedBacktest.Strategies;
 
-public abstract class CustomStrategyBase : Strategy
+public abstract class CustomStrategyBase : Strategy, IStrategyOrderOperations
 {
     public string Hash => $"{GetType().Name}V{Version}_{SecuritiesHash}_{ParamsHash}";
     public PerformanceMetrics? PerformanceMetrics { get; protected set; }
@@ -66,4 +67,12 @@ public abstract class CustomStrategyBase : Strategy
 
     //TODO handle more elegantly, now it serves as a temp param storage
     public List<ICustomParam> ParamsBackup { get; set; } = [];
+
+    // IStrategyOrderOperations explicit implementations to bridge interface to base Strategy methods
+    Order IStrategyOrderOperations.BuyLimit(decimal price, decimal volume) => BuyLimit(price, volume);
+    Order IStrategyOrderOperations.SellLimit(decimal price, decimal volume) => SellLimit(price, volume);
+    Order IStrategyOrderOperations.BuyMarket(decimal volume) => BuyMarket(volume);
+    Order IStrategyOrderOperations.SellMarket(decimal volume) => SellMarket(volume);
+    void IStrategyOrderOperations.LogInfo(string format, params object[] args) => this.LogInfo(format, args);
+    void IStrategyOrderOperations.LogWarning(string format, params object[] args) => this.LogWarning(format, args);
 }
