@@ -1,5 +1,11 @@
 # 2025 Q4 Roadmap
 
+## 1. Not enough data in ordinary backtest without debug
+- No ZigZag exported
+- No equity is displayed, no statistics calculated
+- TODO: unify calculation logic for all modes
+- Why no trading in 2021+ if there were trades in the previous year
+
 ## 2. Add .claude/CLAUDE.md definitions
 - For each sub-project (e.g., StockSharp.AdvancedBacktest, StockSharp.AdvancedBacktest.LauncherTemplate), create a CLAUDE.md file defining the main agents and their responsibilities.
 - Define the roles of Product Manager Agent, Tech Lead Agent, Backend Implementer Agent, QA Tester Agent, and Documentation Specialist Agent and map them to specific subagents.
