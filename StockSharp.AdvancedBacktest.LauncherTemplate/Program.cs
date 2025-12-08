@@ -67,7 +67,10 @@ public class Program
                 Code = "BTCUSDT",
                 Board = ExchangeBoard.Binance,
                 PriceStep = 0.01m,  // BTCUSDT typically trades with 2 decimal places
-                Decimals = 2
+                Decimals = 2,
+                VolumeStep = 0.001m,  // Binance BTCUSDT lot size
+                MinVolume = 0.001m,   // Minimum order size
+                MaxVolume = 9000m     // Maximum order size
             };
 
             // Create Portfolio

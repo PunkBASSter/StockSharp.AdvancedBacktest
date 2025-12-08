@@ -65,7 +65,7 @@ public class PerformanceMetricsCalculator(double riskFreeRate = 0.02) : IPerform
             }
         }
 
-        var maxDrawdown = CalculateMaxDrawdown(pnlChanges);
+        var maxDrawdown = CalculateMaxDrawdown(pnlChanges, initialCapital);
         var sharpeRatio = CalculateSharpeRatio(pnlChanges, totalDays);
         var sortinoRatio = CalculateSortinoRatio(pnlChanges, totalDays);
 
@@ -93,23 +93,23 @@ public class PerformanceMetricsCalculator(double riskFreeRate = 0.02) : IPerform
         };
     }
 
-    private static double CalculateMaxDrawdown(List<PnLInfo> pnlChanges)
+    private static double CalculateMaxDrawdown(List<PnLInfo> pnlChanges, decimal initialCapital)
     {
-        if (pnlChanges.Count == 0)
+        if (pnlChanges.Count == 0 || initialCapital <= 0)
             return 0;
 
-        var peak = 0m;
+        var peakEquity = initialCapital;
         var maxDrawdown = 0m;
 
         foreach (var pnl in pnlChanges)
         {
-            var currentValue = pnl.PnL;
-            if (currentValue > peak)
-                peak = currentValue;
+            var currentEquity = initialCapital + pnl.PnL;
+            if (currentEquity > peakEquity)
+                peakEquity = currentEquity;
 
-            if (peak > 0)
+            if (peakEquity > 0)
             {
-                var drawdown = (peak - currentValue) / peak;
+                var drawdown = (peakEquity - currentEquity) / peakEquity;
                 if (drawdown > maxDrawdown)
                     maxDrawdown = drawdown;
             }

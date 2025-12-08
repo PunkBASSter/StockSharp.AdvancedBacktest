@@ -18,6 +18,11 @@ public class StrategyOptions
     public decimal FixedPositionSize { get; set; } = 1m;
     public decimal EquityPercentage { get; set; } = 2m;
 
+    // Fixed risk position sizing
+    public decimal RiskPercentPerTrade { get; set; } = 1m;
+    public decimal MinPositionSize { get; set; } = 1m;
+    public decimal MaxPositionSize { get; set; } = 1000m;
+
     // Stop loss settings
     public StopLossMethod StopLossMethodValue { get; set; } = StopLossMethod.Percentage;
     public decimal StopLossPercentage { get; set; } = 2m;

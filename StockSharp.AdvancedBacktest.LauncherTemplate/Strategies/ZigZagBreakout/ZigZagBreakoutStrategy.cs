@@ -1,6 +1,7 @@
 using StockSharp.Algo.Indicators;
 using StockSharp.AdvancedBacktest.OrderManagement;
 using StockSharp.AdvancedBacktest.Strategies;
+using StockSharp.AdvancedBacktest.Strategies.Modules.PositionSizing;
 using StockSharp.AdvancedBacktest.Utilities;
 using StockSharp.BusinessEntities;
 using StockSharp.Messages;
@@ -12,6 +13,7 @@ public class ZigZagBreakout : CustomStrategyBase
     private DeltaZigZag? _dzz;
     private ZigZagBreakoutConfig? _config;
     private OrderPositionManager? _orderManager;
+    private IRiskAwarePositionSizer? _positionSizer;
     private readonly List<IIndicatorValue> _dzzHistory = [];
     private TimeSpan? _candleInterval;
 
@@ -35,6 +37,12 @@ public class ZigZagBreakout : CustomStrategyBase
         {
             DzzDepth = GetParam<decimal>("DzzDepth")
         };
+
+        // Initialize position sizer with fixed risk calculation
+        _positionSizer = new FixedRiskPositionSizer(
+            _config.RiskPercentPerTrade,
+            _config.MinPositionSize,
+            _config.MaxPositionSize);
 
         // Initialize order manager
         _orderManager = new OrderPositionManager(this);
@@ -163,23 +171,16 @@ public class ZigZagBreakout : CustomStrategyBase
 
     private decimal CalculatePositionSize(decimal entryPrice, decimal stopLoss)
     {
-        var defaultSize = 0.01m;
-        if (_config == null)
-            return defaultSize;
+        if (_positionSizer == null || _config == null)
+            return _config?.MinPositionSize ?? 0.01m;
 
-        var accountSize = Portfolio.CurrentValue ?? 10000m;
-        var riskAmount = accountSize * _config.RiskPercentPerTrade;
+        var volume = _positionSizer.Calculate(entryPrice, stopLoss, Portfolio, Security);
 
-        var stopDistance = Math.Abs(entryPrice - stopLoss);
-
-        if (stopDistance == 0)
-            return defaultSize;
-
-        var volume = riskAmount / stopDistance;
-        volume = Math.Max(defaultSize, Math.Floor(volume));
-
-        this.LogInfo("Position sizing - Account:{0:F2} Risk:{1:F2} SL Distance:{2:F4} Volume:{3}",
-            accountSize, riskAmount, stopDistance, volume);
+        this.LogInfo("Position sizing - Account:{0:F2} Risk:{1}% SL Distance:{2:F4} Volume:{3}",
+            Portfolio.CurrentValue ?? Portfolio.BeginValue ?? 0,
+            _config.RiskPercentPerTrade,
+            Math.Abs(entryPrice - stopLoss),
+            volume);
 
         return volume;
     }
