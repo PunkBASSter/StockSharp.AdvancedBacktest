@@ -55,23 +55,36 @@ dotnet run --project StockSharp.AdvancedBacktest.LauncherTemplate -- --ai-debug
 ## Architecture
 
 ```
-┌─────────────────────┐
-│  Backtest Process   │
-│  (runs, exits)      │
-└──────────┬──────────┘
-           │ writes events
-           ▼
-┌─────────────────────┐     FileSystemWatcher
-│  SQLite Database    │ ◄──────────────────────┐
-│  (events.db)        │                        │
-└──────────┬──────────┘                        │
-           │                                   │
-           │ queries                           │
+┌──────────────────────────────────────────────────────────────────┐
+│                     Backtest Process                              │
+│  1. Check if MCP exe running (mutex)                             │
+│  2. Spawn DebugEventLogMcpServer.exe if not running              │
+│  3. Cleanup old database                                          │
+│  4. Run backtest (writes events)                                  │
+│  5. Exit → MCP server keeps running                              │
+└──────────────────────────────────────────────────────────────────┘
+           │
+           │ spawns (detached)           writes events
            ▼                                   │
-┌─────────────────────┐                        │
-│  MCP Server         │ ───────────────────────┘
-│  (stays alive)      │   monitors changes
-└─────────────────────┘
+┌──────────────────────────────────────────────│────────────────────┐
+│  DebugEventLogMcpServer.exe (separate process)                    │
+│  ┌─────────────────┐  ┌─────────────────┐    │                   │
+│  │ McpInstanceLock │  │ DatabaseWatcher │    │                   │
+│  │ (named mutex)   │  │ (file events)   │    │                   │
+│  └─────────────────┘  └─────────────────┘    │                   │
+│                              │               │                    │
+│                              │ monitors      │                    │
+│                              ▼               ▼                    │
+│                       ┌─────────────────────────┐                 │
+│                       │ SQLite Database         │                 │
+│                       │ (events.db)             │                 │
+│                       └─────────────────────────┘                 │
+│                                                                   │
+│  ┌───────────────────────────────────────────────────────────┐   │
+│  │                MCP Server (stdio transport)                │   │
+│  │  AI agent (Claude Code) connects here for queries         │   │
+│  └───────────────────────────────────────────────────────────┘   │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
 ## Key Components
@@ -209,13 +222,15 @@ public class McpLifecycleIntegrationTests
 
 1. Check if another instance is running:
    ```powershell
-   Get-Process | Where-Object { $_.ProcessName -like "*mcp*" }
+   Get-Process | Where-Object { $_.ProcessName -like "*DebugEventLogMcpServer*" }
    ```
 
-2. Check for orphaned mutex (restart should clear):
+2. Manually stop existing instance:
    ```powershell
-   # Restart will auto-clear abandoned mutex
+   StockSharp.AdvancedBacktest.DebugEventLogMcpServer.exe --shutdown
    ```
+
+3. Check for orphaned mutex (process crash releases it automatically)
 
 ### Database Locked During Cleanup
 

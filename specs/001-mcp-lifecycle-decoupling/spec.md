@@ -12,6 +12,8 @@
 - Q: When/how should the MCP server initially start? → A: Auto-start on first --ai-debug backtest - MCP server launches automatically when first debug backtest runs, then stays alive
 - Q: How should single MCP instance be detected/enforced? → A: Named mutex/semaphore - Use OS-level named synchronization primitive
 - Q: How should MCP server be notified of database changes? → A: File system watcher - MCP server monitors the database file path for changes/recreation
+- Q: How should MCP server survive backtest process exit? → A: Separate exe project (`StockSharp.AdvancedBacktest.DebugEventLogMcpServer`) - MCP server is a standalone executable lazily started by first --ai-debug backtest, runs as detached process that is NOT stopped when parent exits
+- Q: How should MCP server be explicitly stopped? → A: CLI `--shutdown` flag - Running another instance with `--shutdown` detects existing instance via mutex, signals termination via named EventWaitHandle, existing instance gracefully shuts down
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -74,7 +76,7 @@ As a developer, I want the SQLite database to be cleared/recreated at the start 
 
 ### Functional Requirements
 
-- **FR-001**: MCP server lifecycle MUST be independent from strategy/backtest lifecycle
+- **FR-001**: MCP server MUST be implemented as a separate executable project that runs as a detached process independent from the backtest application lifecycle
 - **FR-002**: System MUST maintain a maximum of one MCP server instance at any time
 - **FR-003**: MCP server MUST remain accessible after backtest completion until explicitly shut down
 - **FR-004**: System MUST delete/recreate the SQLite database at the start of each new backtest
@@ -84,13 +86,16 @@ As a developer, I want the SQLite database to be cleared/recreated at the start 
 - **FR-008**: Database cleanup MUST gracefully handle active connections before deletion
 - **FR-009**: System MUST prevent race conditions between MCP queries and database recreation
 - **FR-010**: MCP server startup MUST fail gracefully if another instance is already running
+- **FR-011**: MCP server MUST support `--shutdown` CLI argument that signals an existing running instance to terminate via named EventWaitHandle
+- **FR-012**: Running MCP server instance MUST listen for shutdown signals and gracefully close DB connections before exiting
 
 ### Key Entities
 
-- **MCP Server Instance**: Long-running process that handles AI agent queries via stdio transport; has connection state to SQLite database
-- **Backtest Run**: Execution of a trading strategy simulation; produces events logged to SQLite; has lifecycle independent of MCP server
+- **MCP Server Executable**: Separate console application project (`StockSharp.AdvancedBacktest.DebugEventLogMcpServer`) that runs as a detached process; handles AI agent queries via stdio transport; survives parent process exit
+- **Backtest Run**: Execution of a trading strategy simulation; produces events logged to SQLite; spawns MCP server exe if not already running
 - **Event Database**: SQLite file storing backtest events; recreated per-run; queried by MCP server tools
 - **Instance Lock**: OS-level named mutex/semaphore to ensure single MCP server instance; acquired on startup, released on shutdown
+- **MCP Launcher**: Component in BacktestRunner that detects if MCP exe is running and spawns it as detached process if needed
 
 ## Success Criteria *(mandatory)*
 

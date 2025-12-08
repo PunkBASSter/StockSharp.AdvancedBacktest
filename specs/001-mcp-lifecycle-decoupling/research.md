@@ -166,66 +166,135 @@ public sealed class DatabaseCleanup
 
 ---
 
-### 4. MCP Server Process Management
+### 4. Separate Executable Project Architecture
 
-**Context**: FR-006 requires auto-start on first --ai-debug backtest.
+**Context**: FR-001 requires MCP server to survive parent process exit.
 
-**Decision**: Launch MCP server as child process via `Process.Start()`.
+**Decision**: Create separate console application `StockSharp.AdvancedBacktest.DebugEventLogMcpServer` that runs as a detached process.
 
 **Rationale**:
-- MCP protocol uses stdio transport (requires separate process)
-- Child process lifecycle can be managed by parent
-- Existing pattern in codebase (DebugWebAppLauncher)
+- In-process server dies when backtest app exits - blocks post-mortem debugging
+- Separate exe can be spawned by backtest, then continues independently
+- MCP uses stdio transport - AI agent (Claude Code) connects directly to the exe
+- BacktestRunner spawns the exe if not already running (lazy start)
 
-**Implementation Pattern**:
+**Project Structure**:
+```
+StockSharp.AdvancedBacktest.DebugEventLogMcpServer/
+├── Program.cs                    # Entry point with --shutdown handling
+├── StockSharp.AdvancedBacktest.DebugEventLogMcpServer.csproj
+└── (references main library for shared types)
+```
+
+**Spawning Pattern (from BacktestRunner)**:
 ```csharp
-public sealed class McpServerLifecycleManager
+var psi = new ProcessStartInfo
 {
-    private Process? _mcpProcess;
-    private readonly McpInstanceLock _lock;
+    FileName = mcpServerExePath,
+    Arguments = $"--database \"{databasePath}\"",
+    UseShellExecute = false,
+    CreateNoWindow = true,
+    // Do NOT redirect stdio - MCP client needs them
+    RedirectStandardInput = false,
+    RedirectStandardOutput = false,
+    RedirectStandardError = false
+};
+Process.Start(psi);
+// Do NOT wait - let it run independently
+```
 
-    public async Task<bool> EnsureRunningAsync(string databasePath)
+**Alternatives Considered**:
+- **In-process hosting**: Dies with parent process - defeats FR-001
+- **Windows Service**: Overkill, requires admin install, not dev-friendly
+- **Background worker thread**: Still in-process, still dies with parent
+
+---
+
+### 5. Shutdown Signaling via EventWaitHandle
+
+**Context**: FR-011/FR-012 require explicit shutdown mechanism for the detached MCP server.
+
+**Decision**: Use `--shutdown` CLI flag with Named EventWaitHandle signaling.
+
+**Rationale**:
+- MCP server has no way to receive commands (stdio used by MCP protocol)
+- Running another instance with `--shutdown` can signal existing instance
+- EventWaitHandle is lightweight, no serialization overhead
+- Named mutex already exists for instance detection - reuse for shutdown confirmation
+
+**Shutdown Protocol**:
+```
+User runs: DebugEventLogMcpServer.exe --shutdown
+    │
+    ├─► 1. Try acquire mutex (WaitOne(0))
+    │       └─► Acquired? No instance running → exit
+    │
+    ├─► 2. Open existing EventWaitHandle
+    │       "Global\StockSharp.McpServer.Shutdown"
+    │
+    ├─► 3. Signal the handle: Set()
+    │
+    └─► 4. Wait for mutex release (confirms shutdown)
+            └─► Timeout 10s? Warn user
+```
+
+**Server-Side Handling**:
+```csharp
+// In Program.cs
+using var shutdownEvent = new EventWaitHandle(false, EventResetMode.ManualReset,
+    @"Global\StockSharp.McpServer.Shutdown");
+
+using var cts = new CancellationTokenSource();
+
+// Background thread monitors shutdown signal
+_ = Task.Run(() =>
+{
+    shutdownEvent.WaitOne();
+    cts.Cancel();
+});
+
+// Run server until cancellation
+await BacktestEventMcpServer.RunAsync(args, databasePath, cts.Token);
+```
+
+**Shutdown Command Implementation**:
+```csharp
+private static async Task ShutdownExistingInstance()
+{
+    using var mutex = new Mutex(false, @"Global\StockSharp.McpServer.Lock", out _);
+
+    if (mutex.WaitOne(0))
     {
-        if (!_lock.TryAcquire())
-        {
-            // Another instance already running - reuse it
-            return true;
-        }
-
-        _mcpProcess = new Process
-        {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = "dotnet",
-                Arguments = $"run --project McpServerProject -- --database \"{databasePath}\"",
-                UseShellExecute = false,
-                RedirectStandardInput = true,
-                RedirectStandardOutput = true,
-                CreateNoWindow = true
-            }
-        };
-
-        _mcpProcess.Start();
-        // Don't wait - MCP server runs independently
-        return true;
+        mutex.ReleaseMutex();
+        Console.WriteLine("No MCP server running.");
+        return;
     }
 
-    public void Shutdown()
+    using var signal = EventWaitHandle.OpenExisting(@"Global\StockSharp.McpServer.Shutdown");
+    signal.Set();
+
+    Console.WriteLine("Shutdown signal sent. Waiting...");
+
+    if (mutex.WaitOne(TimeSpan.FromSeconds(10)))
     {
-        _mcpProcess?.Kill(entireProcessTree: true);
-        _lock.Dispose();
+        mutex.ReleaseMutex();
+        Console.WriteLine("MCP server stopped.");
+    }
+    else
+    {
+        Console.Error.WriteLine("Timeout - may need manual kill.");
     }
 }
 ```
 
 **Alternatives Considered**:
-- **In-process hosting**: Not possible with stdio transport
-- **Background service**: More complex, requires host lifecycle management
-- **Windows service**: Platform-specific, overkill for dev tooling
+- **Named Pipes**: More complex, requires protocol design
+- **HTTP endpoint**: Adds network dependency, firewall issues
+- **Process.Kill**: Not graceful, may corrupt SQLite
 
 ---
 
-### 5. Database Path Unification
+### 6. Database Path Unification
 
 **Context**: Current implementation has inconsistent database paths between backtest and MCP server.
 
@@ -275,10 +344,11 @@ public static class McpDatabasePaths
 
 | Area | Decision | Key Benefit |
 |------|----------|-------------|
-| Instance Lock | Named Mutex (`Global\\...`) | Cross-process, reliable |
-| Change Detection | FileSystemWatcher + debounce | Native, event-driven |
-| Connection Management | Explicit close-before-delete | Prevents file locks |
-| Process Management | Child process via Process.Start | Independent lifecycle |
+| Instance Lock | Named Mutex (`Global\StockSharp.McpServer.Lock`) | Cross-process, auto-release on crash |
+| Change Detection | FileSystemWatcher + 500ms debounce | Native, event-driven |
+| Connection Management | `Pooling=False`, explicit close-before-delete | Prevents file locks |
+| Process Architecture | Separate exe (`DebugEventLogMcpServer`) | Survives parent exit |
+| Shutdown Signaling | `--shutdown` + EventWaitHandle | Graceful, no network deps |
 | Database Path | Unified with env override | Single source of truth |
 
 ## Open Questions Resolved

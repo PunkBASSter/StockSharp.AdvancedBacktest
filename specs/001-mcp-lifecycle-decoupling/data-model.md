@@ -53,21 +53,39 @@ Wraps OS-level named mutex for single-instance enforcement.
 **Fields**:
 | Field | Type | Description |
 |-------|------|-------------|
-| MutexName | string (const) | `"Global\\StockSharp.AdvancedBacktest.McpServer"` |
+| MutexName | string (const) | `"Global\StockSharp.McpServer.Lock"` |
 | _mutex | Mutex | OS mutex handle |
 | _ownsLock | bool | Whether this instance acquired the lock |
 | _disposed | bool | Disposal state |
 
 **Operations**:
 - `TryAcquire()`: Attempts non-blocking acquisition, returns bool
-- `IsHeld`: Property indicating if lock is currently held by any process
+- `IsAnotherInstanceRunning()`: Checks if mutex held by another process
 - `Dispose()`: Releases mutex if owned
 
 **Validation Rules**:
 - Mutex name must be unique system-wide
 - Must be disposed before process exit to release lock
 
-### 3. DatabaseWatcherConfig
+### 3. McpShutdownSignal
+
+Wraps EventWaitHandle for cross-process shutdown signaling.
+
+**Fields**:
+| Field | Type | Description |
+|-------|------|-------------|
+| EventName | string (const) | `"Global\StockSharp.McpServer.Shutdown"` |
+| _handle | EventWaitHandle | OS event handle |
+| _isOwner | bool | Whether this instance created the handle |
+
+**Operations**:
+- `CreateForServer()`: Creates new handle for server to listen on
+- `OpenExisting()`: Opens existing handle for shutdown command
+- `WaitForShutdown(ct)`: Blocks until signaled or cancelled
+- `Signal()`: Signals shutdown to running server
+- `Dispose()`: Releases handle
+
+### 4. DatabaseWatcherConfig
 
 Configuration for the FileSystemWatcher.
 
@@ -78,7 +96,7 @@ Configuration for the FileSystemWatcher.
 | DebounceMs | int | 500 | Milliseconds to wait before triggering reconnect |
 | WatchWalFiles | bool | true | Also watch -wal and -shm files |
 
-### 4. DatabaseCleanupResult
+### 5. DatabaseCleanupResult
 
 Result of database cleanup operation.
 
@@ -90,7 +108,7 @@ Result of database cleanup operation.
 | ElapsedMs | long | Time taken for cleanup |
 | Error | string? | Error message if failed |
 
-### 5. McpServerLifecycleConfig
+### 6. McpServerLifecycleConfig
 
 Configuration for the lifecycle manager.
 
@@ -106,26 +124,40 @@ Configuration for the lifecycle manager.
 ## Relationships
 
 ```
-┌──────────────────────┐
-│  BacktestRunner      │
-│  (orchestrator)      │
-└──────────┬───────────┘
-           │ uses
-           ▼
-┌──────────────────────────────┐
-│  McpServerLifecycleManager   │──────► McpServerState
-│  (singleton)                 │
-└──────────┬───────────────────┘
-           │ owns
-           ├──────────────────────┐
-           ▼                      ▼
-┌──────────────────┐    ┌─────────────────┐
-│  McpInstanceLock │    │  DatabaseWatcher │
-│  (named mutex)   │    │  (file events)   │
-└──────────────────┘    └─────────────────┘
-           │                      │
-           │                      │ monitors
-           ▼                      ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       Backtest Process                                   │
+│  ┌──────────────────────┐                                               │
+│  │  BacktestRunner      │                                               │
+│  │  (orchestrator)      │                                               │
+│  └──────────┬───────────┘                                               │
+│             │ 1. Check if MCP running (mutex)                           │
+│             │ 2. Spawn exe if not running                               │
+│             │ 3. Cleanup old database                                   │
+│             │ 4. Run backtest                                           │
+│             │ 5. Exit (MCP keeps running)                               │
+└─────────────┼───────────────────────────────────────────────────────────┘
+              │
+              │ spawns (detached)
+              ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                  DebugEventLogMcpServer.exe (separate process)          │
+│                                                                         │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌────────────────────┐    │
+│  │ McpInstanceLock  │  │ McpShutdownSignal│  │ DatabaseWatcher    │    │
+│  │ (named mutex)    │  │ (EventWaitHandle)│  │ (FileSystemWatcher)│    │
+│  └────────┬─────────┘  └────────┬─────────┘  └────────┬───────────┘    │
+│           │                     │                     │                 │
+│           │ acquired            │ listens             │ monitors        │
+│           ▼                     ▼                     ▼                 │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                    MCP Server (stdio transport)                  │   │
+│  │  - GetEventsByType                                               │   │
+│  │  - GetStateSnapshot                                              │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
+              │
+              │ reads/writes
+              ▼
     ┌─────────────────────────────────┐
     │  SQLite Database (events.db)    │
     │  + WAL files                    │
@@ -134,42 +166,56 @@ Configuration for the lifecycle manager.
 
 ## State Transitions Detail
 
-### Startup Flow
+### Startup Flow (BacktestRunner spawns MCP exe)
 
 ```
 1. BacktestRunner.InitializeAgenticLoggingAsync()
-   └─► McpServerLifecycleManager.EnsureRunningAsync()
+   └─► Check if MCP exe running (IsAnotherInstanceRunning via mutex check)
+       ├─► [yes] → MCP already running, skip spawn
+       └─► [no]  → Spawn DebugEventLogMcpServer.exe as detached process
+                   └─► Process.Start() with UseShellExecute=false, CreateNoWindow=true
+
+2. DebugEventLogMcpServer.exe startup (separate process)
+   └─► Program.Main()
        ├─► McpInstanceLock.TryAcquire()
-       │   ├─► [success] → Continue to start process
-       │   └─► [fail] → Return true (existing instance running)
-       └─► Start MCP server process
-           └─► DatabaseWatcher.Start()
+       │   └─► [fail] → Exit (another instance running)
+       ├─► McpShutdownSignal.CreateForServer()
+       ├─► DatabaseWatcher.Start()
+       └─► BacktestEventMcpServer.RunAsync() (blocks on stdio)
 ```
 
-### Database Cleanup Flow
+### Database Cleanup Flow (BacktestRunner cleans DB, MCP reconnects)
 
 ```
 1. BacktestRunner.RunAsync() [new backtest]
    └─► DatabaseCleanup.CleanupDatabaseAsync()
-       ├─► McpServerLifecycleManager.PrepareForCleanup()
-       │   └─► State = Reconnecting
-       │       └─► Close SqliteConnection
-       ├─► Delete events.db, events.db-wal, events.db-shm
-       └─► DatabaseWatcher triggers Created event
-           └─► McpServerLifecycleManager.Reconnect()
-               └─► State = Running
+       └─► Delete events.db, events.db-wal, events.db-shm
+
+2. MCP Server (running in separate process)
+   └─► DatabaseWatcher detects file deletion/creation
+       └─► OnDatabaseChanged event (after 500ms debounce)
+           ├─► Close existing SqliteConnection
+           └─► Open new SqliteConnection to fresh database
 ```
 
-### Shutdown Flow
+### Shutdown Flow (via --shutdown CLI)
 
 ```
-1. User signals shutdown (or process exit)
-   └─► McpServerLifecycleManager.ShutdownAsync()
-       ├─► State = Stopping
-       ├─► DatabaseWatcher.Stop()
-       ├─► _mcpProcess.Kill()
-       ├─► McpInstanceLock.Dispose()
-       └─► State = Stopped
+1. User runs: DebugEventLogMcpServer.exe --shutdown
+
+2. Shutdown instance (new process, exits quickly)
+   ├─► Check mutex → not acquired = another instance running
+   ├─► Open existing McpShutdownSignal
+   ├─► Signal() → sets EventWaitHandle
+   └─► Wait for mutex release (confirms shutdown)
+
+3. Running MCP server instance
+   └─► Background thread detects shutdown signal
+       └─► cts.Cancel()
+           ├─► Host stops gracefully
+           ├─► Close SqliteConnection
+           ├─► Dispose McpShutdownSignal
+           └─► Dispose McpInstanceLock (releases mutex)
 ```
 
 ## Invariants
