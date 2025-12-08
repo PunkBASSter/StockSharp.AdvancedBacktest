@@ -23,7 +23,7 @@ While the strategy is profitable, several issues were identified that require at
 ### Issue #1: High Maximum Drawdown (63.15%)
 
 **Severity**: High
-**Status**: Open
+**Status**: ✅ Fixed
 
 The strategy experiences a maximum drawdown of 63.15%, which is excessively high for a trend-following breakout strategy.
 
@@ -42,14 +42,14 @@ The strategy experiences a maximum drawdown of 63.15%, which is excessively high
 ### Issue #2: Win Rate Calculation Includes All Trades
 
 **Severity**: Medium
-**Status**: Informational
+**Status**: ✅ Fixed
 
-The reported 29.2% win rate is calculated as:
+The reported 29.2% win rate was incorrectly calculated as:
 ```
 Win Rate = Winning Trades / Total Trades = 19 / 65 = 29.2%
 ```
 
-This includes:
+This included:
 - Entry trades (with PnL = 0)
 - Protection order fills
 - Position closing trades
@@ -59,7 +59,15 @@ This includes:
 - 13 losing round-trips
 - Win Rate = 19 / 32 = **59.4%**
 
-**Recommendation**: Modify `PerformanceMetricsCalculator` to calculate win rate based on completed round-trip trades only, filtering out entries and intermediate fills.
+**Fix Applied** (`PerformanceMetricsCalculator.cs:49-52`):
+```csharp
+// Win rate calculated using completed round-trip trades only (Issue #2 fix)
+// Excludes entry trades with PnL = 0 or null
+var completedTradesCount = winningTrades.Count + losingTrades.Count;
+var winRate = CalculateWinRate(winningTrades.Count, completedTradesCount);
+```
+
+**Test Coverage**: `WinRate_CalculatedUsingCompletedRoundTripTradesOnly` in `PerformanceMetricsCalculatorTests.cs`
 
 ---
 
@@ -182,7 +190,7 @@ The `HasSignalChanged` method (`OrderPositionManager.cs:316-340`) checks if entr
 
 ## Next Steps
 
-1. [ ] Fix win rate calculation to use round-trip trades
+1. [x] Fix win rate calculation to use round-trip trades
 2. [ ] Investigate maximum drawdown and consider tighter stops
 3. [ ] Add circuit breaker for maximum drawdown threshold
 4. [ ] Consider implementing trailing stops

@@ -46,7 +46,10 @@ public class PerformanceMetricsCalculator(double riskFreeRate = 0.02) : IPerform
         var winningTrades = trades.Where(t => t.PnL != null && t.PnL.Value > 0).ToList();
         var losingTrades = trades.Where(t => t.PnL != null && t.PnL.Value < 0).ToList();
 
-        var winRate = CalculateWinRate(winningTrades.Count, trades.Count);
+        // Win rate calculated using completed round-trip trades only (Issue #2 fix)
+        // Excludes entry trades with PnL = 0 or null
+        var completedTradesCount = winningTrades.Count + losingTrades.Count;
+        var winRate = CalculateWinRate(winningTrades.Count, completedTradesCount);
         var averageWin = winningTrades.Count > 0 ? (double)winningTrades.Average(t => t.PnL!.Value) : 0;
         var averageLoss = losingTrades.Count > 0 ? (double)losingTrades.Average(t => t.PnL!.Value) : 0;
 
