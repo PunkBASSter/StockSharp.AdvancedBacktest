@@ -1,7 +1,7 @@
 # 2025 Q4 Roadmap
 
 ## 1. Not enough data in ordinary backtest without debug
-- No ZigZag exported
+- No ZigZag exported (missing feature)
 - No equity is displayed, no statistics calculated
 - TODO: unify calculation logic for all modes
 - Why no trading in 2021+ if there were trades in the previous year
