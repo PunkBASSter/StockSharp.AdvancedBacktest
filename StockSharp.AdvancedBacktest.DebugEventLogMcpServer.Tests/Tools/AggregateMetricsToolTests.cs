@@ -4,7 +4,7 @@ using StockSharp.AdvancedBacktest.DebugMode.AiAgenticDebug.EventLogging.Storage;
 using StockSharp.AdvancedBacktest.DebugMode.AiAgenticDebug.McpServer.Tools;
 using Xunit;
 
-namespace StockSharp.AdvancedBacktest.Tests.EventLogging.McpServer.Tools;
+namespace StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests.Tools;
 
 public sealed class AggregateMetricsToolTests : IAsyncDisposable
 {

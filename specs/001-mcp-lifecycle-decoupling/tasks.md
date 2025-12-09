@@ -17,19 +17,31 @@
 
 ---
 
+## Architecture Decision: Separate Test Project
+
+**Decision**: Created `StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests` as a dedicated test project instead of adding tests to `StockSharp.AdvancedBacktest.Tests/McpServer/`.
+
+**Rationale**:
+- Test project mirrors the exe project structure for clarity
+- Allows independent test execution for the MCP server component
+- Avoids circular dependency issues between test project and exe project
+- E2E tests can directly reference the exe without going through the main library
+
+---
+
 ## Phase 1: Setup (Shared Infrastructure)
 
 **Purpose**: Project initialization, shared types, and new exe project creation
 
-- [ ] T001 Create new console application project StockSharp.AdvancedBacktest.DebugEventLogMcpServer/StockSharp.AdvancedBacktest.DebugEventLogMcpServer.csproj
-- [ ] T002 Add project reference from DebugEventLogMcpServer to StockSharp.AdvancedBacktest library
-- [ ] T003 Add DebugEventLogMcpServer project to StockSharp.AdvancedBacktest.slnx solution
-- [ ] T004 [P] Create McpServerState enum in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/McpServerState.cs
-- [ ] T005 [P] Create McpServerStateChangedEventArgs in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/McpServerStateChangedEventArgs.cs
-- [ ] T006 [P] Create DatabaseChangedEventArgs in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/DatabaseChangedEventArgs.cs
-- [ ] T007 [P] Create McpServerLifecycleConfig in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/McpServerLifecycleConfig.cs
-- [ ] T008 [P] Create DatabaseCleanupResult in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/EventLogging/Storage/DatabaseCleanupResult.cs
-- [ ] T009 Create test folder structure in StockSharp.AdvancedBacktest.Tests/McpServer/
+- [X] T001 Create new console application project StockSharp.AdvancedBacktest.DebugEventLogMcpServer/StockSharp.AdvancedBacktest.DebugEventLogMcpServer.csproj
+- [X] T002 Add project reference from DebugEventLogMcpServer to StockSharp.AdvancedBacktest library
+- [X] T003 Add DebugEventLogMcpServer project to StockSharp.AdvancedBacktest.slnx solution
+- [X] T004 [P] Create McpServerState enum in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/McpServerState.cs
+- [X] T005 [P] Create McpServerStateChangedEventArgs in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/McpServerStateChangedEventArgs.cs
+- [X] T006 [P] Create DatabaseChangedEventArgs in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/DatabaseChangedEventArgs.cs
+- [X] T007 [P] Create McpServerLifecycleConfig in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/McpServerLifecycleConfig.cs
+- [X] T008 [P] Create DatabaseCleanupResult in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/EventLogging/Storage/DatabaseCleanupResult.cs
+- [X] T009 Create test project StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests/ with Lifecycle/, Tools/, Helpers/, E2E/ folders
 
 ---
 
@@ -41,19 +53,19 @@
 
 ### Interfaces
 
-- [ ] T010 Create IMcpInstanceLock interface in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/IMcpInstanceLock.cs
-- [ ] T011 [P] Create IDatabaseWatcher interface in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/IDatabaseWatcher.cs
-- [ ] T012 [P] Create IDatabaseCleanup interface in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/EventLogging/Storage/IDatabaseCleanup.cs
+- [X] T010 Create IMcpInstanceLock interface in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/IMcpInstanceLock.cs
+- [X] T011 [P] Create IDatabaseWatcher interface in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/IDatabaseWatcher.cs
+- [X] T012 [P] Create IDatabaseCleanup interface in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/EventLogging/Storage/IDatabaseCleanup.cs
 
 ### IPC Primitives
 
-- [ ] T013 Create McpDatabasePaths utility class with GetDefaultPath() and GetPath(settings) in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/McpDatabasePaths.cs
-- [ ] T014 [P] Create McpShutdownSignal class wrapping EventWaitHandle in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/McpShutdownSignal.cs
+- [X] T013 Create McpDatabasePaths utility class with GetDefaultPath() and GetPath(settings) in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/McpDatabasePaths.cs
+- [X] T014 [P] Create McpShutdownSignal class wrapping EventWaitHandle in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/McpShutdownSignal.cs
 
 ### Modify Existing MCP Server
 
-- [ ] T015 Modify BacktestEventMcpServer.RunAsync to accept CancellationToken parameter in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/BacktestEventMcpServer.cs
-- [ ] T016 Update SqliteConnection to use Pooling=False in BacktestEventMcpServer.cs connection string
+- [X] T015 Modify BacktestEventMcpServer.RunAsync to accept CancellationToken parameter in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/BacktestEventMcpServer.cs
+- [X] T016 Update SqliteConnection to use Pooling=False in BacktestEventMcpServer.cs connection string
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -71,23 +83,23 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T017 [P] [US1] Unit test for Program.cs --shutdown arg parsing in StockSharp.AdvancedBacktest.Tests/McpServer/ProgramTests.cs
-- [ ] T018 [P] [US1] Unit test for Program.cs normal startup flow in StockSharp.AdvancedBacktest.Tests/McpServer/ProgramTests.cs
-- [ ] T019 [P] [US1] Unit test for McpShutdownSignal.CreateForServer in StockSharp.AdvancedBacktest.Tests/McpServer/McpShutdownSignalTests.cs
-- [ ] T020 [P] [US1] Unit test for McpShutdownSignal.WaitForShutdown in StockSharp.AdvancedBacktest.Tests/McpServer/McpShutdownSignalTests.cs
-- [ ] T021 [P] [US1] Unit test for McpShutdownSignal.Signal in StockSharp.AdvancedBacktest.Tests/McpServer/McpShutdownSignalTests.cs
+- [X] T017 [P] [US1] Unit test for Program.cs --shutdown arg parsing in StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests/Lifecycle/ProgramArgsTests.cs
+- [X] T018 [P] [US1] Unit test for Program.cs normal startup flow in StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests/Lifecycle/ProgramArgsTests.cs
+- [X] T019 [P] [US1] Unit test for McpShutdownSignal.CreateForServer in StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests/Lifecycle/McpShutdownSignalTests.cs
+- [X] T020 [P] [US1] Unit test for McpShutdownSignal.WaitForShutdown in StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests/Lifecycle/McpShutdownSignalTests.cs
+- [X] T021 [P] [US1] Unit test for McpShutdownSignal.Signal in StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests/Lifecycle/McpShutdownSignalTests.cs
 
 ### Implementation for User Story 1
 
-- [ ] T022 [US1] Implement McpShutdownSignal.CreateForServer() creating named EventWaitHandle in McpShutdownSignal.cs
-- [ ] T023 [US1] Implement McpShutdownSignal.OpenExisting() for shutdown command in McpShutdownSignal.cs
-- [ ] T024 [US1] Implement McpShutdownSignal.WaitForShutdown(ct) blocking method in McpShutdownSignal.cs
-- [ ] T025 [US1] Implement McpShutdownSignal.Signal() method in McpShutdownSignal.cs
-- [ ] T026 [US1] Implement Program.cs entry point in StockSharp.AdvancedBacktest.DebugEventLogMcpServer/Program.cs with argument parsing
-- [ ] T027 [US1] Implement ServerStartup class in StockSharp.AdvancedBacktest.DebugEventLogMcpServer/ServerStartup.cs
-- [ ] T028 [US1] Implement ShutdownHandler class with --shutdown logic in StockSharp.AdvancedBacktest.DebugEventLogMcpServer/ShutdownHandler.cs
-- [ ] T029 [US1] Wire shutdown signal monitoring in Program.cs background thread to cancel CancellationTokenSource
-- [ ] T030 [US1] Verify MCP server process does NOT terminate when parent process (BacktestRunner) exits
+- [X] T022 [US1] Implement McpShutdownSignal.CreateForServer() creating named EventWaitHandle in McpShutdownSignal.cs
+- [X] T023 [US1] Implement McpShutdownSignal.OpenExisting() for shutdown command in McpShutdownSignal.cs
+- [X] T024 [US1] Implement McpShutdownSignal.WaitForShutdown(ct) blocking method in McpShutdownSignal.cs
+- [X] T025 [US1] Implement McpShutdownSignal.Signal() method in McpShutdownSignal.cs
+- [X] T026 [US1] Implement Program.cs entry point in StockSharp.AdvancedBacktest.DebugEventLogMcpServer/Program.cs with argument parsing
+- [X] T027 [US1] Implement ServerStartup class in StockSharp.AdvancedBacktest.DebugEventLogMcpServer/ServerStartup.cs
+- [X] T028 [US1] Implement ShutdownHandler class with --shutdown logic in StockSharp.AdvancedBacktest.DebugEventLogMcpServer/ShutdownHandler.cs
+- [X] T029 [US1] Wire shutdown signal monitoring in Program.cs background thread to cancel CancellationTokenSource
+- [ ] T030 [US1] **🔴 MVP BLOCKER** Verify MCP server process does NOT terminate when parent process (BacktestRunner) exits
 
 **Checkpoint**: MCP server exe runs independently - can query backtest results post-completion
 
@@ -103,25 +115,29 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T031 [P] [US2] Unit test for McpInstanceLock.TryAcquire when not held in StockSharp.AdvancedBacktest.Tests/McpServer/McpInstanceLockTests.cs
-- [ ] T032 [P] [US2] Unit test for McpInstanceLock.TryAcquire when already held in StockSharp.AdvancedBacktest.Tests/McpServer/McpInstanceLockTests.cs
-- [ ] T033 [P] [US2] Unit test for McpInstanceLock.IsAnotherInstanceRunning in StockSharp.AdvancedBacktest.Tests/McpServer/McpInstanceLockTests.cs
-- [ ] T034 [P] [US2] Unit test for McpInstanceLock.Dispose releases mutex in StockSharp.AdvancedBacktest.Tests/McpServer/McpInstanceLockTests.cs
-- [ ] T035 [P] [US2] Unit test for abandoned mutex recovery (AbandonedMutexException) in StockSharp.AdvancedBacktest.Tests/McpServer/McpInstanceLockTests.cs
-- [ ] T036 [P] [US2] Unit test for MCP launcher checking existing instance in StockSharp.AdvancedBacktest.Tests/McpServer/McpLauncherTests.cs
+- [X] T031 [P] [US2] Unit test for McpInstanceLock.TryAcquire when not held in StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests/Lifecycle/McpInstanceLockTests.cs
+- [X] T032 [P] [US2] Unit test for McpInstanceLock.TryAcquire when already held in StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests/Lifecycle/McpInstanceLockTests.cs
+- [X] T033 [P] [US2] Unit test for McpInstanceLock.IsAnotherInstanceRunning in StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests/Lifecycle/McpInstanceLockTests.cs
+- [X] T034 [P] [US2] Unit test for McpInstanceLock.Dispose releases mutex in StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests/Lifecycle/McpInstanceLockTests.cs
+- [X] T035 [P] [US2] Unit test for abandoned mutex recovery (AbandonedMutexException) in StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests/Lifecycle/McpInstanceLockTests.cs
+- [ ] T036 [P] [US2] Unit test for MCP launcher in StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests/Lifecycle/McpLauncherTests.cs (deferred - covered by E2E tests T061-T063)
 
 ### Implementation for User Story 2
 
-- [ ] T037 [US2] Implement McpInstanceLock class with named mutex (Global\StockSharp.McpServer.Lock) in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/McpInstanceLock.cs
-- [ ] T038 [US2] Implement TryAcquire() with non-blocking WaitOne(0) in McpInstanceLock.cs
-- [ ] T039 [US2] Implement IsAnotherInstanceRunning() check method in McpInstanceLock.cs
-- [ ] T040 [US2] Implement IDisposable pattern with mutex release in McpInstanceLock.cs
-- [ ] T041 [US2] Integrate McpInstanceLock into Program.cs - acquire on startup, exit if already held
-- [ ] T042 [US2] Create McpServerLauncher utility class in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/McpServerLauncher.cs
-- [ ] T043 [US2] Implement McpServerLauncher.EnsureRunning() - check mutex, spawn exe if needed, using Process.Start with detached settings
+- [X] T037 [US2] Implement McpInstanceLock class with named mutex (Global\StockSharp.McpServer.Lock) in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/McpInstanceLock.cs
+- [X] T038 [US2] Implement TryAcquire() with non-blocking WaitOne(0) in McpInstanceLock.cs
+- [X] T039 [US2] Implement IsAnotherInstanceRunning() check method in McpInstanceLock.cs
+- [X] T040 [US2] Implement IDisposable pattern with mutex release in McpInstanceLock.cs
+- [X] T041 [US2] Integrate McpInstanceLock into Program.cs - acquire on startup, exit if already held
+- [X] T042 [US2] Create McpServerLauncher utility class in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/McpServerLauncher.cs
+- [X] T043 [US2] Implement McpServerLauncher.EnsureRunning() - check mutex, spawn exe if needed, using Process.Start with detached settings
 - [ ] T044 [US2] Integrate McpServerLauncher into BacktestRunner.InitializeAgenticLoggingAsync()
 
 **Checkpoint**: Only one MCP instance runs - verify with multiple sequential backtests
+
+---
+
+> **⚠️ US3 Status Note**: DatabaseCleanup (T051-T052) is implemented and tested. DatabaseWatcher and ReconnectableEventRepository (T053-T059) are **deferred to post-MVP**. Current architecture allows manual MCP server restart if database changes. FR-005 and FR-007 will be addressed in a follow-up iteration. FR-004 (cleanup) and FR-008 (graceful cleanup) are functional.
 
 ---
 
@@ -135,17 +151,17 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T045 [P] [US3] Unit test for DatabaseCleanup.CleanupAsync deletes .db, .db-wal, .db-shm in StockSharp.AdvancedBacktest.Tests/McpServer/DatabaseCleanupTests.cs
-- [ ] T046 [P] [US3] Unit test for DatabaseCleanup retry logic on locked files in StockSharp.AdvancedBacktest.Tests/McpServer/DatabaseCleanupTests.cs
-- [ ] T047 [P] [US3] Unit test for DatabaseWatcher debouncing (500ms) in StockSharp.AdvancedBacktest.Tests/McpServer/DatabaseWatcherTests.cs
-- [ ] T048 [P] [US3] Unit test for DatabaseWatcher Created event detection in StockSharp.AdvancedBacktest.Tests/McpServer/DatabaseWatcherTests.cs
-- [ ] T049 [P] [US3] Unit test for DatabaseWatcher Deleted event detection in StockSharp.AdvancedBacktest.Tests/McpServer/DatabaseWatcherTests.cs
-- [ ] T050 [P] [US3] Unit test for reconnectable event repository in StockSharp.AdvancedBacktest.Tests/McpServer/ReconnectableEventRepositoryTests.cs
+- [X] T045 [P] [US3] Unit test for DatabaseCleanup.CleanupAsync deletes .db, .db-wal, .db-shm in StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests/Lifecycle/DatabaseCleanupTests.cs
+- [X] T046 [P] [US3] Unit test for DatabaseCleanup retry logic on locked files in StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests/Lifecycle/DatabaseCleanupTests.cs
+- [ ] T047 [P] [US3] Unit test for DatabaseWatcher debouncing (500ms) in StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests/Lifecycle/DatabaseWatcherTests.cs (deferred - FileSystemWatcher unit tests are inherently flaky; validate via E2E test T061)
+- [ ] T048 [P] [US3] Unit test for DatabaseWatcher Created event detection (deferred - see T047 rationale)
+- [ ] T049 [P] [US3] Unit test for DatabaseWatcher Deleted event detection (deferred - see T047 rationale)
+- [ ] T050 [P] [US3] Unit test for reconnectable event repository in StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests/Lifecycle/ReconnectableEventRepositoryTests.cs
 
 ### Implementation for User Story 3
 
-- [ ] T051 [US3] Implement DatabaseCleanup class in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/EventLogging/Storage/DatabaseCleanup.cs
-- [ ] T052 [US3] Implement CleanupAsync with retry logic (5 attempts, 200ms delay) for locked files in DatabaseCleanup.cs
+- [X] T051 [US3] Implement DatabaseCleanup class in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/EventLogging/Storage/DatabaseCleanup.cs
+- [X] T052 [US3] Implement CleanupAsync with retry logic (5 attempts, 200ms delay) for locked files in DatabaseCleanup.cs
 - [ ] T053 [US3] Implement DatabaseWatcher class in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/DatabaseWatcher.cs
 - [ ] T054 [US3] Implement FileSystemWatcher with 500ms debounce timer in DatabaseWatcher.cs
 - [ ] T055 [US3] Implement DatabaseChanged event in DatabaseWatcher.cs

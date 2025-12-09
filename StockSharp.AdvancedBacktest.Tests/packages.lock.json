@@ -832,6 +832,12 @@
           "StockSharp.Messages": "[5.0.0, )"
         }
       },
+      "stocksharp.advancedbacktest.debugeventlogmcpserver": {
+        "type": "Project",
+        "dependencies": {
+          "StockSharp.AdvancedBacktest": "[1.0.0, )"
+        }
+      },
       "StockSharp.Algo": {
         "type": "Project",
         "dependencies": {
