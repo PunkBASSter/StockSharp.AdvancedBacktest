@@ -5,6 +5,13 @@
 **Status**: Draft
 **Input**: User description: "Decompose StockSharp.AdvancedBacktest into core and infrastructure assemblies where core is responsible for business logic working with contracts, while infrastructure contains implementations. Create clean, non-leaking abstractions with clear routing responsibilities."
 
+## Clarifications
+
+### Session 2025-12-09
+
+- Q: What is the test migration strategy relative to code refactoring? → A: Test-first migration - migrate/recreate tests for each assembly BEFORE moving corresponding code (red-green approach).
+- Q: What is the test project structure after decomposition? → A: Separate test projects per assembly: `StockSharp.AdvancedBacktest.Core.Tests` and `StockSharp.AdvancedBacktest.Infrastructure.Tests`.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Strategy Developer Uses Core Assembly (Priority: P1)
@@ -115,6 +122,7 @@ A developer examines the project references and finds Infrastructure depends on 
 - **FR-016**: Infrastructure assembly MUST implement Core's debug logging abstraction.
 - **FR-017**: System MUST maintain existing functionality - all current tests pass after decomposition.
 - **FR-018**: System MUST preserve namespace structure where possible (e.g., `StockSharp.AdvancedBacktest.Strategies` stays in Core).
+- **FR-019**: Test migration MUST follow test-first approach: tests for each assembly component MUST be migrated or recreated in new test project structure BEFORE moving corresponding production code (red-green workflow).
 
 ### Key Entities
 
@@ -137,7 +145,7 @@ A developer examines the project references and finds Infrastructure depends on 
 
 ## Assumptions
 
-1. The existing test project (`StockSharp.AdvancedBacktest.Tests`) will be updated to reference both assemblies as needed.
+1. The existing test project (`StockSharp.AdvancedBacktest.Tests`) will be split into separate test projects: `StockSharp.AdvancedBacktest.Core.Tests` (testing Core assembly in isolation) and `StockSharp.AdvancedBacktest.Infrastructure.Tests` (testing Infrastructure with Core dependency).
 2. `LegacyCustomization/StrategyLauncher` will reference both Core and Infrastructure assemblies after decomposition.
 3. The debug logging abstraction will follow a simple interface pattern (e.g., `void LogEvent(...)`) without complex callback mechanisms.
 4. Unused classes identified during analysis will be documented for removal in a separate iteration per user request.
