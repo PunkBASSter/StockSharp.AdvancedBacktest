@@ -10,7 +10,7 @@ namespace StockSharp.AdvancedBacktest.DebugMode.AiAgenticDebug.McpServer;
 
 public static class BacktestEventMcpServer
 {
-	public static async Task RunAsync(string[] args, string? databasePath = null)
+	public static async Task RunAsync(string[] args, string? databasePath = null, CancellationToken ct = default)
 	{
 		var builder = Host.CreateApplicationBuilder(args);
 
@@ -23,27 +23,27 @@ public static class BacktestEventMcpServer
 			};
 		})
 		.WithStdioServerTransport()
-		.WithToolsFromAssembly();
+		.WithToolsFromAssembly(typeof(GetEventsByTypeTool).Assembly);
 
 		builder.Services.AddSingleton<IEventRepository>(sp =>
 		{
-			var dbPath = databasePath ?? Path.Combine(
-				Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-				"StockSharp",
-				"AdvancedBacktest",
-				"event_logs.db");
+			var dbPath = databasePath ?? McpDatabasePaths.GetDefaultPath();
 
 			Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
 
-			var connection = new SqliteConnection($"Data Source={dbPath}");
+			var connection = new SqliteConnection($"Data Source={dbPath};Pooling=False");
 			connection.Open();
 			DatabaseSchema.InitializeAsync(connection).Wait();
 			return new SqliteEventRepository(connection);
 		});
 
 		builder.Services.AddSingleton<GetEventsByTypeTool>();
+		builder.Services.AddSingleton<GetEventsByEntityTool>();
+		builder.Services.AddSingleton<GetStateSnapshotTool>();
+		builder.Services.AddSingleton<AggregateMetricsTool>();
+		builder.Services.AddSingleton<QueryEventSequenceTool>();
 
 		var host = builder.Build();
-		await host.RunAsync();
+		await host.RunAsync(ct);
 	}
 }

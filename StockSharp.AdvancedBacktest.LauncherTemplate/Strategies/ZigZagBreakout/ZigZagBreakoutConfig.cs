@@ -13,7 +13,7 @@ public class ZigZagBreakoutConfig
     public int JmaUsage { get; set; } = -1;
 
     // Risk management: percentage of account to risk per trade (e.g., 2 = 2%)
-    public decimal RiskPercentPerTrade { get; set; } = 2m;
+    public decimal RiskPercentPerTrade { get; set; } = 1m;
 
     // Position sizing limits
     public decimal MinPositionSize { get; set; } = 0.01m;

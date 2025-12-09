@@ -272,7 +272,7 @@ public class DebugWebAppLauncher : IDisposable
             {
                 Console.WriteLine($"Warning: Failed to stop dev server: {ex.Message}");
             }
-            finally
+            finally 
             {
                 _devServerProcess.Dispose();
                 _devServerProcess = null;

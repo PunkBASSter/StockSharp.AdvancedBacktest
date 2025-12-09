@@ -111,7 +111,7 @@ public class Program
                 // Standard Debug Mode - Real-time browser visualization
                 config.DebugMode = new DebugModeSettings
                 {
-                    Enabled = true,
+                    Enabled = false,
                     OutputDirectory = WebAppPath(@"public\debug-mode"),
                     FlushIntervalMs = 800,
                     WebAppPath = WebAppPath(),
@@ -128,7 +128,7 @@ public class Program
             };
 
             // Set timeframe - using 1 hour candles for this backtest
-            strategy.Securities[security] = new[] { TimeSpan.FromHours(1) };
+            strategy.Securities[security] = [TimeSpan.FromHours(1)];
 
             // Set Strategy Parameters using CustomParams
             var parameters = new List<ICustomParam>

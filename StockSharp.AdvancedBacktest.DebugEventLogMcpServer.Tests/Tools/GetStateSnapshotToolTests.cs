@@ -5,7 +5,7 @@ using StockSharp.AdvancedBacktest.DebugMode.AiAgenticDebug.McpServer.Tools;
 using System.Text.Json;
 using Xunit;
 
-namespace StockSharp.AdvancedBacktest.Tests.AiAgenticDebug.McpServer.Tools;
+namespace StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests.Tools;
 
 public sealed class GetStateSnapshotToolTests : IAsyncDisposable
 {
