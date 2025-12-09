@@ -166,6 +166,29 @@ var result = await cleanup.CleanupAsync(databasePath);
 $env:STOCKSHARP_MCP_DATABASE="C:\custom\path\events.db"
 ```
 
+### Claude Code MCP Server Configuration
+
+To use the MCP server with Claude Code, add the following to your `claude_desktop_config.json`:
+
+Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "stocksharp-debug": {
+      "command": "dotnet",
+      "args": [
+        "C:\\repos\\trading\\csharp\\StockSharp.AdvancedBacktest\\StockSharp.AdvancedBacktest.DebugEventLogMcpServer\\bin\\Debug\\net8.0\\StockSharp.AdvancedBacktest.DebugEventLogMcpServer.dll",
+        "--database",
+        "C:\\repos\\trading\\csharp\\StockSharp.AdvancedBacktest\\debug\\events.db"
+      ]
+    }
+  }
+}
+```
+
+**Note**: Update the paths to match your local environment. The MCP server is auto-started by the backtest runner when `AgenticLogging.Enabled = true`, so manual configuration is only needed for standalone use.
+
 ## Testing
 
 ### Unit Tests (TDD)

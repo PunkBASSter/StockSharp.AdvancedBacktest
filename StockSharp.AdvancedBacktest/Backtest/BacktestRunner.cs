@@ -7,7 +7,9 @@ using StockSharp.AdvancedBacktest.Models;
 using StockSharp.AdvancedBacktest.Statistics;
 using StockSharp.AdvancedBacktest.Storages;
 using StockSharp.AdvancedBacktest.DebugMode;
+using StockSharp.AdvancedBacktest.DebugMode.AiAgenticDebug.EventLogging.Storage;
 using StockSharp.AdvancedBacktest.DebugMode.AiAgenticDebug.Integration;
+using StockSharp.AdvancedBacktest.DebugMode.AiAgenticDebug.McpServer;
 using StockSharp.Messages;
 using StockSharp.BusinessEntities;
 
@@ -259,6 +261,33 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
 
         try
         {
+            var databasePath = Path.GetFullPath(_config.AgenticLogging.DatabasePath);
+
+            var cleanup = new DatabaseCleanup();
+            var cleanupResult = await cleanup.CleanupAsync(databasePath);
+            if (cleanupResult.Success && cleanupResult.FilesDeleted.Length > 0)
+            {
+                Logger?.AddInfoLog($"Cleaned up previous database files: {string.Join(", ", cleanupResult.FilesDeleted)}");
+            }
+
+            var launched = McpServerLauncher.EnsureRunning(databasePath);
+            if (launched)
+            {
+                Logger?.AddInfoLog($"MCP server launched for database: {databasePath}");
+            }
+            else
+            {
+                using var checkLock = new McpInstanceLock();
+                if (checkLock.IsAnotherInstanceRunning())
+                {
+                    Logger?.AddInfoLog("MCP server already running");
+                }
+                else
+                {
+                    Logger?.AddWarningLog("Failed to launch MCP server - AI debugging queries may not work");
+                }
+            }
+
             _agenticLogger = new AgenticEventLogger(customStrategy, _config.AgenticLogging);
 
             var strategyConfigHash = customStrategy.ParamsHash ?? "unknown";

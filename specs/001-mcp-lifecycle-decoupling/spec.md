@@ -80,9 +80,9 @@ As a developer, I want the SQLite database to be cleared/recreated at the start 
 - **FR-002**: System MUST maintain a maximum of one MCP server instance at any time
 - **FR-003**: MCP server MUST remain accessible after backtest completion until explicitly shut down
 - **FR-004**: System MUST delete/recreate the SQLite database at the start of each new backtest
-- **FR-005**: MCP server MUST automatically reconnect to the current SQLite database when a new backtest starts
+- **FR-005**: *(Deferred to post-MVP)* MCP server SHOULD automatically reconnect to the current SQLite database when a new backtest starts
 - **FR-006**: System MUST auto-start the MCP server on the first --ai-debug backtest run and provide explicit command to stop it independently
-- **FR-007**: MCP server MUST use file system watcher to detect database file changes and automatically reconnect without requiring restart
+- **FR-007**: *(Deferred to post-MVP)* MCP server SHOULD use file system watcher to detect database file changes and automatically reconnect without requiring restart
 - **FR-008**: Database cleanup MUST gracefully handle active connections before deletion
 - **FR-009**: System MUST prevent race conditions between MCP queries and database recreation
 - **FR-010**: MCP server startup MUST fail gracefully if another instance is already running

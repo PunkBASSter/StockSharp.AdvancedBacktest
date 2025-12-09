@@ -99,7 +99,7 @@
 - [X] T027 [US1] Implement ServerStartup class in StockSharp.AdvancedBacktest.DebugEventLogMcpServer/ServerStartup.cs
 - [X] T028 [US1] Implement ShutdownHandler class with --shutdown logic in StockSharp.AdvancedBacktest.DebugEventLogMcpServer/ShutdownHandler.cs
 - [X] T029 [US1] Wire shutdown signal monitoring in Program.cs background thread to cancel CancellationTokenSource
-- [ ] T030 [US1] **🔴 MVP BLOCKER** Verify MCP server process does NOT terminate when parent process (BacktestRunner) exits
+- [X] T030 [US1] Verify MCP server process does NOT terminate when parent process (BacktestRunner) exits
 
 **Checkpoint**: MCP server exe runs independently - can query backtest results post-completion
 
@@ -131,7 +131,7 @@
 - [X] T041 [US2] Integrate McpInstanceLock into Program.cs - acquire on startup, exit if already held
 - [X] T042 [US2] Create McpServerLauncher utility class in StockSharp.AdvancedBacktest/DebugMode/AiAgenticDebug/McpServer/McpServerLauncher.cs
 - [X] T043 [US2] Implement McpServerLauncher.EnsureRunning() - check mutex, spawn exe if needed, using Process.Start with detached settings
-- [ ] T044 [US2] Integrate McpServerLauncher into BacktestRunner.InitializeAgenticLoggingAsync()
+- [X] T044 [US2] Integrate McpServerLauncher into BacktestRunner.InitializeAgenticLoggingAsync()
 
 **Checkpoint**: Only one MCP instance runs - verify with multiple sequential backtests
 
@@ -169,7 +169,7 @@
 - [ ] T057 [US3] Implement Reconnect() method that disposes and recreates SqliteConnection in ReconnectableEventRepository.cs
 - [ ] T058 [US3] Wire DatabaseWatcher into MCP server startup in ServerStartup.cs
 - [ ] T059 [US3] Subscribe to DatabaseChanged event and trigger repository reconnection
-- [ ] T060 [US3] Integrate DatabaseCleanup into BacktestRunner.InitializeAgenticLoggingAsync() before logger setup
+- [X] T060 [US3] Integrate DatabaseCleanup into BacktestRunner.InitializeAgenticLoggingAsync() before logger setup
 
 **Checkpoint**: Database fresh on each backtest - verify second run has only second run's events
 
@@ -181,17 +181,17 @@
 
 ### Integration Tests
 
-- [ ] T061 [P] Integration test: full lifecycle (spawn exe, query, cleanup, reconnect, query) in StockSharp.AdvancedBacktest.Tests/Integration/McpLifecycleIntegrationTests.cs
-- [ ] T062 [P] Integration test: 10 sequential backtests with 1 MCP instance in StockSharp.AdvancedBacktest.Tests/Integration/McpLifecycleIntegrationTests.cs
-- [ ] T063 [P] Integration test: --shutdown command terminates running instance in StockSharp.AdvancedBacktest.Tests/Integration/McpLifecycleIntegrationTests.cs
-- [ ] T064 [P] Integration test: database cleanup within 10 seconds (up to 1GB) in StockSharp.AdvancedBacktest.Tests/Integration/McpLifecycleIntegrationTests.cs
+- [X] T061 [P] Integration test: full lifecycle (spawn exe, query, cleanup, reconnect, query) in StockSharp.AdvancedBacktest.Tests/Integration/McpLifecycleIntegrationTests.cs
+- [X] T062 [P] Integration test: 10 sequential backtests with 1 MCP instance in StockSharp.AdvancedBacktest.Tests/Integration/McpLifecycleIntegrationTests.cs
+- [X] T063 [P] Integration test: --shutdown command terminates running instance in StockSharp.AdvancedBacktest.Tests/Integration/McpLifecycleIntegrationTests.cs
+- [X] T064 [P] Integration test: database cleanup within 10 seconds (up to 1GB) in StockSharp.AdvancedBacktest.Tests/Integration/McpLifecycleIntegrationTests.cs
 
 ### Validation & Cleanup
 
-- [ ] T065 Run quickstart.md validation scenarios manually
-- [ ] T066 Code review for explicit visibility modifiers per constitution
-- [ ] T067 Verify error handling for edge cases (mutex abandoned, file locked, watcher overflow)
-- [ ] T068 Update MCP configuration in .mcp.json or claude_desktop_config.json with new exe path
+- [X] T065 Run quickstart.md validation scenarios manually
+- [X] T066 Code review for explicit visibility modifiers per constitution
+- [X] T067 Verify error handling for edge cases (mutex abandoned, file locked, watcher overflow)
+- [X] T068 Update MCP configuration in .mcp.json or claude_desktop_config.json with new exe path
 
 ---
 
