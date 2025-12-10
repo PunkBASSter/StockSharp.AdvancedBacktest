@@ -3,6 +3,7 @@ using StockSharp.Algo;
 using StockSharp.Algo.Storages;
 using StockSharp.Algo.Strategies;
 using StockSharp.Algo.Testing;
+using StockSharp.AdvancedBacktest.Strategies;
 using StockSharp.AdvancedBacktest.Models;
 using StockSharp.AdvancedBacktest.Statistics;
 using StockSharp.AdvancedBacktest.Storages;
@@ -73,7 +74,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
             await InitializeAgenticLoggingAsync();
 
             // Subscribe to indicators after strategy starts (they are created in OnStarted)
-            if (_strategy is Strategies.CustomStrategyBase customStrategy)
+            if (_strategy is CustomStrategyBase customStrategy)
             {
                 if (_debugExporter != null || _agenticLogger != null)
                 {
@@ -205,7 +206,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
         try
         {
             // Initialize exporter with strategy
-            if (_strategy is Strategies.CustomStrategyBase customStrategy)
+            if (_strategy is CustomStrategyBase customStrategy)
             {
                 // Extract candle interval from strategy configuration
                 var candleInterval = ExtractCandleInterval(_strategy);
@@ -253,7 +254,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
         if (_config.AgenticLogging?.Enabled != true)
             return;
 
-        if (_strategy is not Strategies.CustomStrategyBase customStrategy)
+        if (_strategy is not CustomStrategyBase customStrategy)
         {
             Logger?.AddWarningLog($"Strategy type {_strategy.GetType().Name} is not CustomStrategyBase. Agentic logging requires CustomStrategyBase.");
             return;
@@ -332,7 +333,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
 
     private TimeSpan? ExtractCandleInterval(TStrategy strategy)
     {
-        if (strategy is Strategies.CustomStrategyBase customStrategy)
+        if (strategy is CustomStrategyBase customStrategy)
         {
             var firstSecurity = customStrategy.Securities.FirstOrDefault();
             return firstSecurity.Value?.FirstOrDefault();
@@ -353,7 +354,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
 
             // Get security ID from subscription or use first security from strategy
             var securityId = subscription?.SecurityId;
-            if (securityId == null && _strategy is Strategies.CustomStrategyBase customStrategy)
+            if (securityId == null && _strategy is CustomStrategyBase customStrategy)
             {
                 securityId = customStrategy.Securities.Keys.FirstOrDefault()?.ToSecurityId() ?? default;
             }
@@ -399,7 +400,7 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
         try
         {
             var securityId = subscription?.SecurityId;
-            if (securityId == null && _strategy is Strategies.CustomStrategyBase customStrategy)
+            if (securityId == null && _strategy is CustomStrategyBase customStrategy)
             {
                 securityId = customStrategy.Securities.Keys.FirstOrDefault()?.ToSecurityId() ?? default;
             }
