@@ -49,6 +49,27 @@ public sealed class SqliteEventRepository : IEventRepository
 		};
 	}
 
+	public async Task<IReadOnlyList<BacktestRunEntity>> GetAllBacktestRunsAsync()
+	{
+		using var command = _connection.CreateCommand();
+		command.CommandText = "SELECT * FROM BacktestRuns ORDER BY CreatedAt DESC";
+
+		var runs = new List<BacktestRunEntity>();
+		using var reader = await command.ExecuteReaderAsync();
+		while (await reader.ReadAsync())
+		{
+			runs.Add(new BacktestRunEntity
+			{
+				Id = reader.GetString(0),
+				StartTime = DateTime.Parse(reader.GetString(1), null, System.Globalization.DateTimeStyles.RoundtripKind),
+				EndTime = DateTime.Parse(reader.GetString(2), null, System.Globalization.DateTimeStyles.RoundtripKind),
+				StrategyConfigHash = reader.GetString(3),
+				CreatedAt = DateTime.Parse(reader.GetString(4), null, System.Globalization.DateTimeStyles.RoundtripKind)
+			});
+		}
+		return runs;
+	}
+
 	public async Task WriteEventAsync(EventEntity eventEntity)
 	{
 		CircularReferenceDetector.ThrowIfSelfReference(eventEntity);

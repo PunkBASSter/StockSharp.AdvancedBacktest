@@ -6,6 +6,7 @@ public interface IEventRepository
 {
 	Task CreateBacktestRunAsync(BacktestRunEntity run);
 	Task<BacktestRunEntity?> GetBacktestRunAsync(string runId);
+	Task<IReadOnlyList<BacktestRunEntity>> GetAllBacktestRunsAsync();
 	Task WriteEventAsync(EventEntity eventEntity);
 	Task<EventEntity?> GetEventByIdAsync(string eventId);
 	Task<EventQueryResult> QueryEventsAsync(EventQueryParameters parameters);

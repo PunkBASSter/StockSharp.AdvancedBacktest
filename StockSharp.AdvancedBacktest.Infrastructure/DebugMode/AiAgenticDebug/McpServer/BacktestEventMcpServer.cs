@@ -37,6 +37,7 @@ public static class BacktestEventMcpServer
 			return new SqliteEventRepository(connection);
 		});
 
+		builder.Services.AddSingleton<ListBacktestRunsTool>();
 		builder.Services.AddSingleton<GetEventsByTypeTool>();
 		builder.Services.AddSingleton<GetEventsByEntityTool>();
 		builder.Services.AddSingleton<GetStateSnapshotTool>();

@@ -39,6 +39,8 @@ namespace StockSharp.AdvancedBacktest.DebugMode.AiAgenticDebug.EventLogging.Seri
 [JsonSerializable(typeof(ActiveOrderDto))]
 [JsonSerializable(typeof(PnlDto))]
 [JsonSerializable(typeof(StateSnapshotMetadataDto))]
+[JsonSerializable(typeof(ListBacktestRunsResponse))]
+[JsonSerializable(typeof(BacktestRunDto))]
 public partial class EventJsonContext : JsonSerializerContext
 {
 }
