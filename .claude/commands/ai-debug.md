@@ -7,14 +7,31 @@ $ARGUMENTS
 ## Prerequisites
 
 Before using MCP tools, ensure the MCP server is configured in `.mcp.json` (project root). This allows Claude Code to access the debug event log tools directly.
+If you think that the DB path in `.mcp.json` is incorrect, this is a wrong call due to the actual execution folder.
 
 ## Quick Start for AI Agents
 
 **To debug a strategy issue:**
 
 1. Run the backtest with `--ai-debug` flag to populate the database
-2. Use MCP tools to query events (preferred) OR direct SQL queries
+2. Use MCP tools to query events (preferred) OR direct SQL queries (not recommended)
 3. The database contains only events from the most recent run (fresh on each backtest)
+
+> **IMPORTANT - Polling Rules for Background Backtests:**
+>
+> Backtests complete very fast (typically 1-20 seconds). Long polling is a waste of tokens.
+>
+> **MANDATORY BEHAVIOR:**
+> 1. Poll BashOutput **at most 3 times** while waiting for backtest completion
+> 2. If after 3 polls the backtest is still "running" with no results, **STOP polling immediately**
+> 3. Instead, check if candles/trades are being logged via MCP tools (`AggregateMetricsAsync` with eventType=TradeExecution) or direct DB query
+> 4. If no events are being logged but process is "running", there is likely a **hanging bug** - kill the process and investigate
+>
+> **Why this matters:** The Debug Mode is recently developed and may not be 100% reliable. A backtest stuck at "Starting backtest..." for more than 30 seconds with no events logged indicates a problem that requires investigation, not more polling.
+>
+> **Detection Pattern:**
+> - Normal: "Starting backtest..." → results appear within 1-20 seconds
+> - Hanging: "Starting backtest..." persists with 0 TradeExecution events in DB → kill and debug
 
 ## Architecture
 

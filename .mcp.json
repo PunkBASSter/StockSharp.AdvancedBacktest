@@ -4,6 +4,7 @@
       "command": "dotnet",
       "args": [
         "run",
+        "--no-build",
         "--project",
         "StockSharp.AdvancedBacktest.DebugEventLogMcpServer",
         "--",
