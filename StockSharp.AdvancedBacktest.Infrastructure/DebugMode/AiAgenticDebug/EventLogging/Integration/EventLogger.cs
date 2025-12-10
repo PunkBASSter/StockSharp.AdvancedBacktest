@@ -31,7 +31,7 @@ public sealed class EventLogger : IAsyncDisposable
 			EventType = eventType,
 			Severity = severity,
 			Category = category,
-			Properties = JsonSerializer.Serialize(properties, JsonSerializerOptionsProvider.Options),
+			Properties = JsonSerializer.Serialize(properties, JsonSerializerOptionsProvider.DynamicOptions),
 			ParentEventId = parentEventId,
 			ValidationErrors = null
 		};
