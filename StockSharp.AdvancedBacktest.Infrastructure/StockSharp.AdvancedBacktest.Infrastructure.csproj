@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="StockSharp.AdvancedBacktest.Infrastructure.Tests" />
+    <InternalsVisibleTo Include="StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests" />
   </ItemGroup>
 
   <ItemGroup>

@@ -485,6 +485,7 @@
       "stocksharp.advancedbacktest.core": {
         "type": "Project",
         "dependencies": {
+          "Microsoft.Extensions.Options": "[8.0.2, )",
           "StockSharp.Algo": "[5.0.0, )",
           "StockSharp.BusinessEntities": "[5.0.0, )",
           "StockSharp.Messages": "[5.0.0, )"

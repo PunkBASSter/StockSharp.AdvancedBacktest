@@ -31,7 +31,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\StockSharp.AdvancedBacktest\StockSharp.AdvancedBacktest.csproj" />
+    <ProjectReference Include="..\StockSharp.AdvancedBacktest.Core\StockSharp.AdvancedBacktest.Core.csproj" />
+    <ProjectReference Include="..\StockSharp.AdvancedBacktest.Infrastructure\StockSharp.AdvancedBacktest.Infrastructure.csproj" />
     <ProjectReference Include="..\StockSharp.AdvancedBacktest.DebugEventLogMcpServer\StockSharp.AdvancedBacktest.DebugEventLogMcpServer.csproj" />
   </ItemGroup>
 
