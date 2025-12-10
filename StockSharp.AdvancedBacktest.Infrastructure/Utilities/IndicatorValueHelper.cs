@@ -10,12 +10,27 @@ public static class IndicatorValueHelper
         if (value == null)
             throw new ArgumentNullException(nameof(value));
 
+        // Guard against empty values that would throw 'No data' exception
+        if (value.IsEmpty)
+            throw new InvalidOperationException("Cannot convert empty indicator value to data point. Use ShouldExport() to filter first.");
+
         var timestamp = GetAdjustedTimestamp(value, candleInterval);
+
+        // Use safe extraction to avoid 'No data' exception from StockSharp
+        decimal decimalValue;
+        try
+        {
+            decimalValue = value.GetValue<decimal>();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("No data"))
+        {
+            throw new InvalidOperationException($"Indicator value reported IsEmpty=false but contains no data. Time: {value.Time}, Type: {value.GetType().Name}", ex);
+        }
 
         return new IndicatorDataPoint
         {
             Time = timestamp.ToUnixTimeMilliseconds(),
-            Value = (double)value.GetValue<decimal>()
+            Value = (double)decimalValue
         };
     }
 
@@ -78,14 +93,23 @@ public static class IndicatorValueHelper
         if (value.IsEmpty)
             return false;
 
+        // Verify we can actually extract the value without exception
         try
         {
             var decimalValue = value.GetValue<decimal>();
+            // Skip zero values (indicator outputs zero when no significant value)
             if (decimalValue == 0m)
                 return false;
         }
+        catch (InvalidOperationException)
+        {
+            // 'No data' exception - value is not exportable
+            return false;
+        }
         catch
         {
+            // Any other extraction error - skip this value
+            return false;
         }
 
         return true;

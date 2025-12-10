@@ -72,12 +72,15 @@ public class ZigZagBreakout : CustomStrategyBase
         };
 
         SubscribeCandles(subscription)
-            .Bind(_dzz, OnProcessCandle)
+            .BindWithEmpty(_dzz, OnProcessCandle)
             .Start();
     }
 
-    private void OnProcessCandle(ICandleMessage candle, decimal dzzValue)
+    private void OnProcessCandle(ICandleMessage candle, decimal? dzzValue)
     {
+        if (candle.OpenTime == new DateTimeOffset(2020, 1, 03, 2, 0, 0, TimeSpan.Zero))
+            LogDebug("last order timestamp"); //Stops were not placed here - custom order management was used
+        
         //A special bar that triggers open order and tp at the same time for testing
         if (candle.OpenTime == new DateTimeOffset(2020, 4, 29, 1, 0, 0, TimeSpan.Zero))
             LogDebug("last order timestamp"); // Stops from StandardProtection were placed but never triggered (as price moved too far)
@@ -143,11 +146,11 @@ public class ZigZagBreakout : CustomStrategyBase
             return null;
 
         // Extract last 3 non-zero zigzag points from last 20 values
-        var last20 = _dzzHistory
+        // Filter out empty indicator values before extracting decimal values
+        var nonZeroPoints = _dzzHistory
             .Skip(Math.Max(0, _dzzHistory.Count - 20))
+            .Where(h => !h.IsEmpty)
             .Select(h => h.GetValue<decimal>())
-            .ToList();
-        var nonZeroPoints = last20
             .Where(v => v != 0)
             .TakeLast(3)
             .ToArray();

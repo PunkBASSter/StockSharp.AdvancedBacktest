@@ -225,15 +225,9 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
                 Logger?.AddWarningLog($"Strategy type {_strategy.GetType().Name} is not CustomStrategyBase. Debug mode will have limited functionality.");
             }
 
-            // Subscribe to connector events for candles and trades
-            if (_connector != null)
-            {
-                _connector.CandleReceived += OnCandleReceivedForDebug;
-                Logger?.AddInfoLog("Debug mode subscribed to connector candle events");
-            }
-
-            // Subscribe to strategy candle events (in addition to connector)
-            // This is important because strategies may subscribe to candles independently
+            // Subscribe to strategy candle events only (not connector)
+            // The strategy's CandleReceived event is sufficient and avoids duplicate candle captures
+            // Note: Connector subscription was removed to prevent duplicate candles in debug output
             _strategy.CandleReceived += OnCandleReceivedForDebug;
             Logger?.AddInfoLog("Debug mode subscribed to strategy candle events");
 
