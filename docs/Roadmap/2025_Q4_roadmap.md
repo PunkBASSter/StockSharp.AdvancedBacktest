@@ -1,12 +1,34 @@
 # 2025 Q4 Roadmap
 
-## 1. Not enough data in ordinary backtest without debug
-- No ZigZag exported (missing feature)
-- No equity is displayed, no statistics calculated
-- TODO: unify calculation logic for all modes
-- Why no trading in 2021+ if there were trades in the previous year
+Стратегия туду:
+
+Учёт связанных ордеров и управление ими - от какого сигнала, кто (стратегия - реф инстанса, сигнал модуль айди или тип+реф) их может закрыть. - нужно чтобы не пропускать сигналы, сидя в позиции.
+
+Сменяемые трендовые фильтры, подгрузка параметров, брутфорс оптимизация с поддержкой сменных фильтров.
+Фильтры по мин/макс волатильности
+
+Волк форвард с отсевом, поиском общих комбинаций
+
+Перестановки Монте Карло
+
+Бенчмарки - бай холд, индексы
+
+Нейронки туду:
+Отдельно стенд для обучения моделей. Пайторч, лстм зигзаг.
+Определялки тренда, бенчмарки в виде тривиальных МА. Апи для лайва с кэшем для тестера.
+
+## Known issues:
+- Reports: indicators are not drawn or drawn after the chart
+- Reports: no equity displayed, no reported numbers
+- DebugMode: after it's finished, displaying is fucked up
+- DebugMode: trades are re-drawn to the next b
+- ? Keep an eye on AI debug - ALPHA VERSION
+
+## Refactoring:
+- Unify debug event export under a single abstraction but different implementations for AI/Human that can be enabled simultaneously.
 
 ## 2. Add .claude/CLAUDE.md definitions
+!! - Instruct Claude code to use /ai-debug command for running backtests and analyzing the execution logs. Maybe it's possible to place breakpoints and use step into/forward, see watch and etc?
 - For each sub-project (e.g., StockSharp.AdvancedBacktest, StockSharp.AdvancedBacktest.LauncherTemplate), create a CLAUDE.md file defining the main agents and their responsibilities.
 - Define the roles of Product Manager Agent, Tech Lead Agent, Backend Implementer Agent, QA Tester Agent, and Documentation Specialist Agent and map them to specific subagents.
 - Ensure clear instructions for each agent in their definitions.
@@ -17,10 +39,7 @@
 - Example BTCUSDT@BNB after new DateTimeOffset(2020, 2, 06, 9, 0, 0, TimeSpan.Zero) - there were no protective orders placed.
 - Example BTCUSDT@BNB after new DateTimeOffset(2020, 4, 29, 1, 0, 0, TimeSpan.Zero) - big candle with both local peak and trough. - Challenging the existing DeltaZigZag logic.
 
-## 4. LLM-agent-friendly events logging of backtest execution:
-- Enhance logging in backtest engine to produce structured, LLM-agent-friendly logs. Requires full PRD and TRD. The idea is to enable LLM agents to analyze backtest runs and identify issues or optimization opportunities. Potential implementation could involve a DB engine with MCP as an agent-friendly interface (to save tokens, by fetching only relevant events).
-
-## 5. Enhance backtesting engine to support multiple timeframes:
+## 4. Enhance backtesting engine to support multiple timeframes:
 
 Main Goal: Increase modeling accuracy for strategies that operate with pending orders and rely on price levels, to enhance order/tp/sl execution behavior during backtests.
 
