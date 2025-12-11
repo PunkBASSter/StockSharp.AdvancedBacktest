@@ -109,12 +109,25 @@ public class ZigZagBreakout : CustomStrategyBase
         if (_orderManager!.CheckProtectionLevels(candle))
             return; // Position was closed, no need to check for new signals
 
+        // Don't process new signals if we already have a position
         if (Position > 0)
             return;
 
         var signalData = TryGetBuyOrder();
+
+        // If no valid signal, cancel any pending entry orders
         if (!signalData.HasValue)
+        {
+            _orderManager.HandleSignal(null);
             return;
+        }
+
+        // Don't place new orders if there's already an active pending order with same signal
+        var activeOrders = _orderManager.ActiveOrders();
+        if (activeOrders.Length > 0)
+        {
+            // Let HandleSignal decide if the signal changed enough to replace
+        }
 
         var (price, sl, tp) = signalData.Value;
         var volume = CalculatePositionSize(price, sl);

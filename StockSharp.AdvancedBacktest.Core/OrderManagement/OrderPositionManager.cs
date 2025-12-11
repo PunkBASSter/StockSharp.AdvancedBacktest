@@ -251,7 +251,10 @@ public class OrderPositionManager(IStrategyOrderOperations strategy)
             }
         }
 
-        PlaceProtectionOrders(_lastSignal);
+        // NOTE: We don't place limit protection orders here because CheckProtectionLevels()
+        // handles SL/TP checking on each candle. Using both would cause double closes.
+        // If you want to use limit orders instead of candle-based checking, uncomment:
+        // PlaceProtectionOrders(_lastSignal);
     }
 
     private void HandleStopLossFill(MyTrade trade)
