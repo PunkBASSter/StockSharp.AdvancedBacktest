@@ -58,7 +58,7 @@ nunit-*.xml
 
 *.duckdb
 .claude/settings.local.json
-.mcp.json
+#.mcp.json
 .env
 .vscode/settings.json
 

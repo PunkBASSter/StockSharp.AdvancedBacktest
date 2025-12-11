@@ -3,8 +3,11 @@
     <File Path="StockSharp/StockSharp.sln" />
   </Folder>
   <Project Path="StockSharp.AdvancedBacktest.Tests/StockSharp.AdvancedBacktest.Tests.csproj" />
-  <Project Path="StockSharp.AdvancedBacktest/StockSharp.AdvancedBacktest.csproj" />
   <Project Path="StockSharp.AdvancedBacktest.LauncherTemplate/StockSharp.AdvancedBacktest.LauncherTemplate.csproj" />
   <Project Path="StockSharp.AdvancedBacktest.DebugEventLogMcpServer/StockSharp.AdvancedBacktest.DebugEventLogMcpServer.csproj" />
   <Project Path="StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests/StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests.csproj" />
+  <Project Path="StockSharp.AdvancedBacktest.Core/StockSharp.AdvancedBacktest.Core.csproj" />
+  <Project Path="StockSharp.AdvancedBacktest.Infrastructure/StockSharp.AdvancedBacktest.Infrastructure.csproj" />
+  <Project Path="StockSharp.AdvancedBacktest.Core.Tests/StockSharp.AdvancedBacktest.Core.Tests.csproj" />
+  <Project Path="StockSharp.AdvancedBacktest.Infrastructure.Tests/StockSharp.AdvancedBacktest.Infrastructure.Tests.csproj" />
 </Solution>

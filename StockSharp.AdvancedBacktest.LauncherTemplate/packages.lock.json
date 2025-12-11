@@ -715,7 +715,16 @@
         "resolved": "6.5.2",
         "contentHash": "Su/PYYn3vQR5sMPmkImiUra29CJinr626teUsWj2DDORuc+HgmJRZPgWh8ht+Uakr3L3UapexdbBP3DKPwPGsg=="
       },
-      "stocksharp.advancedbacktest": {
+      "stocksharp.advancedbacktest.core": {
+        "type": "Project",
+        "dependencies": {
+          "Microsoft.Extensions.Options": "[8.0.2, )",
+          "StockSharp.Algo": "[5.0.0, )",
+          "StockSharp.BusinessEntities": "[5.0.0, )",
+          "StockSharp.Messages": "[5.0.0, )"
+        }
+      },
+      "stocksharp.advancedbacktest.infrastructure": {
         "type": "Project",
         "dependencies": {
           "Microsoft.Data.Sqlite": "[8.0.11, )",
@@ -724,6 +733,7 @@
           "Microsoft.Extensions.Logging.Abstractions": "[8.0.3, )",
           "Microsoft.Extensions.Options": "[8.0.2, )",
           "ModelContextProtocol": "[0.4.0-preview.3, )",
+          "StockSharp.AdvancedBacktest.Core": "[1.0.0, )",
           "StockSharp.Algo": "[5.0.0, )",
           "StockSharp.BusinessEntities": "[5.0.0, )",
           "StockSharp.Messages": "[5.0.0, )"

@@ -1,24 +1,27 @@
 <!--
   SYNC IMPACT REPORT
-  Version: 1.0.0 → 1.0.0 (Ratification complete - RATIFICATION_DATE resolved)
+  Version: 1.0.0 → 1.1.0 (Assembly decomposition - Core/Infrastructure separation formalized)
 
-  Modified Principles: None (ratification only)
+  Modified Principles:
+  - I. Separation of Concerns: Updated example boundaries to reflect new assembly structure
 
-  Added Sections: None
+  Added Sections:
+  - Project Assembly Structure (new subsection under Principle I)
 
   Removed Sections: None
 
   Templates Status:
-  ✅ plan-template.md - Constitution Check section validated
-  ✅ spec-template.md - Requirements and user story structure compatible
-  ✅ tasks-template.md - Task categorization aligns with principles
-  ✅ agent-file-template.md - Generic template structure compatible
-  ✅ checklist-template.md - Generic template structure compatible
+  ✅ plan-template.md - Constitution Check section validated (no changes needed)
+  ✅ spec-template.md - Requirements structure compatible (no changes needed)
+  ✅ tasks-template.md - Task categorization aligns with principles (no changes needed)
 
   Commands Reviewed:
-  ✅ speckit.plan.md - Agent-specific reference ("claude") appropriate for command context
-  ✅ speckit.specify.md - No agent-specific constraints, generic guidance maintained
-  ⚠️  Other speckit commands - Not reviewed in detail but assume similar pattern
+  ✅ All speckit commands - No outdated references
+
+  Documentation Updates Required:
+  ✅ CLAUDE.md - Updated with new project structure
+  ✅ .claude/CLAUDE.md - Updated with new assembly examples
+  ✅ README.md - Updated project references
 
   Follow-up TODOs: None
 -->
@@ -33,9 +36,31 @@ Each module, class, or function MUST have a single, well-defined responsibility.
 
 **Rationale**: Financial trading systems require clear boundaries between trading logic and operational concerns. This separation enables independent testing of trading algorithms, facilitates strategy reuse across different execution environments, and prevents infrastructure changes from affecting trading behavior.
 
-**Example boundaries**:
-- `CustomStrategyBase` and pluggable modules: Business logic
-- `DataExporter`, `BacktestLauncher`, `DebugMode` namespace: Infrastructure
+**Project Assembly Structure**:
+
+The codebase is decomposed into two main assemblies with one-way dependency flow:
+
+- **StockSharp.AdvancedBacktest.Core**: Business logic assembly
+  - `Strategies/`: CustomStrategyBase, strategy modules (position sizing, stop-loss, take-profit)
+  - `OrderManagement/`: TradeSignal, OrderPositionManager, IStrategyOrderOperations
+  - `Parameters/`: ICustomParam, NumberParam, SecurityParam, TimeSpanParam, etc.
+  - `Statistics/`: PerformanceMetrics, PerformanceMetricsCalculator
+  - `PerformanceValidation/`: WalkForwardConfig, WalkForwardResult, WindowResult (models only)
+  - `Models/`: OptimizationConfig, OptimizationResult, BacktestConfig, BacktestResult
+  - Dependencies: StockSharp (Algo, BusinessEntities, Messages), Microsoft.Extensions.Options
+
+- **StockSharp.AdvancedBacktest.Infrastructure**: Operational/infrastructure assembly
+  - `Export/`: ReportBuilder, BacktestExporter, IndicatorExporter
+  - `DebugMode/`: DebugModeExporter, AiAgenticDebug/ (EventLogging, McpServer)
+  - `Optimization/`: OptimizerRunner, OptimizationLauncher, LauncherBase
+  - `PerformanceValidation/`: WalkForwardValidator (orchestration logic)
+  - `Backtest/`: BacktestRunner (orchestration logic)
+  - `Storages/`: SharedStorageRegistry, SharedMarketDataStorage
+  - `Serialization/`: JSON converters and options
+  - `Utilities/`: CartesianProductGenerator, IndicatorValueHelper
+  - Dependencies: Core assembly, Microsoft.Data.Sqlite, Microsoft.Extensions.*, ModelContextProtocol
+
+**Dependency Rule**: Infrastructure MUST depend on Core. Core MUST NOT depend on Infrastructure. This ensures business logic remains portable and testable without infrastructure concerns.
 
 ### II. Test-First Development (NON-NEGOTIABLE)
 
@@ -47,7 +72,12 @@ All new features MUST follow test-driven development:
 
 **Rationale**: Financial backtesting requires absolute confidence in correctness. Test-first development ensures specifications are clear before implementation, prevents regression in strategy behavior, and provides executable documentation of expected behavior. Given the financial impact of bugs, testing discipline is non-negotiable.
 
-**Testing framework**: xUnit v3 with Microsoft.NET.Test.Sdk targeting .NET 10
+**Testing framework**: xUnit v3 with Microsoft.NET.Test.Sdk targeting .NET 8
+
+**Test Project Structure**:
+- `StockSharp.AdvancedBacktest.Core.Tests`: Unit tests for Core assembly (isolated business logic)
+- `StockSharp.AdvancedBacktest.Infrastructure.Tests`: Unit tests for Infrastructure assembly
+- `StockSharp.AdvancedBacktest.Tests`: Integration tests spanning both assemblies
 
 ### III. Financial Precision
 
@@ -93,8 +123,8 @@ Every feature MUST be testable end-to-end in isolation. Strategies must support 
 
 ### Test Organization
 
-- **Unit tests**: Isolated component behavior, fast execution
-- **Integration tests**: Component interaction, StockSharp integration, backtesting pipeline
+- **Unit tests**: Isolated component behavior, fast execution (Core.Tests, Infrastructure.Tests)
+- **Integration tests**: Component interaction, StockSharp integration, backtesting pipeline (Tests)
 - **Contract tests**: Strategy parameter contracts, optimization configuration validation
 
 ### Test Requirements
@@ -165,11 +195,12 @@ When a class has too many responsibilities and dependencies, refactor into small
 
 ### Review Focus Areas
 
-- Separation of concerns: Business logic vs infrastructure
+- Separation of concerns: Business logic (Core) vs infrastructure (Infrastructure)
 - Test coverage and TDD compliance
 - Financial precision (decimal usage, JSON converters)
 - Composition patterns vs inheritance
 - API simplicity and clarity
+- One-way dependency flow (Infrastructure → Core)
 
 ### Runtime Development Guidance
 
@@ -179,4 +210,4 @@ For AI-assisted development, consult `.claude/CLAUDE.md` and `CLAUDE.md` for:
 - Code style and formatting conventions
 - StockSharp integration patterns
 
-**Version**: 1.0.0 | **Ratified**: 2025-11-11 | **Last Amended**: 2025-11-11
+**Version**: 1.1.0 | **Ratified**: 2025-11-11 | **Last Amended**: 2025-12-10

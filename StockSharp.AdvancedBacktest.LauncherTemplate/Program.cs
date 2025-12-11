@@ -95,10 +95,13 @@ public class Program
             if (aiDebug)
             {
                 // AI Agentic Debug Mode - SQLite event repository for AI agent analysis
+                // Path is relative to solution root for MCP server compatibility
+                var solutionRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\..\.."));
+                var debugDbPath = Path.Combine(solutionRoot, "debug", "events.db");
                 config.AgenticLogging = new AgenticLoggingSettings
                 {
                     Enabled = true,
-                    DatabasePath = "debug/events.db",
+                    DatabasePath = debugDbPath,
                     BatchSize = 1000,
                     FlushInterval = TimeSpan.FromSeconds(30),
                     LogIndicators = true,

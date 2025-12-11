@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "backtest-debug": {
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--no-build",
+        "--project",
+        "StockSharp.AdvancedBacktest.DebugEventLogMcpServer",
+        "--",
+        "--database",
+        "debug/events.db"
+      ],
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}

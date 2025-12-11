@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\StockSharp.AdvancedBacktest\StockSharp.AdvancedBacktest.csproj" />
+    <ProjectReference Include="..\StockSharp.AdvancedBacktest.Infrastructure\StockSharp.AdvancedBacktest.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

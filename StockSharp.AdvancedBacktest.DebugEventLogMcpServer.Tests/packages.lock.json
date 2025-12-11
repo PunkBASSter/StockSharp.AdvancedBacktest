@@ -801,15 +801,10 @@
           "xunit.extensibility.core": "[2.9.3]"
         }
       },
-      "stocksharp.advancedbacktest": {
+      "stocksharp.advancedbacktest.core": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Data.Sqlite": "[8.0.11, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[8.0.2, )",
-          "Microsoft.Extensions.Hosting": "[8.0.1, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[8.0.3, )",
           "Microsoft.Extensions.Options": "[8.0.2, )",
-          "ModelContextProtocol": "[0.4.0-preview.3, )",
           "StockSharp.Algo": "[5.0.0, )",
           "StockSharp.BusinessEntities": "[5.0.0, )",
           "StockSharp.Messages": "[5.0.0, )"
@@ -818,7 +813,22 @@
       "stocksharp.advancedbacktest.debugeventlogmcpserver": {
         "type": "Project",
         "dependencies": {
-          "StockSharp.AdvancedBacktest": "[1.0.0, )"
+          "StockSharp.AdvancedBacktest.Infrastructure": "[1.0.0, )"
+        }
+      },
+      "stocksharp.advancedbacktest.infrastructure": {
+        "type": "Project",
+        "dependencies": {
+          "Microsoft.Data.Sqlite": "[8.0.11, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[8.0.2, )",
+          "Microsoft.Extensions.Hosting": "[8.0.1, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[8.0.3, )",
+          "Microsoft.Extensions.Options": "[8.0.2, )",
+          "ModelContextProtocol": "[0.4.0-preview.3, )",
+          "StockSharp.AdvancedBacktest.Core": "[1.0.0, )",
+          "StockSharp.Algo": "[5.0.0, )",
+          "StockSharp.BusinessEntities": "[5.0.0, )",
+          "StockSharp.Messages": "[5.0.0, )"
         }
       },
       "StockSharp.Algo": {

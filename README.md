@@ -1,6 +1,6 @@
 # StockSharp.AdvancedBacktest
 
-A .NET 10 library extending StockSharp for advanced backtesting, optimization, and strategy validation. Features include multi-parameter optimization, walk-forward analysis, performance metrics calculation, and interactive HTML report generation.
+A .NET 8 library extending StockSharp for advanced backtesting, optimization, and strategy validation. Features include multi-parameter optimization, walk-forward analysis, performance metrics calculation, and interactive HTML report generation.
 
 ## Features
 
@@ -11,6 +11,20 @@ A .NET 10 library extending StockSharp for advanced backtesting, optimization, a
 - **Flexible Parameter Types**: Support for numeric ranges, securities, timeframes, and custom classes
 - **Parallel Processing**: Multi-threaded optimization for faster results
 - **Metric Filtering**: Select top strategies based on custom performance criteria
+- **AI-Assisted Debug Mode**: MCP server integration for agentic debugging and analysis
+
+## Architecture
+
+The solution is organized into separate assemblies following separation of concerns:
+
+```
+StockSharp.AdvancedBacktest.Core/           # Business logic (strategies, orders, metrics)
+StockSharp.AdvancedBacktest.Infrastructure/ # Operations (export, optimization, debug)
+StockSharp.AdvancedBacktest.LauncherTemplate/  # Console app template
+StockSharp.AdvancedBacktest.DebugEventLogMcpServer/  # MCP server for AI debugging
+```
+
+**Dependency Flow**: Infrastructure → Core → StockSharp (submodule)
 
 ## Quick Start
 
@@ -60,17 +74,35 @@ git checkout -- **/packages.lock.json
 
 ### 2. Install Package Reference
 
-Add to your project:
+Add to your project (reference Infrastructure for full functionality):
 
 ```xml
-<ProjectReference Include="path\to\StockSharp.AdvancedBacktest\StockSharp.AdvancedBacktest.csproj" />
+<ProjectReference Include="path\to\StockSharp.AdvancedBacktest.Infrastructure\StockSharp.AdvancedBacktest.Infrastructure.csproj" />
+```
+
+Or reference Core only for business logic without orchestration:
+
+```xml
+<ProjectReference Include="path\to\StockSharp.AdvancedBacktest.Core\StockSharp.AdvancedBacktest.Core.csproj" />
 ```
 
 ## Usage Guide
 
 ### Creating a Strategy
 
-See `StockSharp.AdvancedBacktest.LauncherTemplate` as a strategy launch configuration.
+See `StockSharp.AdvancedBacktest.LauncherTemplate` as a strategy launch configuration template.
+
+### Running Tests
+
+```bash
+# Run all tests
+dotnet test StockSharp.AdvancedBacktest.slnx
+
+# Run specific test projects
+dotnet test StockSharp.AdvancedBacktest.Core.Tests/
+dotnet test StockSharp.AdvancedBacktest.Infrastructure.Tests/
+dotnet test StockSharp.AdvancedBacktest.Tests/
+```
 
 ## License
 

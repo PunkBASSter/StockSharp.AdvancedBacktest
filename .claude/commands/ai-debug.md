@@ -4,14 +4,34 @@ Analyze backtest results using --ai-debug mode which captures events to a SQLite
 
 $ARGUMENTS
 
+## Prerequisites
+
+Before using MCP tools, ensure the MCP server is configured in `.mcp.json` (project root). This allows Claude Code to access the debug event log tools directly.
+If you think that the DB path in `.mcp.json` is incorrect, this is a wrong call due to the actual execution folder.
+
 ## Quick Start for AI Agents
 
 **To debug a strategy issue:**
 
-1. Run the backtest with `--ai-debug` flag (this auto-starts the MCP server)
-2. After backtest completes, the MCP server remains accessible for queries
-3. Use MCP tools OR direct SQL queries to investigate the issue
-4. The database contains only events from the most recent run (fresh on each backtest)
+1. Run the backtest with `--ai-debug` flag to populate the database
+2. Use MCP tools to query events (preferred) OR direct SQL queries (not recommended)
+3. The database contains only events from the most recent run (fresh on each backtest)
+
+> **IMPORTANT - Polling Rules for Background Backtests:**
+>
+> Backtests complete very fast (typically 1-20 seconds). Long polling is a waste of tokens.
+>
+> **MANDATORY BEHAVIOR:**
+> 1. Poll BashOutput **at most 3 times** while waiting for backtest completion
+> 2. If after 3 polls the backtest is still "running" with no results, **STOP polling immediately**
+> 3. Instead, check if candles/trades are being logged via MCP tools (`AggregateMetricsAsync` with eventType=TradeExecution) or direct DB query
+> 4. If no events are being logged but process is "running", there is likely a **hanging bug** - kill the process and investigate
+>
+> **Why this matters:** The Debug Mode is recently developed and may not be 100% reliable. A backtest stuck at "Starting backtest..." for more than 30 seconds with no events logged indicates a problem that requires investigation, not more polling.
+>
+> **Detection Pattern:**
+> - Normal: "Starting backtest..." → results appear within 1-20 seconds
+> - Hanging: "Starting backtest..." persists with 0 TradeExecution events in DB → kill and debug
 
 ## Architecture
 
@@ -20,21 +40,19 @@ $ARGUMENTS
 │  Backtest Runner    │ ──────────────> │  SQLite Database     │
 │  (--ai-debug flag)  │                 │  (events.db)         │
 └─────────────────────┘                 └──────────────────────┘
-         │                                        │
-         │ auto-starts (first run)                │ queries
-         ▼                                        ▼
+                                                  │
+                                                  │ queries via MCP
+                                                  ▼
 ┌─────────────────────┐   MCP protocol  ┌──────────────────────┐
 │  MCP Server         │ <─────────────> │  AI Agent            │
-│  (stays alive)      │    (stdio)      │  (Claude Code)       │
+│  (stdio transport)  │                 │  (Claude Code)       │
 └─────────────────────┘                 └──────────────────────┘
 ```
 
 **Key behaviors:**
-- MCP server **auto-starts** on first `--ai-debug` backtest run
-- MCP server **stays alive** after backtest completes (can query results anytime)
+- MCP server is started by Claude Code when you use the MCP tools
 - Database is **recreated fresh** on each new backtest (no stale data)
-- Only **one MCP server instance** runs at a time (enforced via named mutex)
-- MCP server **auto-detects** database changes via file system watcher
+- MCP tools provide structured access to events without writing SQL
 
 ## Database Location
 
@@ -54,31 +72,119 @@ dotnet run --project StockSharp.AdvancedBacktest.LauncherTemplate -- --ai-debug
 This:
 - Clears any existing database (fresh start)
 - Populates the events database during backtest
-- Auto-starts MCP server (if not already running)
-- MCP server remains accessible after backtest completes
+- Outputs backtest statistics to console
 
 ## Step 2: Query the Results
 
-### Option A: MCP Tools (Recommended for AI Agents)
+### Option A: MCP Tools (Recommended)
 
-When the MCP server is running, use these tools:
+When MCP is configured, the following tools are available. **Start by calling `ListBacktestRunsAsync` to get the runId** required by all other tools.
 
-- `get_events_by_type` - Query events by type and time range
-- `get_events_by_entity` - Query events by entity (OrderId, SecuritySymbol, etc.)
-- `aggregate_metrics` - Calculate aggregations (count, avg, min, max, stddev)
-- `get_state_snapshot` - Reconstruct strategy state at a timestamp
-- `query_event_sequence` - Find event chains with parent-child relationships
-- `get_validation_errors` - Find events with validation issues
+#### `ListBacktestRunsAsync`
+List all available backtest runs. Use this first to get the runId needed for other tools.
+
+**Parameters:** None
+
+**Returns:**
+- `runs`: Array of backtest runs with Id, StartTime, EndTime, StrategyConfigHash, CreatedAt
+- `totalCount`: Number of available runs
+
+**Example usage:**
+```
+List all backtest runs to find the runId for querying
+```
+
+#### `GetEventsByTypeAsync`
+Retrieve backtest events filtered by event type and optional time range.
+
+**Parameters:**
+- `runId` (required): Unique identifier of the backtest run (GUID format)
+- `eventType` (required): TradeExecution, OrderRejection, IndicatorCalculation, PositionUpdate, StateChange, MarketDataEvent, or RiskEvent
+- `startTime` (optional): Start of time range in ISO 8601 format
+- `endTime` (optional): End of time range in ISO 8601 format
+- `severity` (optional): Error, Warning, Info, or Debug
+- `pageSize` (default: 100, max: 1000): Number of events per page
+- `pageIndex` (default: 0): Zero-based page index
+
+**Example usage:**
+```
+Get all trade executions from the backtest run
+```
+
+#### `GetEventsByEntityAsync`
+Retrieve events filtered by entity reference (OrderId, SecuritySymbol, PositionId, or IndicatorName).
+
+**Parameters:**
+- `runId` (required): Unique identifier of the backtest run
+- `entityType` (required): OrderId, SecuritySymbol, PositionId, or IndicatorName
+- `entityValue` (required): Value of the entity to search for
+- `eventTypeFilter` (optional): Comma-separated list of event types (e.g., 'TradeExecution,OrderRejection')
+- `pageSize` (default: 100, max: 1000): Number of events per page
+- `pageIndex` (default: 0): Zero-based page index
+
+**Example usage:**
+```
+Get all events for security BTCUSDT
+```
+
+#### `AggregateMetricsAsync`
+Calculate aggregations on event properties without retrieving individual events.
+
+**Parameters:**
+- `runId` (required): Unique identifier of the backtest run
+- `eventType` (required): Type of events to aggregate
+- `propertyPath` (required): JSON path to the property (e.g., '$.Price', '$.Quantity')
+- `aggregations` (required): Array of functions: count, sum, avg, min, max, stddev
+- `startTime` (optional): Start of time range (ISO 8601)
+- `endTime` (optional): End of time range (ISO 8601)
+
+**Example usage:**
+```
+Calculate average trade price and total volume
+```
+
+#### `GetStateSnapshotAsync`
+Retrieve strategy state (positions, PnL, indicators, active orders) at a specific timestamp.
+
+**Parameters:**
+- `runId` (required): Unique identifier of the backtest run
+- `timestamp` (required): Timestamp to query state for (ISO 8601 format)
+- `securitySymbol` (optional): Filter state to specific security
+- `includeIndicators` (default: true): Include indicator values in state
+- `includeActiveOrders` (default: true): Include active orders in state
+
+**Example usage:**
+```
+Get strategy state at 2020-07-03T14:00:00Z
+```
+
+#### `QueryEventSequenceAsync`
+Query event sequences by traversing parent-child relationships.
+
+**Parameters:**
+- `runId` (required): Unique identifier of the backtest run
+- `rootEventId` (optional): Root event ID to start chain traversal from
+- `sequencePattern` (optional): Comma-separated list of expected event types (e.g., 'TradeExecution,PositionUpdate')
+- `findIncomplete` (default: false): Include incomplete sequences
+- `maxDepth` (default: 10, max: 100): Maximum depth of chain traversal
+- `pageSize` (default: 50, max: 100): Number of sequences per page
+- `pageIndex` (default: 0): Zero-based page index
+
+**Example usage:**
+```
+Find all trade execution chains that didn't result in position updates
+```
 
 ### Option B: Direct SQL Queries
 
-For quick analysis without MCP, query the SQLite database directly:
+For quick analysis or when MCP is not available, query the SQLite database directly using a tool like `sqlite3`:
 
-**List all backtest runs:**
+**Get the run ID first:**
 ```sql
 SELECT Id, StartTime, EndTime, StrategyConfigHash
 FROM BacktestRuns
-ORDER BY CreatedAt DESC;
+ORDER BY CreatedAt DESC
+LIMIT 1;
 ```
 
 **Get trade executions around a specific time:**
@@ -109,6 +215,16 @@ WHERE EventType = 'IndicatorCalculation'
 AND Timestamp <= '2020-07-03T14:00:00'
 ORDER BY Timestamp DESC
 LIMIT 20;
+```
+
+**Event statistics:**
+```sql
+SELECT EventType, COUNT(*) as Count,
+       MIN(Timestamp) as FirstEvent,
+       MAX(Timestamp) as LastEvent
+FROM Events
+GROUP BY EventType
+ORDER BY Count DESC;
 ```
 
 ## Database Schema
@@ -153,132 +269,104 @@ Given a problem description (e.g., "strategy stopped trading after July 3rd"), f
 - Parse the user's issue description from $ARGUMENTS
 - Identify: timeframe, symptom type (missing trades, wrong signals, unexpected exits, etc.)
 
-### 2. Run Debug Backtest (if not already done)
+### 2. Run Debug Backtest (if database doesn't exist or is stale)
 ```powershell
+$env:StockSharp__HistoryPath="C:\Users\Andrew\Documents\StockSharp\Hydra\Storage"
+$env:StockSharp__StorageFormat="Binary"
 dotnet run --project StockSharp.AdvancedBacktest.LauncherTemplate -- --ai-debug
 ```
 
-### 3. Get Overview Statistics
-```sql
-SELECT EventType, COUNT(*) as Count,
-       MIN(Timestamp) as FirstEvent,
-       MAX(Timestamp) as LastEvent
-FROM Events
-GROUP BY EventType
-ORDER BY Count DESC;
+### 3. Get the Run ID
+Use `ListBacktestRunsAsync` to get the list of available runs and their IDs.
+```
+Call ListBacktestRunsAsync to see available runs - use the most recent run's Id
 ```
 
-### 4. Investigate Based on Problem Type
+### 4. Get Overview Statistics
+Use `GetEventsByTypeAsync` or SQL to get event counts by type.
+
+### 5. Investigate Based on Problem Type
 
 **For "stopped trading" issues:**
-```sql
--- Find the last trade and what happened after
-SELECT * FROM Events
-WHERE EventType = 'TradeExecution'
-ORDER BY Timestamp DESC LIMIT 5;
-
--- Check for order rejections after that time
-SELECT Timestamp, Properties FROM Events
-WHERE EventType = 'OrderRejection'
-AND Timestamp > '[last_trade_time]'
-ORDER BY Timestamp;
-```
+- Use `GetEventsByTypeAsync` with eventType="TradeExecution" to find the last trades
+- Check for OrderRejection events after the last trade
+- Use `GetStateSnapshotAsync` at the time trading stopped to see position/indicator state
 
 **For "wrong entry/exit" issues:**
-```sql
--- Get indicator values around the trade
-SELECT Timestamp,
-       json_extract(Properties, '$.IndicatorName') as Indicator,
-       json_extract(Properties, '$.Value') as Value
-FROM Events
-WHERE EventType = 'IndicatorCalculation'
-AND Timestamp BETWEEN '[trade_time - 1 hour]' AND '[trade_time + 1 hour]'
-ORDER BY Timestamp;
-```
+- Use `GetEventsByEntityAsync` with the specific OrderId
+- Use `GetStateSnapshotAsync` at the trade timestamp to see indicator values
+- Use `QueryEventSequenceAsync` to trace the full event chain
 
 **For "position not closing" issues:**
-```sql
--- Find entries without matching exits
-SELECT e1.Timestamp as EntryTime,
-       json_extract(e1.Properties, '$.Direction') as Direction,
-       json_extract(e1.Properties, '$.Price') as Price
-FROM Events e1
-WHERE e1.EventType = 'TradeExecution'
-AND json_extract(e1.Properties, '$.Direction') = 'Buy'
-AND NOT EXISTS (
-    SELECT 1 FROM Events e2
-    WHERE e2.EventType = 'TradeExecution'
-    AND json_extract(e2.Properties, '$.Direction') = 'Sell'
-    AND e2.Timestamp > e1.Timestamp
-)
-ORDER BY e1.Timestamp DESC;
-```
+- Use `QueryEventSequenceAsync` with sequencePattern="TradeExecution,PositionUpdate" and findIncomplete=true
+- Use `GetEventsByEntityAsync` with entityType="SecuritySymbol" to see all events for that security
 
 **For "unexpected PnL" issues:**
-```sql
--- Track position updates with PnL changes
-SELECT Timestamp,
-       json_extract(Properties, '$.Quantity') as Position,
-       json_extract(Properties, '$.RealizedPnL') as RealizedPnL,
-       json_extract(Properties, '$.UnrealizedPnL') as UnrealizedPnL
-FROM Events
-WHERE EventType = 'PositionUpdate'
-ORDER BY Timestamp;
-```
+- Use `AggregateMetricsAsync` on TradeExecution events with propertyPath="$.RealizedPnL"
+- Use `GetEventsByTypeAsync` with eventType="PositionUpdate" to track PnL changes over time
 
-### 5. Reconstruct State at Critical Moments
-Use `get_state_snapshot` MCP tool or query events before a specific timestamp to understand what the strategy "saw" at decision points.
+### 6. Reconstruct State at Critical Moments
+Use `GetStateSnapshotAsync` to understand what the strategy "saw" at decision points:
+- Position sizes and average prices
+- Indicator values at that timestamp
+- Active orders pending execution
+- Realized and unrealized PnL
 
-### 6. Check for Validation Errors
-```sql
-SELECT Timestamp, EventType, ValidationErrors
-FROM Events
-WHERE ValidationErrors IS NOT NULL
-ORDER BY Timestamp;
-```
+### 7. Check for Validation Errors
+Query events with ValidationErrors not null to find data quality issues.
 
 ## Common Investigation Patterns
 
 ### Find Last Trade
-```sql
-SELECT * FROM Events
-WHERE EventType = 'TradeExecution'
-ORDER BY Timestamp DESC LIMIT 1;
+```
+Use GetEventsByTypeAsync with eventType="TradeExecution", pageSize=5, then sort by timestamp descending
 ```
 
 ### Analyze Position at Timestamp
-```sql
-SELECT * FROM Events
-WHERE EventType IN ('PositionUpdate', 'TradeExecution')
-AND Timestamp <= '2020-07-03T14:00:00'
-ORDER BY Timestamp DESC LIMIT 50;
+```
+Use GetStateSnapshotAsync with the specific timestamp
 ```
 
-### Event Statistics
-```sql
-SELECT EventType, COUNT(*) as Count,
-       MIN(Timestamp) as FirstEvent,
-       MAX(Timestamp) as LastEvent
-FROM Events
-GROUP BY EventType
-ORDER BY Count DESC;
+### Find Incomplete Event Chains
+```
+Use QueryEventSequenceAsync with findIncomplete=true to find trades without position updates
 ```
 
-## MCP Server Management
+### Calculate Trading Statistics
+```
+Use AggregateMetricsAsync with aggregations=["count", "avg", "sum", "min", "max"]
+```
 
-The MCP server lifecycle is independent from backtest execution:
+## MCP Configuration
 
-- **Auto-starts**: On first `--ai-debug` backtest run
-- **Stays alive**: After backtest completes, remains accessible for queries
-- **Single instance**: Only one MCP server runs (enforced via named mutex)
-- **Auto-reconnects**: Detects database changes via file system watcher
+The MCP server is configured in `.mcp.json` (project root):
 
-To manually stop the MCP server (if needed), terminate the process or close Claude Code session.
+```json
+{
+  "mcpServers": {
+    "backtest-debug": {
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "StockSharp.AdvancedBacktest.DebugEventLogMcpServer",
+        "--",
+        "--database",
+        "StockSharp.AdvancedBacktest.LauncherTemplate/debug/events.db"
+      ],
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}
+```
+
+The MCP server uses stdio transport and is started automatically by Claude Code when you invoke any of the MCP tools.
 
 ## Related Files
 
+- `.mcp.json` - MCP server configuration for Claude Code (project root)
 - `specs/001-llm-agent-logging/` - Full specification and MCP tool contracts
 - `specs/001-llm-agent-logging/contracts/mcp-tools.md` - MCP tool API specifications
-- `specs/001-mcp-lifecycle-decoupling/` - MCP lifecycle decoupling specification
-- `DebugMode/AiAgenticDebug/EventLogging/Storage/SqliteEventRepository.cs` - Database query implementation
-- `DebugMode/AiAgenticDebug/McpServer/BacktestEventMcpServer.cs` - MCP server entry point
+- `StockSharp.AdvancedBacktest.Infrastructure/DebugMode/AiAgenticDebug/EventLogging/Storage/SqliteEventRepository.cs` - Database query implementation
+- `StockSharp.AdvancedBacktest.Infrastructure/DebugMode/AiAgenticDebug/McpServer/BacktestEventMcpServer.cs` - MCP server entry point
+- `StockSharp.AdvancedBacktest.Infrastructure/DebugMode/AiAgenticDebug/McpServer/Tools/` - MCP tool implementations

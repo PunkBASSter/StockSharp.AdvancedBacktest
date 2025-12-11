@@ -1,4 +1,4 @@
-﻿# CLAUDE.md
+# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -7,29 +7,81 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Building
 
 - **Main Solution**: `dotnet build StockSharp.AdvancedBacktest.slnx` (from repository root)
-- **Individual Project**: `dotnet build StockSharp.AdvancedBacktest/StockSharp.AdvancedBacktest.csproj`
+- **Core Assembly**: `dotnet build StockSharp.AdvancedBacktest.Core/StockSharp.AdvancedBacktest.Core.csproj`
+- **Infrastructure Assembly**: `dotnet build StockSharp.AdvancedBacktest.Infrastructure/StockSharp.AdvancedBacktest.Infrastructure.csproj`
 - **Legacy Strategy Launcher**: `dotnet build LegacyCustomization/StrategyLauncher/StrategyLauncher.csproj`
 - **All Projects**: Build solution from root directory as mentioned in README
 
 ### Testing
 
-- **Run Tests**: `dotnet test StockSharp.AdvancedBacktest.Tests/`
+- **Run All Tests**: `dotnet test StockSharp.AdvancedBacktest.slnx`
+- **Core Tests Only**: `dotnet test StockSharp.AdvancedBacktest.Core.Tests/`
+- **Infrastructure Tests Only**: `dotnet test StockSharp.AdvancedBacktest.Infrastructure.Tests/`
+- **Integration Tests**: `dotnet test StockSharp.AdvancedBacktest.Tests/`
 - **Test Framework**: xUnit v3 with Microsoft.NET.Test.Sdk
 
 ### Running Applications
 
-- **Strategy Launcher**: `dotnet run --project LegacyCustomization/StrategyLauncher/StrategyLauncher.csproj`
+- **Strategy Launcher Template**: `dotnet run --project StockSharp.AdvancedBacktest.LauncherTemplate/StockSharp.AdvancedBacktest.LauncherTemplate.csproj`
+- **Debug MCP Server**: `dotnet run --project StockSharp.AdvancedBacktest.DebugEventLogMcpServer/StockSharp.AdvancedBacktest.DebugEventLogMcpServer.csproj`
 
 ## Project Architecture
 
-This is a .NET 10 solution that extends StockSharp for advanced backtesting capabilities. The architecture consists of:
+This is a .NET 8 solution that extends StockSharp for advanced backtesting capabilities. The architecture follows a **Core/Infrastructure separation pattern** with one-way dependencies.
 
-### Core Components
+### Assembly Structure
 
-- **StockSharp.AdvancedBacktest**: Main library targeting .NET 10
-- **StockSharp.AdvancedBacktest.Tests**: xUnit v3 test project targeting .NET 10
-- **StockSharp.AdvancedBacktest.Web**: Web-based visualization component (directory structure only, to be implemented as a Next.js app, static web page with JSON data source)
-- **LegacyCustomization/StrategyLauncher**: Console application for strategy execution (targets .NET 8, imports StockSharp build configurations)
+```
+StockSharp.AdvancedBacktest.Core/          # Business logic (no infrastructure dependencies)
+├── Strategies/                             # CustomStrategyBase, pluggable modules
+│   └── Modules/                           # Position sizing, stop-loss, take-profit
+├── OrderManagement/                        # TradeSignal, OrderPositionManager
+├── Parameters/                             # ICustomParam, NumberParam, SecurityParam, etc.
+├── Statistics/                             # PerformanceMetrics, PerformanceMetricsCalculator
+├── PerformanceValidation/                  # WalkForwardConfig, WalkForwardResult (models)
+├── Models/                                 # OptimizationConfig, BacktestConfig, etc.
+├── Backtest/                              # BacktestConfig, BacktestResult, PeriodConfig
+└── Utilities/                             # PriceStepHelper, SecurityIdComparer
+
+StockSharp.AdvancedBacktest.Infrastructure/ # Operational/infrastructure code
+├── Export/                                # ReportBuilder, BacktestExporter, IndicatorExporter
+├── DebugMode/                             # DebugModeExporter, AiAgenticDebug/
+│   └── AiAgenticDebug/                    # EventLogging, McpServer subsystems
+├── Optimization/                          # OptimizerRunner, OptimizationLauncher
+├── PerformanceValidation/                 # WalkForwardValidator (orchestration)
+├── Backtest/                              # BacktestRunner (orchestration)
+├── Storages/                              # SharedStorageRegistry, SharedMarketDataStorage
+├── Serialization/                         # JSON converters and options
+└── Utilities/                             # CartesianProductGenerator, IndicatorValueHelper
+```
+
+### Dependency Flow
+
+```
+StockSharp (submodule)
+       ↑
+StockSharp.AdvancedBacktest.Core
+       ↑
+StockSharp.AdvancedBacktest.Infrastructure
+       ↑
+Application Projects (LauncherTemplate, DebugEventLogMcpServer)
+```
+
+**Rule**: Infrastructure depends on Core. Core MUST NOT depend on Infrastructure.
+
+### Test Projects
+
+- **StockSharp.AdvancedBacktest.Core.Tests**: Unit tests for Core assembly (isolated business logic)
+- **StockSharp.AdvancedBacktest.Infrastructure.Tests**: Unit tests for Infrastructure assembly
+- **StockSharp.AdvancedBacktest.Tests**: Integration tests spanning both assemblies
+- **StockSharp.AdvancedBacktest.DebugEventLogMcpServer.Tests**: MCP server specific tests
+
+### Application Projects
+
+- **StockSharp.AdvancedBacktest.LauncherTemplate**: Console application template for strategy execution
+- **StockSharp.AdvancedBacktest.DebugEventLogMcpServer**: Standalone MCP server for debug event logging
+- **StockSharp.AdvancedBacktest.Web**: Web-based visualization (Next.js, static JSON data source)
+- **LegacyCustomization/StrategyLauncher**: Legacy console launcher (.NET 8, StockSharp compatibility)
 
 ### StockSharp Integration
 
@@ -47,18 +99,20 @@ The project depends on StockSharp through a git submodule:
 - JSON export of optimization results for web visualization
 - Interactive web reports with candlestick charts, trades, and metrics
 - Cross-platform console strategy launcher with JSON settings import
+- AI-assisted debug mode with MCP server integration
 
 ### Framework Versions
 
-- Main projects: .NET 10
+- Main projects: .NET 8
 - Legacy Strategy Launcher: .NET 8 (for StockSharp compatibility)
 - C# features: Implicit usings and nullable reference types enabled
 
 ### Testing Setup
 
 - xUnit v3 framework
-- Microsoft Testing Platform support (commented out, requires .NET 10 SDK)
+- Microsoft Testing Platform support
 - Test runner configuration via `xunit.runner.json`
+- Separate test projects per assembly for isolation
 
 ### JSON Serialization Standards
 
