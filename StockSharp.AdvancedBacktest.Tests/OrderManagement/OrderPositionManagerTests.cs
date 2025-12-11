@@ -24,13 +24,10 @@ public class OrderPositionManagerTests
     [Fact]
     public void HandleSignal_WithBuySignal_PlacesEntryOrder()
     {
-        // Arrange
-        var signal = CreateValidBuySignal();
+        var signal = CreateSignal(Sides.Buy, 100m, 10m, 95m, 110m);
 
-        // Act
         _manager.HandleSignal(signal);
 
-        // Assert
         Assert.Single(_strategy.PlacedOrders);
         var order = _strategy.PlacedOrders[0];
         Assert.Equal(Sides.Buy, order.Side);
@@ -39,218 +36,143 @@ public class OrderPositionManagerTests
         Assert.Equal(OrderTypes.Limit, order.Type);
     }
 
-    [Fact]
-    public void HandleSignal_EntryFilledThenTPHit_PlacesProtectionOrders()
+    [Theory]
+    [InlineData(111, 99, true)]   // TP hit (high >= 110)
+    [InlineData(109, 94, true)]   // SL hit (low <= 95)
+    [InlineData(109, 96, false)]  // Neither hit
+    public void CheckProtectionLevels_VariousCandles_ReturnsExpectedResult(
+        decimal candleHigh, decimal candleLow, bool expectedHit)
     {
-        // Arrange - Place entry order
-        var signal = CreateValidBuySignal(); // Entry: 100, SL: 95, TP: 110
-        _manager.HandleSignal(signal);
-
-        var entryOrder = _strategy.PlacedOrders[0];
-        _strategy.Position = 10m; // Simulate filled position
-
-        // Act - Simulate entry fill
-        var entryTrade = CreateTrade(entryOrder, 100m, 10m);
-        _manager.OnOwnTradeReceived(entryTrade);
-
-        // Assert - Protection orders should be placed
-        Assert.Equal(3, _strategy.PlacedOrders.Count); // Entry + SL + TP
-
-        var slOrder = _strategy.PlacedOrders.FirstOrDefault(o => o.Price == 95m);
-        var tpOrder = _strategy.PlacedOrders.FirstOrDefault(o => o.Price == 110m);
-
-        Assert.NotNull(slOrder);
-        Assert.NotNull(tpOrder);
-        Assert.Equal(Sides.Sell, slOrder.Side);
-        Assert.Equal(Sides.Sell, tpOrder.Side);
-        Assert.Equal(10m, slOrder.Volume);
-        Assert.Equal(10m, tpOrder.Volume);
-    }
-
-    [Fact]
-    public void OnOwnTradeReceived_StopLossFilled_CancelsTakeProfitOrder()
-    {
-        // Arrange - Setup position with protection orders
-        var signal = CreateValidBuySignal();
+        // Setup position with protection levels (SL: 95, TP: 110)
+        var signal = CreateSignal(Sides.Buy, 100m, 10m, 95m, 110m);
         _manager.HandleSignal(signal);
         var entryOrder = _strategy.PlacedOrders[0];
         _strategy.Position = 10m;
         _manager.OnOwnTradeReceived(CreateTrade(entryOrder, 100m, 10m));
 
-        var slOrder = _strategy.PlacedOrders.FirstOrDefault(o => o.Price == 95m);
-        var tpOrder = _strategy.PlacedOrders.FirstOrDefault(o => o.Price == 110m);
+        var candle = new TimeFrameCandleMessage { HighPrice = candleHigh, LowPrice = candleLow };
+        var protectionHit = _manager.CheckProtectionLevels(candle);
 
-        // Act - Simulate SL fill
-        _strategy.Position = 0m; // Position closed
-        _manager.OnOwnTradeReceived(CreateTrade(slOrder!, 95m, 10m));
-
-        // Assert - TP order should be cancelled
-        Assert.Contains(tpOrder, _strategy.CancelledOrders);
+        Assert.Equal(expectedHit, protectionHit);
+        if (expectedHit)
+        {
+            Assert.Equal(2, _strategy.PlacedOrders.Count);
+            var closeOrder = _strategy.PlacedOrders.Last();
+            Assert.Equal(OrderTypes.Market, closeOrder.Type);
+            Assert.Equal(Sides.Sell, closeOrder.Side);
+        }
     }
 
     [Fact]
-    public void OnOwnTradeReceived_TakeProfitFilled_CancelsStopLossOrder()
+    public void HandleSignal_EntryFilledThenTPHit_UsesCheckProtectionLevels()
     {
-        // Arrange - Setup position with protection orders
-        var signal = CreateValidBuySignal();
+        var signal = CreateSignal(Sides.Buy, 100m, 10m, 95m, 110m);
         _manager.HandleSignal(signal);
         var entryOrder = _strategy.PlacedOrders[0];
         _strategy.Position = 10m;
         _manager.OnOwnTradeReceived(CreateTrade(entryOrder, 100m, 10m));
 
-        var slOrder = _strategy.PlacedOrders.FirstOrDefault(o => o.Price == 95m);
-        var tpOrder = _strategy.PlacedOrders.FirstOrDefault(o => o.Price == 110m);
+        Assert.Single(_strategy.PlacedOrders);
 
-        // Act - Simulate TP fill
-        _strategy.Position = 0m; // Position closed
-        _manager.OnOwnTradeReceived(CreateTrade(tpOrder!, 110m, 10m));
+        var tpCandle = new TimeFrameCandleMessage { HighPrice = 111m, LowPrice = 99m };
+        var protectionHit = _manager.CheckProtectionLevels(tpCandle);
 
-        // Assert - SL order should be cancelled
-        Assert.Contains(slOrder, _strategy.CancelledOrders);
+        Assert.True(protectionHit);
+        Assert.Equal(2, _strategy.PlacedOrders.Count);
     }
 
     [Fact]
     public void HandleSignal_SignalChangedBeforeEntryFill_CancelsOldOrderPlacesNew()
     {
-        // Arrange - Place initial order
-        var signal1 = CreateValidBuySignal(); // Entry: 100
+        var signal1 = CreateSignal(Sides.Buy, 100m, 10m, 95m, 110m);
         _manager.HandleSignal(signal1);
         var oldOrder = _strategy.PlacedOrders[0];
 
-        // Act - Signal changes to new price
-        var signal2 = new TradeSignal
-        {
-            Direction = Sides.Buy,
-            EntryPrice = 105m, // Different price
-            Volume = 10m,
-            StopLoss = 98m,
-            TakeProfit = 115m,
-            OrderType = OrderTypes.Limit
-        };
+        var signal2 = CreateSignal(Sides.Buy, 105m, 10m, 98m, 115m);
         _manager.HandleSignal(signal2);
 
-        // Assert
-        Assert.Contains(oldOrder, _strategy.CancelledOrders); // Old order cancelled
-        Assert.Equal(2, _strategy.PlacedOrders.Count); // Old + new order
-        var newOrder = _strategy.PlacedOrders[1];
-        Assert.Equal(105m, newOrder.Price);
+        Assert.Contains(oldOrder, _strategy.CancelledOrders);
+        Assert.Equal(2, _strategy.PlacedOrders.Count);
+        Assert.Equal(105m, _strategy.PlacedOrders[1].Price);
     }
 
     [Fact]
     public void HandleSignal_NullSignal_CancelsAllOrders()
     {
-        // Arrange - Setup with active order
-        var signal = CreateValidBuySignal();
+        var signal = CreateSignal(Sides.Buy, 100m, 10m, 95m, 110m);
         _manager.HandleSignal(signal);
         var order = _strategy.PlacedOrders[0];
 
-        // Act
         _manager.HandleSignal(null);
 
-        // Assert
         Assert.Contains(order, _strategy.CancelledOrders);
     }
 
-    [Fact]
-    public void CloseAllPositions_WithLongPosition_PlacesSellMarketOrder()
+    [Theory]
+    [InlineData(10, Sides.Sell)]   // Long position -> Sell to close
+    [InlineData(-10, Sides.Buy)]   // Short position -> Buy to close
+    public void CloseAllPositions_PlacesCorrectMarketOrder(decimal position, Sides expectedSide)
     {
-        // Arrange
-        _strategy.Position = 10m;
+        _strategy.Position = position;
 
-        // Act
         _manager.CloseAllPositions();
 
-        // Assert
         var marketOrder = _strategy.PlacedOrders.FirstOrDefault(o => o.Type == OrderTypes.Market);
         Assert.NotNull(marketOrder);
-        Assert.Equal(Sides.Sell, marketOrder.Side);
-        Assert.Equal(10m, marketOrder.Volume);
-    }
-
-    [Fact]
-    public void CloseAllPositions_WithShortPosition_PlacesBuyMarketOrder()
-    {
-        // Arrange
-        _strategy.Position = -10m;
-
-        // Act
-        _manager.CloseAllPositions();
-
-        // Assert
-        var marketOrder = _strategy.PlacedOrders.FirstOrDefault(o => o.Type == OrderTypes.Market);
-        Assert.NotNull(marketOrder);
-        Assert.Equal(Sides.Buy, marketOrder.Side);
-        Assert.Equal(10m, marketOrder.Volume);
+        Assert.Equal(expectedSide, marketOrder.Side);
+        Assert.Equal(Math.Abs(position), marketOrder.Volume);
     }
 
     [Fact]
     public void Reset_ClearsAllState()
     {
-        // Arrange - Create some state
-        var signal = CreateValidBuySignal();
+        var signal = CreateSignal(Sides.Buy, 100m, 10m, 95m, 110m);
         _manager.HandleSignal(signal);
 
-        // Act
         _manager.Reset();
 
-        // Assert
         Assert.Empty(_manager.ActiveOrders());
     }
 
-    #region Helper Methods
+    #region Helpers
 
-    private TradeSignal CreateValidBuySignal()
-    {
-        return new TradeSignal
+    private static TradeSignal CreateSignal(Sides direction, decimal entry, decimal volume, decimal sl, decimal tp)
+        => new()
         {
-            Direction = Sides.Buy,
-            EntryPrice = 100m,
-            Volume = 10m,
-            StopLoss = 95m,
-            TakeProfit = 110m,
+            Direction = direction,
+            EntryPrice = entry,
+            Volume = volume,
+            StopLoss = sl,
+            TakeProfit = tp,
             OrderType = OrderTypes.Limit
         };
-    }
 
-    private MyTrade CreateTrade(Order order, decimal price, decimal volume)
-    {
-        var trade = new ExecutionMessage
-        {
-            TradePrice = price,
-            TradeVolume = volume,
-            ServerTime = DateTime.Now
-        };
-
-        return new MyTrade
+    private static MyTrade CreateTrade(Order order, decimal price, decimal volume)
+        => new()
         {
             Order = order,
-            Trade = trade
+            Trade = new ExecutionMessage
+            {
+                TradePrice = price,
+                TradeVolume = volume,
+                ServerTime = DateTime.Now
+            }
         };
-    }
 
     #endregion
 
-    #region Test Strategy
+    #region TestStrategy
 
     private class TestStrategy : IStrategyOrderOperations
     {
-        public List<Order> PlacedOrders { get; } = new();
-        public List<Order> CancelledOrders { get; } = new();
-
-        public Security Security { get; } = new()
-        {
-            Id = "TEST@TEST",
-            PriceStep = 0.01m
-        };
-
-        private readonly Portfolio _portfolio = new()
-        {
-            Name = "TEST"
-        };
-
+        public List<Order> PlacedOrders { get; } = [];
+        public List<Order> CancelledOrders { get; } = [];
+        public Security Security { get; } = new() { Id = "TEST@TEST", PriceStep = 0.01m };
         public decimal Position { get; set; }
 
-        private Order CreateAndRegisterOrder(decimal price, decimal volume, Sides side, OrderTypes type)
+        private readonly Portfolio _portfolio = new() { Name = "TEST" };
+
+        private Order CreateOrder(decimal price, decimal volume, Sides side, OrderTypes type)
         {
             var order = new Order
             {
@@ -266,17 +188,10 @@ public class OrderPositionManagerTests
             return order;
         }
 
-        public Order BuyLimit(decimal price, decimal volume)
-            => CreateAndRegisterOrder(price, volume, Sides.Buy, OrderTypes.Limit);
-
-        public Order SellLimit(decimal price, decimal volume)
-            => CreateAndRegisterOrder(price, volume, Sides.Sell, OrderTypes.Limit);
-
-        public Order BuyMarket(decimal volume)
-            => CreateAndRegisterOrder(0, volume, Sides.Buy, OrderTypes.Market);
-
-        public Order SellMarket(decimal volume)
-            => CreateAndRegisterOrder(0, volume, Sides.Sell, OrderTypes.Market);
+        public Order BuyLimit(decimal price, decimal volume) => CreateOrder(price, volume, Sides.Buy, OrderTypes.Limit);
+        public Order SellLimit(decimal price, decimal volume) => CreateOrder(price, volume, Sides.Sell, OrderTypes.Limit);
+        public Order BuyMarket(decimal volume) => CreateOrder(0, volume, Sides.Buy, OrderTypes.Market);
+        public Order SellMarket(decimal volume) => CreateOrder(0, volume, Sides.Sell, OrderTypes.Market);
 
         public void CancelOrder(Order order)
         {

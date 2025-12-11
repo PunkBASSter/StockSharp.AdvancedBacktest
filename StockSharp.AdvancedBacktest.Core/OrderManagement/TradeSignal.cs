@@ -13,7 +13,7 @@ public record TradeSignal
     public decimal? StopLoss { get; init; }
     public decimal? TakeProfit { get; init; }
     public OrderTypes OrderType { get; init; } = OrderTypes.Limit;
-    public DateTimeOffset? ExpiryTime { get; init; }
+    public DateTime? ExpiryTime { get; init; }
     public bool UseMarketProtectiveOrders { get; init; }
 
     public void Validate()
