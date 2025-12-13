@@ -11,10 +11,10 @@ public class TradeSignalTests
     [InlineData(100, 0)]  // zero volume
     public void Validate_ThrowsOnInvalidValues(decimal entryPrice, decimal volume)
     {
-        var signal = new TradeSignal
+        var signal = new OrderRequest
         {
             Direction = Sides.Buy,
-            EntryPrice = entryPrice,
+            Price = entryPrice,
             Volume = volume
         };
 
@@ -24,10 +24,10 @@ public class TradeSignalTests
     [Fact]
     public void Validate_ThrowsOnBuyWithStopAboveEntry()
     {
-        var signal = new TradeSignal
+        var signal = new OrderRequest
         {
             Direction = Sides.Buy,
-            EntryPrice = 100m,
+            Price = 100m,
             Volume = 1m,
             StopLoss = 110m
         };
@@ -38,10 +38,10 @@ public class TradeSignalTests
     [Fact]
     public void Validate_ThrowsOnBuyWithTakeProfitBelowEntry()
     {
-        var signal = new TradeSignal
+        var signal = new OrderRequest
         {
             Direction = Sides.Buy,
-            EntryPrice = 100m,
+            Price = 100m,
             Volume = 1m,
             TakeProfit = 90m
         };
@@ -52,10 +52,10 @@ public class TradeSignalTests
     [Fact]
     public void Validate_ThrowsOnSellWithStopBelowEntry()
     {
-        var signal = new TradeSignal
+        var signal = new OrderRequest
         {
             Direction = Sides.Sell,
-            EntryPrice = 100m,
+            Price = 100m,
             Volume = 1m,
             StopLoss = 90m
         };
@@ -66,10 +66,10 @@ public class TradeSignalTests
     [Fact]
     public void Validate_ThrowsOnSellWithTakeProfitAboveEntry()
     {
-        var signal = new TradeSignal
+        var signal = new OrderRequest
         {
             Direction = Sides.Sell,
-            EntryPrice = 100m,
+            Price = 100m,
             Volume = 1m,
             TakeProfit = 110m
         };
@@ -82,10 +82,10 @@ public class TradeSignalTests
     [InlineData(Sides.Sell, 100, 110, 90)]  // valid sell
     public void Validate_SucceedsOnValidSignal(Sides direction, decimal entry, decimal stop, decimal takeProfit)
     {
-        var signal = new TradeSignal
+        var signal = new OrderRequest
         {
             Direction = direction,
-            EntryPrice = entry,
+            Price = entry,
             Volume = 1m,
             StopLoss = stop,
             TakeProfit = takeProfit

@@ -15,14 +15,15 @@ namespace StockSharp.AdvancedBacktest.OrderManagement;
 /// <param name="strategy">The parent strategy operations.</param>
 public class OrderPositionManager(IStrategyOrderOperations strategy)
 {
-    public record MyOrder(Order EntryOrder, Order? SlOrder, Order? TpOrder);
+    //TODO implement an order state machine to track multiple orders and positions
+    
 
     private readonly IStrategyOrderOperations _strategy = strategy ?? throw new ArgumentNullException(nameof(strategy));
 
     private MyOrder? _order;
     public MyOrder? Order => _order;
 
-    private TradeSignal? _lastSignal;
+    private OrderRequest? _lastSignal;
 
     // Track current stop-loss and take-profit levels for protection
     private decimal? _currentStopLoss;
@@ -39,7 +40,7 @@ public class OrderPositionManager(IStrategyOrderOperations strategy)
         return [_order];
     }
 
-    public void HandleSignal(TradeSignal? signal)
+    public void HandleSignal(OrderRequest? signal)
     {
         if (signal == null)
         {
@@ -174,26 +175,26 @@ public class OrderPositionManager(IStrategyOrderOperations strategy)
 
     #region Private Helper Methods
 
-    private void PlaceEntryOrder(TradeSignal signal)
+    private void PlaceEntryOrder(OrderRequest signal)
     {
         _strategy.LogInfo("Placing {0} entry order at {1:F2} Volume:{2}",
-            signal.Direction, signal.EntryPrice, signal.Volume);
+            signal.Direction, signal.Price, signal.Volume);
 
         _lastSignal = signal;
 
         if (signal.Direction == Sides.Buy)
         {
-            var entryOrder = _strategy.BuyLimit(signal.EntryPrice, signal.Volume);
+            var entryOrder = _strategy.BuyLimit(signal.Price, signal.Volume);
             _order = new MyOrder(entryOrder, null, null);
         }
         else
         {
-            var entryOrder = _strategy.SellLimit(signal.EntryPrice, signal.Volume);
+            var entryOrder = _strategy.SellLimit(signal.Price, signal.Volume);
             _order = new MyOrder(entryOrder, null, null);
         }
     }
 
-    private void PlaceProtectionOrders(TradeSignal signal)
+    private void PlaceProtectionOrders(OrderRequest signal)
     {
         var volume = Math.Abs(_strategy.Position);
 
@@ -316,7 +317,7 @@ public class OrderPositionManager(IStrategyOrderOperations strategy)
         }
     }
 
-    private bool HasSignalChanged(TradeSignal newSignal)
+    private bool HasSignalChanged(OrderRequest newSignal)
     {
         if (_lastSignal == null)
             return true;
@@ -324,7 +325,7 @@ public class OrderPositionManager(IStrategyOrderOperations strategy)
         var priceStep = PriceStepHelper.GetPriceStep(_strategy.Security);
 
         // Check if entry price changed
-        if (Math.Abs(_lastSignal.EntryPrice - newSignal.EntryPrice) > priceStep)
+        if (Math.Abs(_lastSignal.Price - newSignal.Price) > priceStep)
             return true;
 
         // Check if stop-loss changed

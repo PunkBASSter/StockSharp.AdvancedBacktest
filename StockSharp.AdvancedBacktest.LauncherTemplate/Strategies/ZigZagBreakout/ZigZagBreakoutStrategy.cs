@@ -132,10 +132,10 @@ public class ZigZagBreakout : CustomStrategyBase
         var (price, sl, tp) = signalData.Value;
         var volume = CalculatePositionSize(price, sl);
 
-        var signal = new TradeSignal
+        var signal = new OrderRequest
         {
             Direction = Sides.Buy,
-            EntryPrice = price,
+            Price = price,
             Volume = volume,
             StopLoss = sl,
             TakeProfit = tp,

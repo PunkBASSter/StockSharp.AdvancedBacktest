@@ -118,10 +118,10 @@ public class OrderPositionManagerTests
         var oldOrder = _strategy.PlacedOrders[0];
 
         // Act - Signal changes to new price
-        var signal2 = new TradeSignal
+        var signal2 = new OrderRequest
         {
             Direction = Sides.Buy,
-            EntryPrice = 105m, // Different price
+            Price = 105m, // Different price
             Volume = 10m,
             StopLoss = 98m,
             TakeProfit = 115m,
@@ -199,12 +199,12 @@ public class OrderPositionManagerTests
 
     #region Helper Methods
 
-    private TradeSignal CreateValidBuySignal()
+    private OrderRequest CreateValidBuySignal()
     {
-        return new TradeSignal
+        return new OrderRequest
         {
             Direction = Sides.Buy,
-            EntryPrice = 100m,
+            Price = 100m,
             Volume = 10m,
             StopLoss = 95m,
             TakeProfit = 110m,
