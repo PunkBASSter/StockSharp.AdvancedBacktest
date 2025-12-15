@@ -94,12 +94,12 @@ Based on plan.md structure (consolidated design):
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T015 [P] [US2] Unit test for OrderRequest validation (volume sum, price direction) in StockSharp.AdvancedBacktest.Core.Tests/OrderManagement/OrderRequestTests.cs
-- [ ] T016 [P] [US2] Unit test for EntryOrderGroup.Matches() in StockSharp.AdvancedBacktest.Core.Tests/OrderManagement/OrderRegistryTests.cs
-- [ ] T018 [P] [US2] Unit test for OrderRegistry.RegisterGroup() in StockSharp.AdvancedBacktest.Core.Tests/OrderManagement/OrderRegistryTests.cs
-- [ ] T019 [P] [US2] Unit test for OrderRegistry.GetActiveGroups() in StockSharp.AdvancedBacktest.Core.Tests/OrderManagement/OrderRegistryTests.cs
-- [ ] T020 [P] [US2] Unit test for OrderRegistry.FindMatchingGroup() with OrderRequest matching in StockSharp.AdvancedBacktest.Core.Tests/OrderManagement/OrderRegistryTests.cs
-- [ ] T021 [P] [US2] Unit test for OrderRegistry concurrent group limit in StockSharp.AdvancedBacktest.Core.Tests/OrderManagement/OrderRegistryTests.cs
+- [x] T015 [P] [US2] Unit test for OrderRequest validation (volume sum, price direction) in StockSharp.AdvancedBacktest.Core.Tests/OrderManagement/OrderRequestTests.cs
+- [x] T016 [P] [US2] Unit test for EntryOrderGroup.Matches() in StockSharp.AdvancedBacktest.Core.Tests/OrderManagement/OrderRegistryTests.cs
+- [x] T018 [P] [US2] Unit test for OrderRegistry.RegisterGroup() in StockSharp.AdvancedBacktest.Core.Tests/OrderManagement/OrderRegistryTests.cs
+- [x] T019 [P] [US2] Unit test for OrderRegistry.GetActiveGroups() in StockSharp.AdvancedBacktest.Core.Tests/OrderManagement/OrderRegistryTests.cs
+- [x] T020 [P] [US2] Unit test for OrderRegistry.FindMatchingGroup() with OrderRequest matching in StockSharp.AdvancedBacktest.Core.Tests/OrderManagement/OrderRegistryTests.cs
+- [x] T021 [P] [US2] Unit test for OrderRegistry concurrent group limit in StockSharp.AdvancedBacktest.Core.Tests/OrderManagement/OrderRegistryTests.cs
 
 ### Implementation for User Story 2
 
@@ -123,16 +123,16 @@ Based on plan.md structure (consolidated design):
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
 - [x] T029 [P] [US3] Unit test for OrderPositionManager.HandleOrderRequest() creates new group in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
-- [ ] T030 [P] [US3] Unit test for OrderPositionManager handles multiple concurrent groups in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
+- [x] T030 [P] [US3] Unit test for OrderPositionManager handles multiple concurrent groups in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
 - [x] T031 [P] [US3] Unit test for OrderPositionManager.CheckProtectionLevels() closes only triggered group in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
 - [x] T032 [P] [US3] Unit test for duplicate signal detection skips existing match in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
-- [ ] T032a [P] [US3] Unit test for entry order expiration cancels all associated protective orders in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
+- [x] T032a [P] [US3] Unit test for entry order expiration cancels all associated protective orders in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
 
 ### Implementation for User Story 3
 
 - [x] T033 [US3] Refactor OrderPositionManager to use OrderRegistry (constructor takes strategy, security, strategyName) in OrderPositionManager.cs
 - [x] T034 [US3] Implement HandleOrderRequest() returning Order? for caller to register, with duplicate detection using FindMatchingGroup() in OrderPositionManager.cs
-- [ ] T034a [US3] Handle entry order expiration - cancel all associated protective orders in group and transition to Closed in OrderPositionManager.cs
+- [x] T034a [US3] Handle entry order expiration - cancel all associated protective orders in group and transition to Closed in OrderPositionManager.cs
 - [x] T035 [US3] Update CheckProtectionLevels() to iterate over all active groups in OrderPositionManager.cs
 - [x] T036 [US3] Implement OnOwnTradeReceived() to update correct group state in OrderPositionManager.cs
 - [x] T037 [US3] Add pessimistic SL/TP trigger order (SL first when both hit) in OrderPositionManager.cs
@@ -152,17 +152,17 @@ Based on plan.md structure (consolidated design):
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T039 [P] [US4] Unit test for multiple protective pairs creation from OrderRequest in StockSharp.AdvancedBacktest.Core.Tests/OrderManagement/OrderRegistryTests.cs
-- [ ] T040 [P] [US4] Unit test for partial exit cancels only corresponding SL in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
-- [ ] T041 [P] [US4] Unit test for pair removal when one pair closes in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
-- [ ] T042 [P] [US4] Unit test for group transitions to Closed when all pairs removed in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
-- [ ] T042a [P] [US4] Unit test for protective order type configuration (limit vs market) in StockSharp.AdvancedBacktest.Core.Tests/OrderManagement/OrderRequestTests.cs
+- [x] T039 [P] [US4] Unit test for multiple protective pairs creation from OrderRequest in StockSharp.AdvancedBacktest.Core.Tests/OrderManagement/OrderRegistryTests.cs
+- [x] T040 [P] [US4] Unit test for partial exit cancels only corresponding SL in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
+- [x] T041 [P] [US4] Unit test for pair removal when one pair closes in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
+- [x] T042 [P] [US4] Unit test for group transitions to Closed when all pairs removed in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
+- [x] T042a [P] [US4] Unit test for protective order type configuration (limit vs market) in StockSharp.AdvancedBacktest.Core.Tests/OrderManagement/OrderRequestTests.cs
 
 ### Implementation for User Story 4
 
 - [x] T043 [US4] EntryOrderGroup stores multiple ProtectivePairs as Dictionary in OrderRegistry.cs
 - [x] T044 [US4] Implement protective order placement for multiple pairs in OrderPositionManager.cs
-- [ ] T044a [US4] Add protective order type configuration (limit vs market) to ProtectivePair - supports FR-009 in OrderRequest.cs
+- [x] T044a [US4] Add protective order type configuration (limit vs market) to ProtectivePair - supports FR-009 in OrderRequest.cs
 - [x] T045 [US4] Implement cancel-opposing-order logic when one pair fills in OrderPositionManager.cs
 - [x] T046 [US4] Update CheckProtectionLevels() to check all pairs in each group in OrderPositionManager.cs
 - [x] T047 [US4] Auto-transition group to Closed when all pairs removed in OrderPositionManager.cs
@@ -232,9 +232,9 @@ Based on plan.md structure (consolidated design):
 | Phase 1 (Setup) | ✅ Complete | Consolidated into OrderRegistry.cs, OrderRequest.cs |
 | Phase 2 (Foundation) | ✅ Complete | IStrategyOrderOperations simplified to PlaceOrder/CancelOrder |
 | Phase 3 (US1) | ✅ Complete | Auxiliary TF subscription, OnAuxiliaryCandle(), DebugModeProvider filtering |
-| Phase 4 (US2) | 🟡 Partial | Implementation done, unit tests pending |
-| Phase 5 (US3) | 🟡 Partial | Implementation done, some tests pending |
-| Phase 6 (US4) | 🟡 Partial | Core implementation done, tests pending |
+| Phase 4 (US2) | ✅ Complete | Implementation + unit tests done |
+| Phase 5 (US3) | ✅ Complete | Implementation + tests done |
+| Phase 6 (US4) | ✅ Complete | Implementation + tests done |
 | Phase 7 (US5) | ⬜ Not Started | |
 | Phase 8 (Polish) | 🟡 Partial | Strategy integration done |
 

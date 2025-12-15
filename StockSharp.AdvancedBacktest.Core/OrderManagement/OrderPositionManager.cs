@@ -122,6 +122,39 @@ public class OrderPositionManager
             HandleProtectiveFill(group, trade);
     }
 
+    public void OnOrderStateChanged(Order order)
+    {
+        var group = _orderRegistry.FindGroupByOrder(order);
+        if (group == null)
+            return;
+
+        if (group.EntryOrder == order && group.State == OrderGroupState.Pending)
+        {
+            if (order.State == OrderStates.Done && order.Balance == order.Volume)
+            {
+                HandleEntryExpiration(group);
+            }
+            else if (order.State == OrderStates.Failed)
+            {
+                HandleEntryExpiration(group);
+            }
+        }
+    }
+
+    private void HandleEntryExpiration(EntryOrderGroup group)
+    {
+        foreach (var pair in group.ProtectivePairs.Values)
+        {
+            if (pair.SlOrder?.State == OrderStates.Active)
+                _strategy.CancelOrder(pair.SlOrder);
+            if (pair.TpOrder?.State == OrderStates.Active)
+                _strategy.CancelOrder(pair.TpOrder);
+        }
+
+        group.ProtectivePairs.Clear();
+        group.State = OrderGroupState.Closed;
+    }
+
     private void HandleEntryFill(EntryOrderGroup group)
     {
         group.State = OrderGroupState.EntryFilled;
@@ -143,8 +176,8 @@ public class OrderPositionManager
             var spec = kv.Value.Spec;
             var volume = spec.Volume ?? group.EntryOrder.Volume;
 
-            var slOrder = PlaceLimitOrder(exitSide, spec.StopLossPrice, volume);
-            var tpOrder = PlaceLimitOrder(exitSide, spec.TakeProfitPrice, volume);
+            var slOrder = PlaceProtectiveOrder(exitSide, spec.StopLossPrice, volume, spec.OrderType);
+            var tpOrder = PlaceProtectiveOrder(exitSide, spec.TakeProfitPrice, volume, spec.OrderType);
 
             group.ProtectivePairs[kv.Key] = (slOrder, tpOrder, spec);
         }
@@ -218,6 +251,19 @@ public class OrderPositionManager
     {
         _orderRegistry.Reset();
         _lastCandle = null;
+    }
+
+    private Order PlaceProtectiveOrder(Sides side, decimal price, decimal volume, OrderTypes orderType)
+    {
+        var order = new Order
+        {
+            Side = side,
+            Price = orderType == OrderTypes.Limit ? price : 0m,
+            Volume = volume,
+            Type = orderType,
+            Security = _security
+        };
+        return _strategy.PlaceOrder(order);
     }
 
     private Order PlaceLimitOrder(Sides side, decimal price, decimal volume)
