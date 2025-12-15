@@ -210,4 +210,12 @@ public class ZigZagBreakout : CustomStrategyBase
         base.OnOwnTradeReceived(trade);
         _orderManager?.OnOwnTradeReceived(trade);
     }
+
+    protected override void OnAuxiliaryCandle(ICandleMessage candle)
+    {
+        // Check protection levels on auxiliary TF candles for more granular SL/TP checking
+        // This is invisible in all outputs - purely internal
+        if (candle.State == CandleStates.Finished)
+            _orderManager?.CheckProtectionLevels(candle);
+    }
 }

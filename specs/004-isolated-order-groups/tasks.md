@@ -67,7 +67,7 @@ Based on plan.md structure (consolidated design):
 - [x] T007 [P] [US1] Unit test for TimestampRemapper.RemapToMainTimeframe() in StockSharp.AdvancedBacktest.Infrastructure.Tests/DebugMode/TimestampRemapperTests.cs
 - [x] T008 [P] [US1] Unit test for DebugModeProvider auxiliary TF filtering in StockSharp.AdvancedBacktest.Infrastructure.Tests/DebugMode/DebugModeProviderTests.cs
 - [x] T009 [P] [US1] Unit test for DebugModeProvider simultaneous AI+human debug in StockSharp.AdvancedBacktest.Infrastructure.Tests/DebugMode/DebugModeProviderTests.cs
-- [ ] T009a [P] [US1] Unit test for CustomStrategyBase.AuxiliaryTimeframe property configuration in StockSharp.AdvancedBacktest.Core.Tests/Strategies/CustomStrategyBaseTests.cs
+- [x] T009a [P] [US1] Unit test for CustomStrategyBase.AuxiliaryTimeframe property configuration in StockSharp.AdvancedBacktest.Core.Tests/Strategies/CustomStrategyBaseTests.cs
 
 ### Implementation for User Story 1
 
@@ -76,8 +76,8 @@ Based on plan.md structure (consolidated design):
 - [x] T012 [US1] Implement DebugModeProvider class with auxiliary TF filtering in StockSharp.AdvancedBacktest.Infrastructure/DebugMode/DebugModeProvider.cs
 - [x] T013 [US1] Add CaptureCandle, CaptureIndicator, CaptureTrade methods to DebugModeProvider
 - [x] T014 [US1] Add configurable AuxiliaryTimeframe property to CustomStrategyBase (TimeSpan?, default: null = disabled) in StockSharp.AdvancedBacktest.Core/Strategies/CustomStrategyBase.cs
-- [ ] T014a [US1] Implement auxiliary TF candle subscription creation in CustomStrategyBase.OnStarted2() when AuxiliaryTimeframe is set
-- [ ] T014b [US1] Integrate DebugModeProvider with CustomStrategyBase for auxiliary TF event filtering
+- [x] T014a [US1] Implement auxiliary TF candle subscription creation in CustomStrategyBase.OnStarted2() when AuxiliaryTimeframe is set
+- [x] T014b [US1] Integrate DebugModeProvider with CustomStrategyBase for auxiliary TF event filtering
 - [x] T014c [US1] Update Program.cs to explicitly set strategy.AuxiliaryTimeframe = TimeSpan.FromMinutes(5) in StockSharp.AdvancedBacktest.LauncherTemplate/Program.cs
 
 **Checkpoint**: Auxiliary TF infrastructure complete - configurable, invisible in all outputs, timestamps remapped correctly
@@ -218,7 +218,7 @@ Based on plan.md structure (consolidated design):
 
 - **Setup (Phase 1)**: No dependencies - can start immediately ✅ COMPLETE
 - **Foundational (Phase 2)**: Depends on Setup - BLOCKS all user stories ✅ COMPLETE
-- **User Story 1 (Phase 3)**: Depends on Foundational - Infrastructure for auxiliary TF (partial)
+- **User Story 1 (Phase 3)**: Depends on Foundational - Infrastructure for auxiliary TF ✅ COMPLETE
 - **User Story 2 (Phase 4)**: Depends on Foundational - Core registry and state tracking ✅ IMPLEMENTATION COMPLETE (tests pending)
 - **User Story 3 (Phase 5)**: Depends on US1 + US2 - Multiple concurrent positions ✅ IMPLEMENTATION COMPLETE (some tests pending)
 - **User Story 4 (Phase 6)**: Depends on US2 + US3 - Split exits build on concurrent positions (partial)
@@ -231,7 +231,7 @@ Based on plan.md structure (consolidated design):
 |-------|--------|-------|
 | Phase 1 (Setup) | ✅ Complete | Consolidated into OrderRegistry.cs, OrderRequest.cs |
 | Phase 2 (Foundation) | ✅ Complete | IStrategyOrderOperations simplified to PlaceOrder/CancelOrder |
-| Phase 3 (US1) | 🟡 Partial | Infrastructure done, auxiliary TF integration pending |
+| Phase 3 (US1) | ✅ Complete | Auxiliary TF subscription, OnAuxiliaryCandle(), DebugModeProvider filtering |
 | Phase 4 (US2) | 🟡 Partial | Implementation done, unit tests pending |
 | Phase 5 (US3) | 🟡 Partial | Implementation done, some tests pending |
 | Phase 6 (US4) | 🟡 Partial | Core implementation done, tests pending |

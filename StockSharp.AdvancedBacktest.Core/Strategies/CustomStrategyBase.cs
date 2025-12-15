@@ -1,5 +1,6 @@
 using Ecng.Collections;
 using Ecng.Logging;
+using StockSharp.Algo.Candles;
 using StockSharp.Algo.Strategies;
 using StockSharp.BusinessEntities;
 using StockSharp.Messages;
@@ -80,5 +81,32 @@ public abstract class CustomStrategyBase : Strategy, IStrategyOrderOperations
         return order.Side == Sides.Buy
             ? BuyLimit(order.Price, order.Volume)
             : SellLimit(order.Price, order.Volume);
+    }
+
+    protected override void OnStarted2(DateTime time)
+    {
+        base.OnStarted2(time);
+
+        if (AuxiliaryTimeframe.HasValue && AuxiliaryTimeframe.Value > TimeSpan.Zero)
+        {
+            var auxSubscription = new Subscription(AuxiliaryTimeframe.Value.TimeFrame(), Security)
+            {
+                MarketData =
+                {
+                    IsFinishedOnly = true,
+                    BuildMode = MarketDataBuildModes.LoadAndBuild,
+                }
+            };
+
+            SubscribeCandles(auxSubscription)
+                .Bind(OnAuxiliaryCandle)
+                .Start();
+        }
+    }
+
+    protected virtual void OnAuxiliaryCandle(ICandleMessage candle)
+    {
+        // Override in derived classes to handle auxiliary TF candles
+        // Typically used to call OrderPositionManager.CheckProtectionLevels(candle)
     }
 }
