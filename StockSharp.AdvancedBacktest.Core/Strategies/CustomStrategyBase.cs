@@ -10,7 +10,7 @@ using System.Text;
 
 namespace StockSharp.AdvancedBacktest.Strategies;
 
-public abstract class CustomStrategyBase : Strategy, IStrategyOrderOperations
+public abstract class CustomStrategyBase : Strategy
 {
     public string Hash => $"{GetType().Name}V{Version}_{SecuritiesHash}_{ParamsHash}";
     public PerformanceMetrics? PerformanceMetrics { get; protected set; }
@@ -65,11 +65,4 @@ public abstract class CustomStrategyBase : Strategy, IStrategyOrderOperations
     }
 
     public List<ICustomParam> ParamsBackup { get; set; } = [];
-
-    Order IStrategyOrderOperations.BuyLimit(decimal price, decimal volume) => BuyLimit(price, volume);
-    Order IStrategyOrderOperations.SellLimit(decimal price, decimal volume) => SellLimit(price, volume);
-    Order IStrategyOrderOperations.BuyMarket(decimal volume) => BuyMarket(volume);
-    Order IStrategyOrderOperations.SellMarket(decimal volume) => SellMarket(volume);
-    void IStrategyOrderOperations.LogInfo(string format, params object[] args) => this.LogInfo(format, args);
-    void IStrategyOrderOperations.LogWarning(string format, params object[] args) => this.LogWarning(format, args);
 }

@@ -28,7 +28,7 @@ public class OrderPositionManagerTests
         var signal = CreateValidBuySignal();
 
         // Act
-        _manager.HandleSignal(signal);
+        _manager.HandleOrderRequest(signal);
 
         // Assert
         Assert.Single(_strategy.PlacedOrders);
@@ -44,7 +44,7 @@ public class OrderPositionManagerTests
     {
         // Arrange - Place entry order
         var signal = CreateValidBuySignal(); // Entry: 100, SL: 95, TP: 110
-        _manager.HandleSignal(signal);
+        _manager.HandleOrderRequest(signal);
 
         var entryOrder = _strategy.PlacedOrders[0];
         _strategy.Position = 10m; // Simulate filled position
@@ -72,7 +72,7 @@ public class OrderPositionManagerTests
     {
         // Arrange - Setup position with protection orders
         var signal = CreateValidBuySignal();
-        _manager.HandleSignal(signal);
+        _manager.HandleOrderRequest(signal);
         var entryOrder = _strategy.PlacedOrders[0];
         _strategy.Position = 10m;
         _manager.OnOwnTradeReceived(CreateTrade(entryOrder, 100m, 10m));
@@ -93,7 +93,7 @@ public class OrderPositionManagerTests
     {
         // Arrange - Setup position with protection orders
         var signal = CreateValidBuySignal();
-        _manager.HandleSignal(signal);
+        _manager.HandleOrderRequest(signal);
         var entryOrder = _strategy.PlacedOrders[0];
         _strategy.Position = 10m;
         _manager.OnOwnTradeReceived(CreateTrade(entryOrder, 100m, 10m));
@@ -114,7 +114,7 @@ public class OrderPositionManagerTests
     {
         // Arrange - Place initial order
         var signal1 = CreateValidBuySignal(); // Entry: 100
-        _manager.HandleSignal(signal1);
+        _manager.HandleOrderRequest(signal1);
         var oldOrder = _strategy.PlacedOrders[0];
 
         // Act - Signal changes to new price
@@ -127,7 +127,7 @@ public class OrderPositionManagerTests
             TakeProfit = 115m,
             OrderType = OrderTypes.Limit
         };
-        _manager.HandleSignal(signal2);
+        _manager.HandleOrderRequest(signal2);
 
         // Assert
         Assert.Contains(oldOrder, _strategy.CancelledOrders); // Old order cancelled
@@ -141,11 +141,11 @@ public class OrderPositionManagerTests
     {
         // Arrange - Setup with active order
         var signal = CreateValidBuySignal();
-        _manager.HandleSignal(signal);
+        _manager.HandleOrderRequest(signal);
         var order = _strategy.PlacedOrders[0];
 
         // Act
-        _manager.HandleSignal(null);
+        _manager.HandleOrderRequest(null);
 
         // Assert
         Assert.Contains(order, _strategy.CancelledOrders);
@@ -188,7 +188,7 @@ public class OrderPositionManagerTests
     {
         // Arrange - Create some state
         var signal = CreateValidBuySignal();
-        _manager.HandleSignal(signal);
+        _manager.HandleOrderRequest(signal);
 
         // Act
         _manager.Reset();

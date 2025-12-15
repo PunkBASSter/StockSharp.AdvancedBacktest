@@ -2,6 +2,7 @@ using StockSharp.AdvancedBacktest.Utilities;
 using StockSharp.BusinessEntities;
 using StockSharp.Messages;
 using StockSharp.Algo.Candles;
+using StockSharp.AdvancedBacktest.Strategies;
 
 namespace StockSharp.AdvancedBacktest.OrderManagement;
 
@@ -13,60 +14,64 @@ namespace StockSharp.AdvancedBacktest.OrderManagement;
 /// Creates a new OrderPositionManager for the specified strategy.
 /// </remarks>
 /// <param name="strategy">The parent strategy operations.</param>
-public class OrderPositionManager(IStrategyOrderOperations strategy)
+public class OrderPositionManager(CustomStrategyBase _strategy, OrderRegistry _orderRegistry)
 {
     //TODO implement an order state machine to track multiple orders and positions
-    
+    // What we hanlde:
+    // 1. Filled entry orders: place protection orders (SL/TP) or monitor levels on candles (if OrderRequest.UseMarketProtectiveOrders is true)
+    // 2. Filled protection order: cancel other protection order from pair 
 
-    private readonly IStrategyOrderOperations _strategy = strategy ?? throw new ArgumentNullException(nameof(strategy));
+    //         -> cancelled
+    //         -> expired
+    // pending -> filled -> protection set (sl/tp) -> protection filled
+    //                                             -> protection partially filled ()
+    //                   -> forced close (close by market, cancel protection) 
 
-    private MyOrder? _order;
-    public MyOrder? Order => _order;
+    // pending
+    //     candelled
+    //     expired
+    //     filled
+    //         protection set 
+    //             protection filled
+    //             protection partially filled
+    //         forced close
 
-    private OrderRequest? _lastSignal;
+    // Current active order with associated SL/TP orders    private OrderRequest? _lastSignal;
 
-    // Track current stop-loss and take-profit levels for protection
-    private decimal? _currentStopLoss;
-    private decimal? _currentTakeProfit;
 
-    // Cache the last candle for protection checking after entry fills
+
     private ICandleMessage? _lastCandle;
 
-    public MyOrder[] ActiveOrders()
+    public void HandleOrderRequest(OrderRequest? orderRequest)
     {
-        if (_order is null || !IsOrderActive(_order.EntryOrder))
-            return [];
-
-        return [_order];
-    }
-
-    public void HandleSignal(OrderRequest? signal)
-    {
-        if (signal == null)
+        //TODO: Reimplement from scratch
+        if (orderRequest == null)
         {
             CancelAllOrders();
             return;
         }
 
-        if (_order is null)
+        //var existingOrder = _orderRegistry.GetOrderRequest();
+
+        if (order is null)
         {
-            signal.Validate();
-            PlaceEntryOrder(signal);
+            orderRequest.Validate();
+            PlaceEntryOrder(orderRequest);
             // Store SL/TP levels for protection checking
-            _currentStopLoss = signal.StopLoss;
-            _currentTakeProfit = signal.TakeProfit;
+            _currentStopLoss = orderRequest.StopLoss;
+            _currentTakeProfit = orderRequest.TakeProfit;
             return;
         }
 
-        signal.Validate();
-        if (HasSignalChanged(signal) && IsOrderActive(_order.EntryOrder))
+        orderRequest.Validate();
+        if (HasSignalChanged(orderRequest) && IsOrderActive(_order.EntryOrder))
         {
             _strategy.LogInfo("Canceling existing entry order - signal levels changed");
             CancelAllOrders();
-            PlaceEntryOrder(signal);
+            PlaceEntryOrder(orderRequest);
             // Update SL/TP levels for new signal
-            _currentStopLoss = signal.StopLoss;
-            _currentTakeProfit = signal.TakeProfit;
+            _currentStopLoss = orderRequest.StopLoss;
+            _currentTakeProfit = orderRequest.TakeProfit;
         }
     }
 
@@ -77,7 +82,7 @@ public class OrderPositionManager(IStrategyOrderOperations strategy)
     /// </summary>
     /// <param name="candle">The current candle to check against protection levels.</param>
     /// <returns>True if position was closed due to SL/TP hit, false otherwise.</returns>
-    public bool CheckProtectionLevels(ICandleMessage candle)
+    public bool CheckProtectionLevels(ICandleMessage candle)//MAYBE CAN BE REMOVED IF BACKTEST IS FIXED
     {
         // Cache the candle for later use (e.g., after entry fills)
         _lastCandle = candle;
@@ -121,30 +126,12 @@ public class OrderPositionManager(IStrategyOrderOperations strategy)
 
     public void CloseAllPositions()
     {
-        if (_strategy.Position == 0)
-            return;
-
-        _strategy.LogInfo("Closing all positions - current position: {0}", _strategy.Position);
-
-        CancelProtectionOrders();
-
-        var closeVolume = Math.Abs(_strategy.Position);
-        if (_strategy.Position > 0)
-        {
-            _strategy.SellMarket(closeVolume);
-        }
-        else
-        {
-            _strategy.BuyMarket(closeVolume);
-        }
-
-        // Clear order state to allow new orders to be placed
-        _order = null;
-        _lastSignal = null;
+        //Emergency market close of all positions
     }
 
     public void OnOwnTradeReceived(MyTrade trade)
     {
+        //TODO: rewrite
         var order = trade.Order;
 
         if (_order?.EntryOrder == order)
@@ -166,74 +153,25 @@ public class OrderPositionManager(IStrategyOrderOperations strategy)
     /// </summary>
     public void Reset()
     {
-        _order = null;
-        _lastSignal = null;
-        _currentStopLoss = null;
-        _currentTakeProfit = null;
-        _lastCandle = null;
+        //TODO: implement reset logic
     }
 
     #region Private Helper Methods
 
     private void PlaceEntryOrder(OrderRequest signal)
     {
-        _strategy.LogInfo("Placing {0} entry order at {1:F2} Volume:{2}",
-            signal.Direction, signal.Price, signal.Volume);
-
-        _lastSignal = signal;
-
-        if (signal.Direction == Sides.Buy)
-        {
-            var entryOrder = _strategy.BuyLimit(signal.Price, signal.Volume);
-            _order = new MyOrder(entryOrder, null, null);
-        }
-        else
-        {
-            var entryOrder = _strategy.SellLimit(signal.Price, signal.Volume);
-            _order = new MyOrder(entryOrder, null, null);
-        }
+        //TODO: implement placing entry order via strategy connector
     }
 
     private void PlaceProtectionOrders(OrderRequest signal)
     {
-        var volume = Math.Abs(_strategy.Position);
-
-        if (volume == 0)
-        {
-            _strategy.LogWarning("Cannot place protection orders - no position");
-            return;
-        }
-
-        var exitDirection = _strategy.Position > 0 ? Sides.Sell : Sides.Buy;
-
-        Order? slOrder = null;
-        if (signal.StopLoss.HasValue)
-        {
-            _strategy.LogInfo("Placing stop-loss order at {0:F2}", signal.StopLoss.Value);
-
-            if (exitDirection == Sides.Sell)
-                slOrder = _strategy.SellLimit(signal.StopLoss.Value, volume);
-            else
-                slOrder = _strategy.BuyLimit(signal.StopLoss.Value, volume);
-        }
-
-        Order? tpOrder = null;
-        if (signal.TakeProfit.HasValue)
-        {
-            _strategy.LogInfo("Placing take-profit order at {0:F2}", signal.TakeProfit.Value);
-
-            if (exitDirection == Sides.Sell)
-                tpOrder = _strategy.SellLimit(signal.TakeProfit.Value, volume);
-            else
-                tpOrder = _strategy.BuyLimit(signal.TakeProfit.Value, volume);
-        }
-
-        _order = _order! with { SlOrder = slOrder, TpOrder = tpOrder };
-        return;
+        //TODO: implement placing SL/TP orders for all pairs, take into account partial fills, etc. and simulation mode (market orders vs limit orders)
     }
 
     private void HandleEntryFill(MyTrade trade)
     {
+        //TODO: rewrite from scratch
+
         _strategy.LogInfo("Entry order filled at {0:F2}, Position: {1}",
             trade.Trade.Price, _strategy.Position);
 
@@ -258,88 +196,9 @@ public class OrderPositionManager(IStrategyOrderOperations strategy)
         // PlaceProtectionOrders(_lastSignal);
     }
 
-    private void HandleStopLossFill(MyTrade trade)
+    private bool HasSignalChanged(OrderRequest currentOrderRequest)
     {
-        _strategy.LogInfo("Stop-loss filled at {0:F2}, Position: {1}",
-            trade.Trade.Price, _strategy.Position);
-
-        if (IsOrderActive(_order?.TpOrder))
-        {
-            _strategy.LogInfo("Canceling take-profit order");
-            _strategy.CancelOrder(_order!.TpOrder!);
-        }
-
-        // Clear state to allow new orders after SL closes the position
-        _order = null;
-        _lastSignal = null;
-    }
-
-    private void HandleTakeProfitFill(MyTrade trade)
-    {
-        _strategy.LogInfo("Take-profit filled at {0:F2}, Position: {1}",
-            trade.Trade.Price, _strategy.Position);
-
-        if (IsOrderActive(_order?.SlOrder))
-        {
-            _strategy.LogInfo("Canceling stop-loss order");
-            _strategy.CancelOrder(_order!.SlOrder!);
-        }
-
-        // Clear state to allow new orders after TP closes the position
-        _order = null;
-        _lastSignal = null;
-    }
-
-    private void CancelAllOrders()
-    {
-        if (IsOrderActive(_order?.EntryOrder))
-        {
-            _strategy.LogInfo("Canceling entry order");
-            _strategy.CancelOrder(_order!.EntryOrder);
-            _order = null;
-        }
-
-        CancelProtectionOrders();
-    }
-
-    private void CancelProtectionOrders()
-    {
-        if (IsOrderActive(_order?.SlOrder))
-        {
-            _strategy.LogInfo("Canceling stop-loss order");
-            _strategy.CancelOrder(_order!.SlOrder!);
-        }
-
-        if (IsOrderActive(_order?.TpOrder))
-        {
-            _strategy.LogInfo("Canceling take-profit order");
-            _strategy.CancelOrder(_order!.TpOrder!);
-        }
-    }
-
-    private bool HasSignalChanged(OrderRequest newSignal)
-    {
-        if (_lastSignal == null)
-            return true;
-
-        var priceStep = PriceStepHelper.GetPriceStep(_strategy.Security);
-
-        // Check if entry price changed
-        if (Math.Abs(_lastSignal.Price - newSignal.Price) > priceStep)
-            return true;
-
-        // Check if stop-loss changed
-        var oldSL = _lastSignal.StopLoss ?? 0;
-        var newSL = newSignal.StopLoss ?? 0;
-        if (Math.Abs(oldSL - newSL) > priceStep)
-            return true;
-
-        // Check if take-profit changed
-        var oldTP = _lastSignal.TakeProfit ?? 0;
-        var newTP = newSignal.TakeProfit ?? 0;
-        if (Math.Abs(oldTP - newTP) > priceStep)
-            return true;
-
+        //TODO: move this to comparison of EntryOrderGroup or OrderRegistry
         return false;
     }
 

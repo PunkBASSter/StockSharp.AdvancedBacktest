@@ -45,7 +45,7 @@ public class ZigZagBreakout : CustomStrategyBase
             _config.MaxPositionSize);
 
         // Initialize order manager
-        _orderManager = new OrderPositionManager(this);
+        _orderManager = new OrderPositionManager(this); //TODO: pass via constructor and register in DI container
 
         _dzz = new DeltaZigZag
         {
@@ -118,7 +118,7 @@ public class ZigZagBreakout : CustomStrategyBase
         // If no valid signal, cancel any pending entry orders
         if (!signalData.HasValue)
         {
-            _orderManager.HandleSignal(null);
+            _orderManager.HandleOrderRequest(null);
             return;
         }
 
@@ -132,18 +132,20 @@ public class ZigZagBreakout : CustomStrategyBase
         var (price, sl, tp) = signalData.Value;
         var volume = CalculatePositionSize(price, sl);
 
-        var signal = new OrderRequest
+        var entryOrder = new Order
         {
-            Direction = Sides.Buy,
+            Side = Sides.Buy,
             Price = price,
             Volume = volume,
-            StopLoss = sl,
-            TakeProfit = tp,
-            OrderType = OrderTypes.Limit
+            Security = Security,
+            Portfolio = Portfolio,
+            Type = OrderTypes.Limit
         };
 
+        var protectivePair = new ProtectivePair(sl, tp, volume);
+
         this.LogInfo("Signal: BUY LIMIT at {0:F2} SL:{1:F2} TP:{2:F2} Volume:{3}", price, sl, tp, volume);
-        _orderManager.HandleSignal(signal);
+        _orderManager.HandleOrderRequest(new OrderRequest(entryOrder, [protectivePair]));
     }
 
     private (decimal price, decimal sl, decimal tp)? TryGetBuyOrder()
