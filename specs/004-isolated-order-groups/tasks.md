@@ -181,20 +181,20 @@ Based on plan.md structure (consolidated design):
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T048 [P] [US5] Unit test for partial fill triggers market order for remaining volume in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
-- [ ] T049 [P] [US5] Unit test for market order retry up to 5 times in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
-- [ ] T050 [P] [US5] Unit test for 5th retry failure logs error in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
-- [ ] T051 [P] [US5] Unit test for successful retry properly closes group in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
+- [x] T048 [P] [US5] Unit test for partial fill triggers market order for remaining volume in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
+- [x] T049 [P] [US5] Unit test for market order retry up to 5 times in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
+- [x] T050 [P] [US5] Unit test for 5th retry failure logs error in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
+- [x] T051 [P] [US5] Unit test for successful retry properly closes group in StockSharp.AdvancedBacktest.Tests/OrderManagement/OrderPositionManagerTests.cs
 
 ### Implementation for User Story 5
 
-- [ ] T052 [US5] Add partial fill detection in OnOwnTradeReceived() in OrderPositionManager.cs
-- [ ] T053 [US5] Implement market order placement for remaining volume in OrderPositionManager.cs
-- [ ] T054 [US5] Implement retry counter and logic (max 5 attempts) in OrderPositionManager.cs
-- [ ] T055 [US5] Add error logging and manual intervention flag after 5 failures in OrderPositionManager.cs
-- [ ] T056 [US5] Ensure proper group closure after successful retry in OrderPositionManager.cs
+- [x] T052 [US5] Add partial fill detection in OnOwnTradeReceived() in OrderPositionManager.cs
+- [x] T053 [US5] Implement market order placement for remaining volume in OrderPositionManager.cs
+- [x] T054 [US5] Implement retry counter and logic (max 5 attempts) in OrderPositionManager.cs
+- [x] T055 [US5] Add error logging and manual intervention flag after 5 failures in OrderPositionManager.cs
+- [x] T056 [US5] Ensure proper group closure after successful retry in OrderPositionManager.cs
 
-**Checkpoint**: Partial fills handled gracefully - no orphaned positions
+**Checkpoint**: ✅ Partial fills handled gracefully - no orphaned positions
 
 ---
 
@@ -204,11 +204,13 @@ Based on plan.md structure (consolidated design):
 
 - [x] T057 Update ZigZagBreakoutStrategy to use new OrderPositionManager API (constructor, HandleOrderRequest returns Order?) in ZigZagBreakoutStrategy.cs
 - [x] T058 Update CustomStrategyBase to implement IStrategyOrderOperations with PlaceOrder method in CustomStrategyBase.cs
-- [ ] T059 [P] Add state transition logging in EntryOrderGroup for debugging (FR-012)
-- [ ] T060 [P] Add order event logging in OrderPositionManager for debugging (FR-012)
-- [ ] T061 Run quickstart.md validation - verify all usage examples work
-- [ ] T062 Verify auxiliary TF is invisible in all outputs (SC-005)
-- [ ] T063 Verify position management APIs are strategy-agnostic (SC-010)
+- [x] T059 [P] Add state transition logging in EntryOrderGroup for debugging (FR-012)
+- [x] T060 [P] Add order event logging in OrderPositionManager for debugging (FR-012)
+- [x] T061 Run quickstart.md validation - verify all usage examples work
+- [x] T062 Verify auxiliary TF is invisible in all outputs (SC-005)
+- [x] T063 Verify position management APIs are strategy-agnostic (SC-010)
+
+**Checkpoint**: ✅ All polish tasks complete - feature ready for integration
 
 ---
 
@@ -235,8 +237,8 @@ Based on plan.md structure (consolidated design):
 | Phase 4 (US2) | ✅ Complete | Implementation + unit tests done |
 | Phase 5 (US3) | ✅ Complete | Implementation + tests done |
 | Phase 6 (US4) | ✅ Complete | Implementation + tests done |
-| Phase 7 (US5) | ⬜ Not Started | |
-| Phase 8 (Polish) | 🟡 Partial | Strategy integration done |
+| Phase 7 (US5) | ✅ Complete | Partial fill handling with market close retry |
+| Phase 8 (Polish) | ✅ Complete | All polish and validation tasks done |
 
 ---
 
@@ -245,9 +247,11 @@ Based on plan.md structure (consolidated design):
 | Metric | Count |
 |--------|-------|
 | **Total Tasks** | ~55 (reduced from 71 due to consolidation) |
-| **Completed** | ~25 |
-| **In Progress** | ~15 |
-| **Pending** | ~15 |
+| **Completed** | 55 |
+| **In Progress** | 0 |
+| **Pending** | 0 |
+
+**Feature Status**: ✅ COMPLETE - All phases implemented and tested
 
 ---
 

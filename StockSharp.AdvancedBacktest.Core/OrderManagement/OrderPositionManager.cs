@@ -10,16 +10,25 @@ public class OrderPositionManager
     private readonly IStrategyOrderOperations _strategy;
     private readonly OrderRegistry _orderRegistry;
     private readonly Security _security;
+    private readonly PartialFillRetryHandler _retryHandler;
     private ICandleMessage? _lastCandle;
+
+    public event Action<string, object?>? OnOrderEvent;
 
     public OrderPositionManager(IStrategyOrderOperations strategy, Security security, string strategyName)
     {
         _strategy = strategy ?? throw new ArgumentNullException(nameof(strategy));
         _security = security ?? throw new ArgumentNullException(nameof(security));
         _orderRegistry = new OrderRegistry(strategyName) { MaxConcurrentGroups = 5 };
+        _retryHandler = new PartialFillRetryHandler();
+        _retryHandler.OnRetryEvent += (eventType, data) => OnOrderEvent?.Invoke(eventType, data);
     }
 
     public EntryOrderGroup[] ActiveOrders() => _orderRegistry.GetActiveGroups();
+
+    public bool HasReachedRetryLimit() => _retryHandler.HasReachedRetryLimit();
+
+    public bool RequiresManualIntervention() => _retryHandler.RequiresManualIntervention();
 
     public Order? HandleOrderRequest(OrderRequest? orderRequest)
     {
@@ -111,13 +120,21 @@ public class OrderPositionManager
     public void OnOwnTradeReceived(MyTrade trade)
     {
         var order = trade.Order;
+
+        // Check if this is a retry order for partial fill handling
+        if (_retryHandler.TryGetRetryKey(order, out var retryKey))
+        {
+            HandleRetryFill(retryKey!, trade);
+            return;
+        }
+
         var group = _orderRegistry.FindGroupByOrder(order);
 
         if (group == null)
             return;
 
         if (group.EntryOrder == order)
-            HandleEntryFill(group);
+            HandleEntryFill(group, trade);
         else
             HandleProtectiveFill(group, trade);
     }
@@ -155,8 +172,13 @@ public class OrderPositionManager
         group.State = OrderGroupState.Closed;
     }
 
-    private void HandleEntryFill(EntryOrderGroup group)
+    private void HandleEntryFill(EntryOrderGroup group, MyTrade trade)
     {
+        // Entry partial fills are not treated as errors - just wait for full fill
+        // Only transition state when fully filled
+        if (trade.Order.Balance > 0)
+            return;
+
         group.State = OrderGroupState.EntryFilled;
 
         if (_lastCandle != null && CheckGroupProtection(group, _lastCandle))
@@ -196,6 +218,16 @@ public class OrderPositionManager
         var isStopLoss = pair.SlOrder == order;
         var otherOrder = isStopLoss ? pair.TpOrder : pair.SlOrder;
 
+        // Check for partial fill
+        var remainingVolume = order.Balance;
+        if (remainingVolume > 0)
+        {
+            // Partial fill detected - initiate market retry for remaining volume
+            _retryHandler.InitiateRetry(group.GroupId, pairEntry.Key, remainingVolume, order.Side, PlaceMarketOrder);
+            return;
+        }
+
+        // Full fill - cancel the opposing order and clean up
         if (otherOrder?.State == OrderStates.Active)
             _strategy.CancelOrder(otherOrder);
 
@@ -203,6 +235,35 @@ public class OrderPositionManager
 
         if (group.ProtectivePairs.Count == 0)
             group.State = OrderGroupState.Closed;
+    }
+
+    private void HandleRetryFill(string retryKey, MyTrade trade)
+    {
+        var (needsMoreRetries, groupId, pairId) = _retryHandler.HandleRetryFill(retryKey, trade, PlaceMarketOrder);
+
+        if (needsMoreRetries || groupId == null || pairId == null)
+            return;
+
+        // Successful full fill - clean up the group/pair
+        var targetGroup = _orderRegistry.GetActiveGroups()
+            .FirstOrDefault(g => g.GroupId == groupId);
+
+        if (targetGroup == null)
+            return;
+
+        // Cancel the opposing order if exists
+        if (targetGroup.ProtectivePairs.TryGetValue(pairId, out var pair))
+        {
+            if (pair.SlOrder?.State == OrderStates.Active)
+                _strategy.CancelOrder(pair.SlOrder);
+            if (pair.TpOrder?.State == OrderStates.Active)
+                _strategy.CancelOrder(pair.TpOrder);
+
+            targetGroup.ProtectivePairs.Remove(pairId);
+        }
+
+        if (targetGroup.ProtectivePairs.Count == 0)
+            targetGroup.State = OrderGroupState.Closed;
     }
 
     private void CancelPendingOrders()
@@ -251,6 +312,7 @@ public class OrderPositionManager
     {
         _orderRegistry.Reset();
         _lastCandle = null;
+        _retryHandler.Reset();
     }
 
     private Order PlaceProtectiveOrder(Sides side, decimal price, decimal volume, OrderTypes orderType)

@@ -8,9 +8,22 @@ public record EntryOrderGroup(
     string GroupId,
     Order EntryOrder,
     Dictionary<string, (Order? SlOrder, Order? TpOrder, ProtectivePair Spec)> ProtectivePairs,
-    OrderGroupState State = OrderGroupState.Pending)
+    OrderGroupState InitialState = OrderGroupState.Pending)
 {
-    public OrderGroupState State { get; set; } = State;
+    private OrderGroupState _state = InitialState;
+
+    public OrderGroupState State
+    {
+        get => _state;
+        set
+        {
+            var oldState = _state;
+            _state = value;
+            OnStateChanged?.Invoke(this, oldState, value);
+        }
+    }
+
+    public static event Action<EntryOrderGroup, OrderGroupState, OrderGroupState>? OnStateChanged;
 
     public bool Matches(OrderRequest request, decimal tolerance = 0.00000001m)
     {

@@ -488,6 +488,184 @@ public class OrderPositionManagerTests
         };
     }
 
+    private MyTrade CreatePartialTrade(Order order, decimal price, decimal filledVolume, decimal remainingVolume)
+    {
+        order.Balance = remainingVolume;
+
+        var trade = new ExecutionMessage
+        {
+            TradePrice = price,
+            TradeVolume = filledVolume,
+            ServerTime = DateTime.Now
+        };
+
+        return new MyTrade
+        {
+            Order = order,
+            Trade = trade
+        };
+    }
+
+    #endregion
+
+    #region US5 Tests - Partial Fill Handling with Market Close Retry
+
+    [Fact]
+    public void OnOwnTradeReceived_PartialFillOnProtectiveOrder_TriggersMarketOrderForRemaining()
+    {
+        var signal = CreateValidBuySignal();
+        var entryOrder = _manager.HandleOrderRequest(signal);
+        _manager.OnOwnTradeReceived(CreateTrade(entryOrder!, 100m, 10m));
+
+        var slOrder = _strategy.PlacedOrders.FirstOrDefault(o => o.Price == 95m);
+        Assert.NotNull(slOrder);
+
+        _strategy.PlacedOrders.Clear();
+
+        // Simulate partial fill of SL order (only 6 of 10 filled)
+        var partialTrade = CreatePartialTrade(slOrder, 95m, 6m, 4m);
+        _manager.OnOwnTradeReceived(partialTrade);
+
+        // Should place a market order for remaining 4 volume
+        var marketOrder = _strategy.PlacedOrders.FirstOrDefault(o => o.Type == OrderTypes.Market);
+        Assert.NotNull(marketOrder);
+        Assert.Equal(4m, marketOrder.Volume);
+        Assert.Equal(Sides.Sell, marketOrder.Side);
+    }
+
+    [Fact]
+    public void OnOwnTradeReceived_PartialFill_RetriesUpTo5Times()
+    {
+        var signal = CreateValidBuySignal();
+        var entryOrder = _manager.HandleOrderRequest(signal);
+        _manager.OnOwnTradeReceived(CreateTrade(entryOrder!, 100m, 10m));
+
+        var slOrder = _strategy.PlacedOrders.FirstOrDefault(o => o.Price == 95m);
+        Assert.NotNull(slOrder);
+
+        // Track market orders separately
+        var marketOrders = new List<Order>();
+
+        // First partial fill on protective order → triggers first retry
+        var partialTrade1 = CreatePartialTrade(slOrder!, 95m, 6m, 4m);
+        _manager.OnOwnTradeReceived(partialTrade1);
+
+        // Collect the first market order
+        var firstMarketOrder = _strategy.PlacedOrders.LastOrDefault(o => o.Type == OrderTypes.Market);
+        Assert.NotNull(firstMarketOrder);
+        marketOrders.Add(firstMarketOrder);
+
+        // Simulate 4 more partial fills that each still leave remaining volume
+        // (total 5 retries: 1 initial + 4 more)
+        for (var i = 0; i < 4; i++)
+        {
+            var currentMarketOrder = marketOrders.Last();
+
+            // Simulate partial fill that leaves some remaining
+            var partialTrade = CreatePartialTrade(currentMarketOrder, 95m, 1m, 1m);
+            _manager.OnOwnTradeReceived(partialTrade);
+
+            // Get the new market order if one was placed
+            var newMarketOrder = _strategy.PlacedOrders.LastOrDefault(o =>
+                o.Type == OrderTypes.Market && !marketOrders.Contains(o));
+            if (newMarketOrder != null)
+                marketOrders.Add(newMarketOrder);
+        }
+
+        // After 5 retries (retry counter = 5), HasReachedRetryLimit should be true
+        Assert.True(_manager.HasReachedRetryLimit());
+    }
+
+    [Fact]
+    public void OnOwnTradeReceived_5thRetryFails_LogsErrorAndSetsManualInterventionFlag()
+    {
+        var signal = CreateValidBuySignal();
+        var entryOrder = _manager.HandleOrderRequest(signal);
+        _manager.OnOwnTradeReceived(CreateTrade(entryOrder!, 100m, 10m));
+
+        var slOrder = _strategy.PlacedOrders.FirstOrDefault(o => o.Price == 95m);
+        Assert.NotNull(slOrder);
+
+        // Track market orders separately
+        var marketOrders = new List<Order>();
+
+        // First partial fill on protective order → triggers first retry
+        var partialTrade1 = CreatePartialTrade(slOrder!, 95m, 6m, 4m);
+        _manager.OnOwnTradeReceived(partialTrade1);
+
+        var firstMarketOrder = _strategy.PlacedOrders.LastOrDefault(o => o.Type == OrderTypes.Market);
+        Assert.NotNull(firstMarketOrder);
+        marketOrders.Add(firstMarketOrder);
+
+        // Simulate more partial fills until max retries reached
+        for (var i = 0; i < 5; i++)
+        {
+            var currentMarketOrder = marketOrders.Last();
+
+            // Simulate partial fill that always leaves some remaining
+            var partialTrade = CreatePartialTrade(currentMarketOrder, 95m, 0.5m, 0.5m);
+            _manager.OnOwnTradeReceived(partialTrade);
+
+            // Get the new market order if one was placed
+            var newMarketOrder = _strategy.PlacedOrders.LastOrDefault(o =>
+                o.Type == OrderTypes.Market && !marketOrders.Contains(o));
+            if (newMarketOrder != null)
+                marketOrders.Add(newMarketOrder);
+        }
+
+        // After exceeding max retries, should have set manual intervention required
+        Assert.True(_manager.RequiresManualIntervention());
+    }
+
+    [Fact]
+    public void OnOwnTradeReceived_SuccessfulRetry_ProperlyClosesGroup()
+    {
+        var signal = CreateValidBuySignal();
+        var entryOrder = _manager.HandleOrderRequest(signal);
+        _manager.OnOwnTradeReceived(CreateTrade(entryOrder!, 100m, 10m));
+
+        var slOrder = _strategy.PlacedOrders.FirstOrDefault(o => o.Price == 95m);
+        var tpOrder = _strategy.PlacedOrders.FirstOrDefault(o => o.Price == 110m);
+        Assert.NotNull(slOrder);
+
+        // First partial fill of SL order (6 of 10)
+        var partialTrade1 = CreatePartialTrade(slOrder!, 95m, 6m, 4m);
+        _manager.OnOwnTradeReceived(partialTrade1);
+
+        // Market order placed for remaining 4
+        var marketOrder = _strategy.PlacedOrders.LastOrDefault(o => o.Type == OrderTypes.Market);
+        Assert.NotNull(marketOrder);
+
+        // Successful fill of market order (all 4 filled)
+        var fullFillTrade = CreateTrade(marketOrder, 95m, 4m);
+        _manager.OnOwnTradeReceived(fullFillTrade);
+
+        // TP order should be cancelled
+        Assert.Contains(tpOrder, _strategy.CancelledOrders);
+
+        // Group should be closed
+        var activeGroups = _manager.ActiveOrders();
+        Assert.Empty(activeGroups);
+    }
+
+    [Fact]
+    public void OnOwnTradeReceived_PartialFillOnEntry_DoesNotTriggerRetry()
+    {
+        var signal = CreateValidBuySignal();
+        var entryOrder = _manager.HandleOrderRequest(signal);
+
+        _strategy.PlacedOrders.Clear();
+
+        // Partial fill on entry order should NOT trigger market retry mechanism
+        // Entry partial fills are handled differently - wait for full fill
+        var partialTrade = CreatePartialTrade(entryOrder!, 100m, 6m, 4m);
+        _manager.OnOwnTradeReceived(partialTrade);
+
+        // Should NOT place any market orders for entry partial fills
+        var marketOrders = _strategy.PlacedOrders.Where(o => o.Type == OrderTypes.Market).ToList();
+        Assert.Empty(marketOrders);
+    }
+
     #endregion
 
     #region Test Strategy
