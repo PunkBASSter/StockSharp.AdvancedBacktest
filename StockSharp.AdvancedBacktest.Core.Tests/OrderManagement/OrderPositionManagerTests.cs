@@ -1,54 +1,14 @@
 using StockSharp.AdvancedBacktest.OrderManagement;
+using StockSharp.BusinessEntities;
 
 namespace StockSharp.AdvancedBacktest.Tests.OrderManagement;
 
 public class IStrategyOrderOperationsContractTests
 {
     [Fact]
-    public void Interface_DefinesSecurityProperty()
+    public void Interface_DefinesPlaceOrderMethod()
     {
-        var property = typeof(IStrategyOrderOperations).GetProperty("Security");
-
-        Assert.NotNull(property);
-    }
-
-    [Fact]
-    public void Interface_DefinesPositionProperty()
-    {
-        var property = typeof(IStrategyOrderOperations).GetProperty("Position");
-
-        Assert.NotNull(property);
-        Assert.Equal(typeof(decimal), property.PropertyType);
-    }
-
-    [Fact]
-    public void Interface_DefinesBuyLimitMethod()
-    {
-        var method = typeof(IStrategyOrderOperations).GetMethod("BuyLimit");
-
-        Assert.NotNull(method);
-    }
-
-    [Fact]
-    public void Interface_DefinesSellLimitMethod()
-    {
-        var method = typeof(IStrategyOrderOperations).GetMethod("SellLimit");
-
-        Assert.NotNull(method);
-    }
-
-    [Fact]
-    public void Interface_DefinesBuyMarketMethod()
-    {
-        var method = typeof(IStrategyOrderOperations).GetMethod("BuyMarket");
-
-        Assert.NotNull(method);
-    }
-
-    [Fact]
-    public void Interface_DefinesSellMarketMethod()
-    {
-        var method = typeof(IStrategyOrderOperations).GetMethod("SellMarket");
+        var method = typeof(IStrategyOrderOperations).GetMethod("PlaceOrder");
 
         Assert.NotNull(method);
     }
@@ -60,13 +20,46 @@ public class IStrategyOrderOperationsContractTests
 
         Assert.NotNull(method);
     }
+
+    [Fact]
+    public void Interface_HasOnlyTwoMethods()
+    {
+        var methods = typeof(IStrategyOrderOperations).GetMethods();
+
+        Assert.Equal(2, methods.Length);
+    }
 }
 
-public class OrderPositionManagerTests
+public class OrderPositionManagerConstructorTests
 {
     [Fact]
     public void Constructor_ThrowsOnNullStrategy()
     {
-        Assert.Throws<ArgumentNullException>(() => new OrderPositionManager(null!));
+        var security = new Security { Id = "TEST@TEST", PriceStep = 0.01m };
+        Assert.Throws<ArgumentNullException>(() => new OrderPositionManager(null!, security, "test"));
+    }
+
+    [Fact]
+    public void Constructor_ThrowsOnNullSecurity()
+    {
+        var strategy = new TestStrategy();
+        Assert.Throws<ArgumentNullException>(() => new OrderPositionManager(strategy, null!, "test"));
+    }
+
+    [Fact]
+    public void Constructor_TakesThreeParameters()
+    {
+        var ctorParams = typeof(OrderPositionManager).GetConstructors()[0].GetParameters();
+
+        Assert.Equal(3, ctorParams.Length);
+        Assert.Equal("strategy", ctorParams[0].Name);
+        Assert.Equal("security", ctorParams[1].Name);
+        Assert.Equal("strategyName", ctorParams[2].Name);
+    }
+
+    private class TestStrategy : IStrategyOrderOperations
+    {
+        public Order PlaceOrder(Order order) => order;
+        public void CancelOrder(Order order) { }
     }
 }

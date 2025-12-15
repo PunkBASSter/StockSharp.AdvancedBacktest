@@ -3,35 +3,62 @@
 **Feature**: 004-isolated-order-groups
 **Assembly**: StockSharp.AdvancedBacktest.Core
 
-## OrderRegistry API
+## IStrategyOrderOperations Interface
 
-### RegisterGroup
-
-Registers a new order group from an OrderRequest.
+Minimal interface for order execution, implemented by `CustomStrategyBase`.
 
 ```csharp
-EntryOrderGroup RegisterGroup(OrderRequest request)
+public interface IStrategyOrderOperations
+{
+    Order PlaceOrder(Order order);
+    void CancelOrder(Order order);
+}
+```
+
+---
+
+## OrderRegistry API
+
+### Constructor
+
+```csharp
+public OrderRegistry(string strategyId)
 ```
 
 **Parameters**:
-- `request`: OrderRequest containing entry order and protective pairs
+- `strategyId`: Unique identifier for the strategy (used as prefix for group keys)
+
+---
+
+### RegisterGroup
+
+Registers a new order group with an entry order and protective pairs.
+
+```csharp
+EntryOrderGroup RegisterGroup(Order entryOrder, List<ProtectivePair> protectivePairs)
+```
+
+**Parameters**:
+- `entryOrder`: The entry order (not yet placed)
+- `protectivePairs`: List of protective pair specifications
 
 **Returns**: Created `EntryOrderGroup` with unique GroupId
 
 **Throws**:
-- `ArgumentNullException`: If request is null
-- `ArgumentException`: If validation fails (volumes don't match, invalid prices)
+- `ArgumentNullException`: If entryOrder is null
+- `ArgumentException`: If validation fails (volumes don't match when multiple pairs)
 - `InvalidOperationException`: If MaxConcurrentGroups limit reached
 
 **Example**:
 ```csharp
 var entry = new Order { Side = Sides.Buy, Price = 100m, Volume = 1m, ... };
-var request = new OrderRequest(entry, [
-    new ProtectivePair(95m, 110m, 0.5m),
-    new ProtectivePair(95m, 115m, 0.5m)
-]);
+var pairs = new List<ProtectivePair>
+{
+    new(95m, 110m, 0.5m),
+    new(95m, 115m, 0.5m)
+};
 
-var group = registry.RegisterGroup(request);
+var group = registry.RegisterGroup(entry, pairs);
 // group.GroupId = "abc-123-..."
 // group.State = OrderGroupState.Pending
 ```
@@ -50,42 +77,38 @@ EntryOrderGroup[] GetActiveGroups()
 
 ---
 
-### GetGroupById
+### FindMatchingGroup
 
-Retrieves a specific order group by ID.
+Finds an existing group matching the OrderRequest within tolerance.
 
 ```csharp
-EntryOrderGroup? GetGroupById(string groupId)
+EntryOrderGroup? FindMatchingGroup(OrderRequest request, decimal tolerance = 0.00000001m)
 ```
 
 **Parameters**:
-- `groupId`: The unique identifier of the group
+- `request`: OrderRequest containing entry order and protective pairs to match
+- `tolerance`: Maximum price difference for comparisons (default: 0.00000001m)
 
-**Returns**: The order group if found, null otherwise
+**Returns**: First matching active group where entry price, side, volume, and all protective pairs match within tolerance, or null if none found
+
+**Use Case**: Duplicate signal detection before placing new orders. Uses `EntryOrderGroup.Matches()` internally.
 
 ---
 
-### FindMatchingGroup
+### FindGroupByOrder
 
-Finds an existing group matching entry price, SL, and TP within tolerance.
+Finds the order group containing a specific order (entry or protective).
 
 ```csharp
-EntryOrderGroup? FindMatchingGroup(
-    decimal entryPrice,
-    decimal slPrice,
-    decimal tpPrice,
-    decimal tolerance)
+EntryOrderGroup? FindGroupByOrder(Order order)
 ```
 
 **Parameters**:
-- `entryPrice`: Target entry price to match
-- `slPrice`: Target stop-loss price to match
-- `tpPrice`: Target take-profit price to match
-- `tolerance`: Maximum price difference for all comparisons (typically one price step)
+- `order`: The order to search for
 
-**Returns**: First matching active group where all three prices match within tolerance, or null if none found
+**Returns**: The order group containing the order, or null if not found
 
-**Use Case**: Duplicate signal detection before placing new orders. A signal is considered a duplicate only if entry price AND SL AND TP all match existing group levels.
+**Use Case**: Called from `OnOwnTradeReceived` to identify which group a trade fill belongs to.
 
 ---
 
@@ -103,19 +126,39 @@ void Reset()
 
 ## EntryOrderGroup API
 
-### TransitionTo
+### Matches
 
-Transitions the order group to a new state.
+Compares this group with an incoming OrderRequest to detect duplicates.
 
 ```csharp
-void TransitionTo(OrderGroupState newState)
+bool Matches(OrderRequest request, decimal tolerance = 0.00000001m)
 ```
 
 **Parameters**:
-- `newState`: Target state
+- `request`: OrderRequest to compare against
+- `tolerance`: Maximum price difference for all comparisons (default: 0.00000001m)
 
-**Throws**:
-- `InvalidOperationException`: If transition is not valid from current state
+**Returns**: True if entry price, side, volume, and all protective pairs match within tolerance
+
+**Comparison Logic**:
+1. Entry price matches within tolerance
+2. Entry side matches exactly
+3. Entry volume matches exactly
+4. Protective pair count matches
+5. All protective pairs match (sorted by SL, then TP):
+   - StopLossPrice within tolerance
+   - TakeProfitPrice within tolerance
+   - Volume matches exactly
+
+---
+
+### State Property
+
+Mutable state property for state machine transitions.
+
+```csharp
+public OrderGroupState State { get; set; }
+```
 
 **Valid Transitions**:
 ```
@@ -126,52 +169,73 @@ ProtectionActive → Closed
 
 ---
 
-### GetProtectivePairs
+### ProtectivePairs Property
 
-Returns all protective pairs in the group (registry only contains active pairs).
-
-```csharp
-ProtectivePairOrders[] GetProtectivePairs()
-```
-
-**Returns**: Array of protective pairs currently in the group
-
----
-
-### RemovePair
-
-Removes a protective pair from the group when it's closed (one of SL/TP filled or cancelled).
+Dictionary of protective pairs with their orders.
 
 ```csharp
-bool RemovePair(string pairId)
+Dictionary<string, (Order? SlOrder, Order? TpOrder, ProtectivePair Spec)> ProtectivePairs
 ```
 
-**Parameters**:
-- `pairId`: ID of the protective pair to remove
-
-**Returns**: True if pair was found and removed, false otherwise
-
-**Notes**: When one order in a pair fills or is cancelled, the OrderPositionManager cancels the other order and then removes the pair from the group. The registry only contains active pairs - no closed/historical tracking.
+**Notes**:
+- Key: Unique pair ID (GUID)
+- SlOrder/TpOrder: Null until placed, populated after entry fill
+- Pairs are removed when closed (deletion-based tracking)
 
 ---
 
 ## OrderPositionManager API
+
+### Constructor
+
+```csharp
+public OrderPositionManager(IStrategyOrderOperations strategy, Security security, string strategyName)
+```
+
+**Parameters**:
+- `strategy`: Strategy implementing IStrategyOrderOperations (typically CustomStrategyBase)
+- `security`: The security being traded
+- `strategyName`: Unique identifier for the strategy
+
+---
+
+### ActiveOrders
+
+Returns all active order groups.
+
+```csharp
+EntryOrderGroup[] ActiveOrders()
+```
+
+**Returns**: Array of active order groups from the internal registry
+
+---
 
 ### HandleOrderRequest
 
 Main entry point for processing new order signals.
 
 ```csharp
-void HandleOrderRequest(OrderRequest? request)
+Order? HandleOrderRequest(OrderRequest? orderRequest)
 ```
 
 **Parameters**:
-- `request`: New order request, or null to cancel pending orders
+- `orderRequest`: New order request, or null to cancel pending orders
+
+**Returns**: The entry order to register with StockSharp, or null if no action needed
 
 **Behavior**:
-- If null: Cancels all pending (unfilled) entry orders
-- If existing similar group: May update or ignore based on price change
-- If new signal: Registers and places entry order
+- If null: Cancels all pending (unfilled) entry orders, returns null
+- If matching group exists in Pending state: Returns null (duplicate signal)
+- Otherwise: Registers group and returns entry order for caller to register
+
+**Example**:
+```csharp
+var request = new OrderRequest(entryOrder, [protectivePair]);
+var orderToRegister = _orderManager.HandleOrderRequest(request);
+if (orderToRegister != null)
+    RegisterOrder(orderToRegister);
+```
 
 ---
 
@@ -190,7 +254,9 @@ bool CheckProtectionLevels(ICandleMessage candle)
 
 **Notes**:
 - Called from both main TF and auxiliary TF handlers
-- Uses pessimistic ordering (SL before TP) when both could trigger
+- Uses pessimistic ordering (SL checked before TP) when both could trigger
+- Places market order to close position when level hit
+- Removes protective pair from group after closing
 
 ---
 
@@ -206,10 +272,10 @@ void OnOwnTradeReceived(MyTrade trade)
 - `trade`: Trade fill from StockSharp
 
 **Behavior**:
-- Identifies which order group the trade belongs to
-- Updates state machine accordingly
-- Places protective orders when entry fills
-- Cancels opposing orders when protection fills
+- Identifies which order group the trade belongs to via `FindGroupByOrder`
+- For entry fills: Transitions to EntryFilled, checks immediate protection, places protective orders
+- For protective fills: Cancels opposing order, removes pair from group
+- Transitions to Closed when all pairs removed
 
 ---
 
@@ -238,5 +304,5 @@ void Reset()
 
 **Behavior**:
 - Clears OrderRegistry
-- Resets internal caches
+- Resets internal candle cache
 - Should be called from strategy's OnReseted()

@@ -2,210 +2,246 @@ using StockSharp.AdvancedBacktest.Utilities;
 using StockSharp.BusinessEntities;
 using StockSharp.Messages;
 using StockSharp.Algo.Candles;
-using StockSharp.AdvancedBacktest.Strategies;
 
 namespace StockSharp.AdvancedBacktest.OrderManagement;
 
-/// <summary>
-/// Manages orders and positions for a trading strategy with manual stop-loss and take-profit handling.
-/// MVP implementation: supports single position and single order at a time.
-/// </summary>
-/// <remarks>
-/// Creates a new OrderPositionManager for the specified strategy.
-/// </remarks>
-/// <param name="strategy">The parent strategy operations.</param>
-public class OrderPositionManager(CustomStrategyBase _strategy, OrderRegistry _orderRegistry)
+public class OrderPositionManager
 {
-    //TODO implement an order state machine to track multiple orders and positions
-    // What we hanlde:
-    // 1. Filled entry orders: place protection orders (SL/TP) or monitor levels on candles (if OrderRequest.UseMarketProtectiveOrders is true)
-    // 2. Filled protection order: cancel other protection order from pair 
-
-    //         -> cancelled
-    //         -> expired
-    // pending -> filled -> protection set (sl/tp) -> protection filled
-    //                                             -> protection partially filled ()
-    //                   -> forced close (close by market, cancel protection) 
-
-    // pending
-    //     candelled
-    //     expired
-    //     filled
-    //         protection set 
-    //             protection filled
-    //             protection partially filled
-    //         forced close
-
-    // Current active order with associated SL/TP orders    private OrderRequest? _lastSignal;
-
-
-
+    private readonly IStrategyOrderOperations _strategy;
+    private readonly OrderRegistry _orderRegistry;
+    private readonly Security _security;
     private ICandleMessage? _lastCandle;
 
-    public void HandleOrderRequest(OrderRequest? orderRequest)
+    public OrderPositionManager(IStrategyOrderOperations strategy, Security security, string strategyName)
     {
-        //TODO: Reimplement from scratch
+        _strategy = strategy ?? throw new ArgumentNullException(nameof(strategy));
+        _security = security ?? throw new ArgumentNullException(nameof(security));
+        _orderRegistry = new OrderRegistry(strategyName) { MaxConcurrentGroups = 5 };
+    }
+
+    public EntryOrderGroup[] ActiveOrders() => _orderRegistry.GetActiveGroups();
+
+    public Order? HandleOrderRequest(OrderRequest? orderRequest)
+    {
         if (orderRequest == null)
         {
-            CancelAllOrders();
-            return;
+            CancelPendingOrders();
+            return null;
         }
 
-        //var existingOrder = _orderRegistry.GetOrderRequest();
+        var priceStep = PriceStepHelper.GetPriceStep(_security);
+        var existing = _orderRegistry.FindMatchingGroup(orderRequest, priceStep);
 
-        if (order is null)
-        {
-            orderRequest.Validate();
-            PlaceEntryOrder(orderRequest);
-            // Store SL/TP levels for protection checking
-            _currentStopLoss = orderRequest.StopLoss;
-            _currentTakeProfit = orderRequest.TakeProfit;
-            return;
-        }
+        if (existing != null && existing.State == OrderGroupState.Pending)
+            return null;
 
-        orderRequest.Validate();
-        if (HasSignalChanged(orderRequest) && IsOrderActive(_order.EntryOrder))
-        {
-            _strategy.LogInfo("Canceling existing entry order - signal levels changed");
-            CancelAllOrders();
-            PlaceEntryOrder(orderRequest);
-            // Update SL/TP levels for new signal
-            _currentStopLoss = orderRequest.StopLoss;
-            _currentTakeProfit = orderRequest.TakeProfit;
-        }
+        _orderRegistry.RegisterGroup(orderRequest.Order, orderRequest.ProtectivePairs);
+        return orderRequest.Order;
     }
 
-    /// <summary>
-    /// Checks if stop-loss or take-profit levels have been hit by the current candle.
-    /// If hit, closes the position with a market order.
-    /// This method should be called on each candle update BEFORE checking for new signals.
-    /// </summary>
-    /// <param name="candle">The current candle to check against protection levels.</param>
-    /// <returns>True if position was closed due to SL/TP hit, false otherwise.</returns>
-    public bool CheckProtectionLevels(ICandleMessage candle)//MAYBE CAN BE REMOVED IF BACKTEST IS FIXED
+    public bool CheckProtectionLevels(ICandleMessage candle)
     {
-        // Cache the candle for later use (e.g., after entry fills)
         _lastCandle = candle;
 
-        // Only check if we have an open position and protection levels are set
-        if (_strategy.Position == 0 || (_currentStopLoss == null && _currentTakeProfit == null))
+        var activeGroups = _orderRegistry.GetActiveGroups()
+            .Where(g => g.State == OrderGroupState.ProtectionActive)
+            .ToList();
+
+        if (!activeGroups.Any())
             return false;
 
-        return CheckProtectionLevelsInternal(candle);
+        var anyClosed = false;
+        foreach (var group in activeGroups)
+        {
+            if (CheckGroupProtection(group, candle))
+                anyClosed = true;
+        }
+        return anyClosed;
     }
 
-    /// <summary>
-    /// Internal method to check protection levels against a candle.
-    /// </summary>
-    private bool CheckProtectionLevelsInternal(ICandleMessage candle)
+    private bool CheckGroupProtection(EntryOrderGroup group, ICandleMessage candle)
     {
-        // Check if stop-loss was hit (use candle low for more accurate checking)
-        if (_currentStopLoss.HasValue && candle.LowPrice <= _currentStopLoss.Value)
-        {
-            _strategy.LogInfo("Stop-loss hit at candle low {0:F2} (SL level: {1:F2}), closing position",
-                candle.LowPrice, _currentStopLoss.Value);
-            CloseAllPositions();
-            _currentStopLoss = null;
-            _currentTakeProfit = null;
-            return true;
-        }
+        var isLong = group.EntryOrder.Side == Sides.Buy;
 
-        // Check if take-profit was hit (use candle high for more accurate checking)
-        if (_currentTakeProfit.HasValue && candle.HighPrice >= _currentTakeProfit.Value)
+        foreach (var kv in group.ProtectivePairs)
         {
-            _strategy.LogInfo("Take-profit hit at candle high {0:F2} (TP level: {1:F2}), closing position",
-                candle.HighPrice, _currentTakeProfit.Value);
-            CloseAllPositions();
-            _currentStopLoss = null;
-            _currentTakeProfit = null;
-            return true;
-        }
+            var spec = kv.Value.Spec;
+            var slHit = isLong
+                ? candle.LowPrice <= spec.StopLossPrice
+                : candle.HighPrice >= spec.StopLossPrice;
 
+            var tpHit = isLong
+                ? candle.HighPrice >= spec.TakeProfitPrice
+                : candle.LowPrice <= spec.TakeProfitPrice;
+
+            if (slHit)
+            {
+                CloseProtectivePair(group, kv.Key);
+                return true;
+            }
+
+            if (tpHit)
+            {
+                CloseProtectivePair(group, kv.Key);
+                return true;
+            }
+        }
         return false;
     }
 
-    public void CloseAllPositions()
+    private void CloseProtectivePair(EntryOrderGroup group, string pairId)
     {
-        //Emergency market close of all positions
+        var pair = group.ProtectivePairs[pairId];
+        var isLong = group.EntryOrder.Side == Sides.Buy;
+        var volume = pair.Spec.Volume ?? group.EntryOrder.Volume;
+
+        if (pair.SlOrder?.State == OrderStates.Active)
+            _strategy.CancelOrder(pair.SlOrder);
+        if (pair.TpOrder?.State == OrderStates.Active)
+            _strategy.CancelOrder(pair.TpOrder);
+
+        PlaceMarketOrder(isLong ? Sides.Sell : Sides.Buy, volume);
+
+        group.ProtectivePairs.Remove(pairId);
+
+        if (group.ProtectivePairs.Count == 0)
+            group.State = OrderGroupState.Closed;
     }
 
     public void OnOwnTradeReceived(MyTrade trade)
     {
-        //TODO: rewrite
         var order = trade.Order;
+        var group = _orderRegistry.FindGroupByOrder(order);
 
-        if (_order?.EntryOrder == order)
-        {
-            HandleEntryFill(trade);
-        }
-        else if (order == _order?.SlOrder)
-        {
-            HandleStopLossFill(trade);
-        }
-        else if (order == _order?.TpOrder)
-        {
-            HandleTakeProfitFill(trade);
-        }
-    }
-
-    /// <summary>
-    /// Resets the manager state (call from strategy OnReseted).
-    /// </summary>
-    public void Reset()
-    {
-        //TODO: implement reset logic
-    }
-
-    #region Private Helper Methods
-
-    private void PlaceEntryOrder(OrderRequest signal)
-    {
-        //TODO: implement placing entry order via strategy connector
-    }
-
-    private void PlaceProtectionOrders(OrderRequest signal)
-    {
-        //TODO: implement placing SL/TP orders for all pairs, take into account partial fills, etc. and simulation mode (market orders vs limit orders)
-    }
-
-    private void HandleEntryFill(MyTrade trade)
-    {
-        //TODO: rewrite from scratch
-
-        _strategy.LogInfo("Entry order filled at {0:F2}, Position: {1}",
-            trade.Trade.Price, _strategy.Position);
-
-        if (_lastSignal == null)
+        if (group == null)
             return;
 
-        // CRITICAL FIX: Check if SL/TP were hit in the SAME candle that filled the entry
-        // This handles the case where entry fills and TP/SL hit in one big candle
-        if (_lastCandle != null && _strategy.Position != 0)
+        if (group.EntryOrder == order)
+            HandleEntryFill(group);
+        else
+            HandleProtectiveFill(group, trade);
+    }
+
+    private void HandleEntryFill(EntryOrderGroup group)
+    {
+        group.State = OrderGroupState.EntryFilled;
+
+        if (_lastCandle != null && CheckGroupProtection(group, _lastCandle))
+            return;
+
+        PlaceProtectionOrders(group);
+        group.State = OrderGroupState.ProtectionActive;
+    }
+
+    private void PlaceProtectionOrders(EntryOrderGroup group)
+    {
+        var isLong = group.EntryOrder.Side == Sides.Buy;
+        var exitSide = isLong ? Sides.Sell : Sides.Buy;
+
+        foreach (var kv in group.ProtectivePairs)
         {
-            _strategy.LogInfo("Checking if protection levels hit in same candle as entry fill...");
-            if (CheckProtectionLevelsInternal(_lastCandle))
-            {
-                _strategy.LogInfo("Protection hit immediately after entry - position closed");
-                return; // Position was closed, don't place protection orders
-            }
+            var spec = kv.Value.Spec;
+            var volume = spec.Volume ?? group.EntryOrder.Volume;
+
+            var slOrder = PlaceLimitOrder(exitSide, spec.StopLossPrice, volume);
+            var tpOrder = PlaceLimitOrder(exitSide, spec.TakeProfitPrice, volume);
+
+            group.ProtectivePairs[kv.Key] = (slOrder, tpOrder, spec);
         }
-
-        // NOTE: We don't place limit protection orders here because CheckProtectionLevels()
-        // handles SL/TP checking on each candle. Using both would cause double closes.
-        // If you want to use limit orders instead of candle-based checking, uncomment:
-        // PlaceProtectionOrders(_lastSignal);
     }
 
-    private bool HasSignalChanged(OrderRequest currentOrderRequest)
+    private void HandleProtectiveFill(EntryOrderGroup group, MyTrade trade)
     {
-        //TODO: move this to comparison of EntryOrderGroup or OrderRegistry
-        return false;
+        var order = trade.Order;
+        var pairEntry = group.ProtectivePairs.FirstOrDefault(kv =>
+            kv.Value.SlOrder == order || kv.Value.TpOrder == order);
+
+        if (pairEntry.Key == null)
+            return;
+
+        var pair = pairEntry.Value;
+        var isStopLoss = pair.SlOrder == order;
+        var otherOrder = isStopLoss ? pair.TpOrder : pair.SlOrder;
+
+        if (otherOrder?.State == OrderStates.Active)
+            _strategy.CancelOrder(otherOrder);
+
+        group.ProtectivePairs.Remove(pairEntry.Key);
+
+        if (group.ProtectivePairs.Count == 0)
+            group.State = OrderGroupState.Closed;
     }
 
-    private static bool IsOrderActive(Order? order)
+    private void CancelPendingOrders()
     {
-        return order != null && order.State == OrderStates.Active;
+        var pendingGroups = _orderRegistry.GetActiveGroups()
+            .Where(g => g.State == OrderGroupState.Pending);
+
+        foreach (var group in pendingGroups)
+        {
+            if (group.EntryOrder.State == OrderStates.Active)
+                _strategy.CancelOrder(group.EntryOrder);
+            group.State = OrderGroupState.Closed;
+        }
     }
 
-    #endregion
+    public void CloseAllPositions()
+    {
+        foreach (var group in _orderRegistry.GetActiveGroups())
+        {
+            if (group.EntryOrder.State == OrderStates.Active)
+                _strategy.CancelOrder(group.EntryOrder);
+
+            foreach (var pair in group.ProtectivePairs.Values)
+            {
+                if (pair.SlOrder?.State == OrderStates.Active)
+                    _strategy.CancelOrder(pair.SlOrder);
+                if (pair.TpOrder?.State == OrderStates.Active)
+                    _strategy.CancelOrder(pair.TpOrder);
+            }
+
+            if (group.State == OrderGroupState.ProtectionActive || group.State == OrderGroupState.EntryFilled)
+            {
+                var isLong = group.EntryOrder.Side == Sides.Buy;
+                var totalVolume = group.ProtectivePairs.Values
+                    .Sum(pp => pp.Spec.Volume ?? group.EntryOrder.Volume);
+
+                if (totalVolume > 0)
+                    PlaceMarketOrder(isLong ? Sides.Sell : Sides.Buy, totalVolume);
+            }
+
+            group.State = OrderGroupState.Closed;
+        }
+    }
+
+    public void Reset()
+    {
+        _orderRegistry.Reset();
+        _lastCandle = null;
+    }
+
+    private Order PlaceLimitOrder(Sides side, decimal price, decimal volume)
+    {
+        var order = new Order
+        {
+            Side = side,
+            Price = price,
+            Volume = volume,
+            Type = OrderTypes.Limit,
+            Security = _security
+        };
+        return _strategy.PlaceOrder(order);
+    }
+
+    private Order PlaceMarketOrder(Sides side, decimal volume)
+    {
+        var order = new Order
+        {
+            Side = side,
+            Volume = volume,
+            Type = OrderTypes.Market,
+            Security = _security
+        };
+        return _strategy.PlaceOrder(order);
+    }
 }

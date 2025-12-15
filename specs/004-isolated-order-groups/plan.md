@@ -64,13 +64,10 @@ specs/004-isolated-order-groups/
 ```text
 StockSharp.AdvancedBacktest.Core/
 ├── OrderManagement/
-│   ├── OrderRequest.cs           # Entry order + protective pairs input
-│   ├── ProtectivePair.cs         # SL/TP/volume specification
-│   ├── EntryOrderGroup.cs        # Order group with state machine
-│   ├── OrderGroupState.cs        # State enum
-│   ├── ProtectivePairOrders.cs   # Actual SL/TP orders
-│   ├── OrderRegistry.cs          # Central registry for order groups
-│   └── OrderPositionManager.cs   # Orchestration (existing, to be refactored)
+│   ├── OrderRequest.cs           # ProtectivePair record, OrderRequest record
+│   ├── OrderRegistry.cs          # OrderGroupState enum, EntryOrderGroup record, OrderRegistry class
+│   ├── OrderPositionManager.cs   # Orchestration (refactored to use OrderRegistry)
+│   └── IStrategyOrderOperations.cs # Minimal interface (PlaceOrder, CancelOrder)
 
 StockSharp.AdvancedBacktest.Infrastructure/
 ├── DebugMode/
@@ -80,10 +77,11 @@ StockSharp.AdvancedBacktest.Infrastructure/
 
 StockSharp.AdvancedBacktest.Core.Tests/
 ├── OrderManagement/
-│   ├── OrderRegistryTests.cs
-│   ├── OrderRequestTests.cs
-│   ├── EntryOrderGroupTests.cs
-│   └── OrderPositionManagerTests.cs (existing, to be extended)
+│   └── OrderPositionManagerTests.cs # Interface contract tests
+
+StockSharp.AdvancedBacktest.Tests/
+├── OrderManagement/
+│   └── OrderPositionManagerTests.cs # Integration tests
 
 StockSharp.AdvancedBacktest.Infrastructure.Tests/
 ├── DebugMode/
@@ -91,7 +89,7 @@ StockSharp.AdvancedBacktest.Infrastructure.Tests/
 │   └── TimestampRemapperTests.cs
 ```
 
-**Structure Decision**: Follows existing Core/Infrastructure decomposition. Order management entities go in Core (business logic). Debug mode infrastructure goes in Infrastructure (operational concerns).
+**Structure Decision**: Consolidated design - OrderGroupState, EntryOrderGroup, and OrderRegistry combined in OrderRegistry.cs. ProtectivePair and OrderRequest combined in OrderRequest.cs. IStrategyOrderOperations simplified to minimal interface (PlaceOrder, CancelOrder only).
 
 ## Complexity Tracking
 

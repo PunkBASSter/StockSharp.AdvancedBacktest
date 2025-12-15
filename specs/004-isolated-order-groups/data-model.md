@@ -14,61 +14,51 @@
 │  - MaxConcurrentGroups: int (default: 5)                        │
 │  - OrderGroups: Dictionary<string, EntryOrderGroup>             │
 ├─────────────────────────────────────────────────────────────────┤
-│  + RegisterGroup(OrderRequest): EntryOrderGroup                 │
+│  + RegisterGroup(Order, List<ProtectivePair>): EntryOrderGroup  │
 │  + GetActiveGroups(): EntryOrderGroup[]                         │
-│  + GetGroupById(groupId): EntryOrderGroup?                      │
-│  + FindMatchingGroup(entryPrice, slPrice, tpPrice, tol): EntryOrderGroup? │
+│  + FindMatchingGroup(OrderRequest, tolerance?): EntryOrderGroup?│
+│  + FindGroupByOrder(Order): EntryOrderGroup?                    │
 │  + Reset(): void                                                │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               │ 1:N
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      EntryOrderGroup                             │
+│                      EntryOrderGroup (record)                    │
 │  (Single entry order with its protective orders)                │
 ├─────────────────────────────────────────────────────────────────┤
 │  - GroupId: string (GUID)                                       │
 │  - EntryOrder: Order                                            │
-│  - State: OrderGroupState                                       │
-│  - ProtectivePairs: Dictionary<string, ProtectivePairOrders>    │
-│  - CreatedAt: DateTimeOffset                                    │
-│  - ClosedAt: DateTimeOffset?                                    │
+│  - State: OrderGroupState (mutable property)                    │
+│  - ProtectivePairs: Dictionary<string, (Order? SlOrder,         │
+│                     Order? TpOrder, ProtectivePair Spec)>       │
 ├─────────────────────────────────────────────────────────────────┤
-│  + TransitionTo(newState): void                                 │
-│  + GetProtectivePairs(): ProtectivePairOrders[]                 │
-│  + RemovePair(pairId): bool                                     │
-│  + IsActive: bool                                               │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              │ 1:N
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    ProtectivePairOrders                          │
-│  (Actual orders for a protective pair)                          │
-├─────────────────────────────────────────────────────────────────┤
-│  - PairId: string (GUID)                                        │
-│  - SlOrder: Order?                                              │
-│  - TpOrder: Order?                                              │
-│  - Volume: decimal                                              │
+│  + Matches(OrderRequest, tolerance?): bool                      │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│                       OrderRequest                               │
+│                       OrderRequest (record)                      │
 │  (Input for creating an order group)                            │
 ├─────────────────────────────────────────────────────────────────┤
-│  - EntryOrder: Order                                            │
+│  - Order: Order                                                 │
 │  - ProtectivePairs: List<ProtectivePair>                        │
-├─────────────────────────────────────────────────────────────────┤
-│  + Validate(): void (throws if invalid)                         │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│                      ProtectivePair                              │
+│                      ProtectivePair (record)                     │
 │  (Input specification for SL/TP pair)                           │
 ├─────────────────────────────────────────────────────────────────┤
 │  - StopLossPrice: decimal                                       │
 │  - TakeProfitPrice: decimal                                     │
 │  - Volume: decimal?  (null = use entry volume)                  │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                  IStrategyOrderOperations                        │
+│  (Minimal interface for order execution)                        │
+├─────────────────────────────────────────────────────────────────┤
+│  + PlaceOrder(Order): Order                                     │
+│  + CancelOrder(Order): void                                     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -96,176 +86,158 @@ public enum OrderGroupState
 
 ## Entity Definitions
 
-### OrderRequest (record)
-
-```csharp
-public record OrderRequest(Order EntryOrder, List<ProtectivePair> ProtectivePairs)
-{
-    public void Validate()
-    {
-        ArgumentNullException.ThrowIfNull(EntryOrder);
-
-        if (ProtectivePairs == null || ProtectivePairs.Count == 0)
-            throw new ArgumentException("At least one protective pair required");
-
-        var totalVolume = ProtectivePairs
-            .Sum(p => p.Volume ?? EntryOrder.Volume);
-
-        if (totalVolume != EntryOrder.Volume)
-            throw new ArgumentException(
-                $"Protective pair volumes ({totalVolume}) must equal entry volume ({EntryOrder.Volume})");
-
-        // Validate price levels based on direction
-        var direction = EntryOrder.Side;
-        foreach (var pair in ProtectivePairs)
-        {
-            if (direction == Sides.Buy)
-            {
-                if (pair.StopLossPrice >= EntryOrder.Price)
-                    throw new ArgumentException("SL must be below entry for buy orders");
-                if (pair.TakeProfitPrice <= EntryOrder.Price)
-                    throw new ArgumentException("TP must be above entry for buy orders");
-            }
-            else
-            {
-                if (pair.StopLossPrice <= EntryOrder.Price)
-                    throw new ArgumentException("SL must be above entry for sell orders");
-                if (pair.TakeProfitPrice >= EntryOrder.Price)
-                    throw new ArgumentException("TP must be below entry for sell orders");
-            }
-        }
-    }
-}
-```
-
 ### ProtectivePair (record)
 
 ```csharp
-public record ProtectivePair(
-    decimal StopLossPrice,
-    decimal TakeProfitPrice,
-    decimal? Volume = null);
+public record ProtectivePair(decimal StopLossPrice, decimal TakeProfitPrice, decimal? Volume);
 ```
 
-### EntryOrderGroup (class)
+### OrderRequest (record)
 
 ```csharp
-public class EntryOrderGroup
+public record OrderRequest(Order Order, List<ProtectivePair> ProtectivePairs);
+```
+
+**Notes**: Validation (volume sum, price direction) is performed in `OrderRegistry.RegisterGroup()`, not in the record itself.
+
+### EntryOrderGroup (record)
+
+```csharp
+public record EntryOrderGroup(
+    string GroupId,
+    Order EntryOrder,
+    Dictionary<string, (Order? SlOrder, Order? TpOrder, ProtectivePair Spec)> ProtectivePairs,
+    OrderGroupState State = OrderGroupState.Pending)
 {
-    public string GroupId { get; }
-    public Order EntryOrder { get; }
-    public OrderGroupState State { get; private set; }
-    public Dictionary<string, ProtectivePairOrders> ProtectivePairs { get; }
-    public DateTimeOffset CreatedAt { get; }
-    public DateTimeOffset? ClosedAt { get; private set; }
+    public OrderGroupState State { get; set; } = State;
 
-    public bool IsActive => State != OrderGroupState.Closed;
-
-    public void TransitionTo(OrderGroupState newState)
+    public bool Matches(OrderRequest request, decimal tolerance = 0.00000001m)
     {
-        // Validate transition is legal
-        // Update State
-        // Set ClosedAt if transitioning to Closed
-    }
+        var order = request.Order;
+        var pairs = request.ProtectivePairs;
 
-    public ProtectivePairOrders[] GetProtectivePairs()
-    {
-        return ProtectivePairs.Values.ToArray();
-    }
+        if (Math.Abs(EntryOrder.Price - order.Price) > tolerance)
+            return false;
+        if (EntryOrder.Side != order.Side)
+            return false;
+        if (EntryOrder.Volume != order.Volume)
+            return false;
 
-    public bool RemovePair(string pairId)
-    {
-        return ProtectivePairs.Remove(pairId);
+        if (ProtectivePairs.Count != pairs.Count)
+            return false;
+
+        var existingSpecs = ProtectivePairs.Values
+            .Select(pp => pp.Spec)
+            .OrderBy(s => s.StopLossPrice)
+            .ThenBy(s => s.TakeProfitPrice)
+            .ToList();
+
+        var newSpecs = pairs
+            .OrderBy(s => s.StopLossPrice)
+            .ThenBy(s => s.TakeProfitPrice)
+            .ToList();
+
+        for (var i = 0; i < existingSpecs.Count; i++)
+        {
+            var existing = existingSpecs[i];
+            var incoming = newSpecs[i];
+
+            if (Math.Abs(existing.StopLossPrice - incoming.StopLossPrice) > tolerance)
+                return false;
+            if (Math.Abs(existing.TakeProfitPrice - incoming.TakeProfitPrice) > tolerance)
+                return false;
+            if (existing.Volume != incoming.Volume)
+                return false;
+        }
+
+        return true;
     }
 }
 ```
 
-### ProtectivePairOrders (class)
-
-```csharp
-public class ProtectivePairOrders
-{
-    public string PairId { get; }
-    public Order? SlOrder { get; set; }
-    public Order? TpOrder { get; set; }
-    public decimal Volume { get; }
-}
-```
+**Notes**:
+- Uses record with mutable `State` property for state machine transitions
+- ProtectivePairs stored as tuple `(Order? SlOrder, Order? TpOrder, ProtectivePair Spec)` - no separate ProtectivePairOrders class
+- `Matches()` compares entry price, side, volume, and all protective pairs within tolerance
+- Default tolerance `0.00000001m` works across forex, crypto, and stocks
 
 ### OrderRegistry (class)
 
 ```csharp
-public class OrderRegistry
+public class OrderRegistry(string strategyId)
 {
-    private readonly string _strategyId;
-    private readonly Dictionary<string, EntryOrderGroup> _orderGroups = new();
+    private readonly Dictionary<string, EntryOrderGroup> _orderGroups = [];
 
     public int MaxConcurrentGroups { get; set; } = 5;
 
-    public EntryOrderGroup RegisterGroup(OrderRequest request)
+    public EntryOrderGroup RegisterGroup(Order entryOrder, List<ProtectivePair> protectivePairs)
     {
-        request.Validate();
+        ArgumentNullException.ThrowIfNull(entryOrder);
 
-        var activeCount = _orderGroups.Values.Count(g => g.IsActive);
+        var activeCount = _orderGroups.Values.Count(g => g.State != OrderGroupState.Closed);
         if (activeCount >= MaxConcurrentGroups)
-            throw new InvalidOperationException(
-                $"Maximum concurrent groups ({MaxConcurrentGroups}) reached");
+            throw new InvalidOperationException($"Maximum concurrent groups ({MaxConcurrentGroups}) reached");
 
-        // Create EntryOrderGroup from request
-        // Add to dictionary
-        // Return created group
+        var totalPairVolume = protectivePairs.Sum(pp => pp.Volume ?? entryOrder.Volume);
+        if (protectivePairs.Count > 1 && totalPairVolume != entryOrder.Volume)
+            throw new ArgumentException($"Protective pair volumes ({totalPairVolume}) must equal entry volume ({entryOrder.Volume})");
+
+        var groupId = Guid.NewGuid().ToString();
+        var pairs = protectivePairs.ToDictionary(
+            _ => Guid.NewGuid().ToString(),
+            pp => ((Order?)null, (Order?)null, pp));
+
+        var group = new EntryOrderGroup(groupId, entryOrder, pairs);
+        _orderGroups[$"{strategyId}_{groupId}"] = group;
+
+        return group;
     }
 
-    public EntryOrderGroup[] GetActiveGroups()
-    {
-        return _orderGroups.Values
-            .Where(g => g.IsActive)
-            .ToArray();
-    }
+    public EntryOrderGroup[] GetActiveGroups() =>
+        _orderGroups.Values.Where(g => g.State != OrderGroupState.Closed).ToArray();
 
-    public EntryOrderGroup? GetGroupById(string groupId)
-    {
-        return _orderGroups.TryGetValue(groupId, out var group) ? group : null;
-    }
+    public EntryOrderGroup? FindMatchingGroup(OrderRequest request, decimal tolerance = 0.00000001m) =>
+        _orderGroups.Values.FirstOrDefault(g =>
+            g.State != OrderGroupState.Closed && g.Matches(request, tolerance));
 
-    public EntryOrderGroup? FindMatchingGroup(
-        decimal entryPrice,
-        decimal slPrice,
-        decimal tpPrice,
-        decimal tolerance)
-    {
-        return _orderGroups.Values
-            .FirstOrDefault(g => g.IsActive &&
-                Math.Abs(g.EntryOrder.Price - entryPrice) <= tolerance &&
-                g.ProtectivePairs.Values.Any(p =>
-                    p.SlOrder != null && Math.Abs(p.SlOrder.Price - slPrice) <= tolerance &&
-                    p.TpOrder != null && Math.Abs(p.TpOrder.Price - tpPrice) <= tolerance));
-    }
+    public EntryOrderGroup? FindGroupByOrder(Order order) =>
+        _orderGroups.Values.FirstOrDefault(g =>
+            g.EntryOrder == order ||
+            g.ProtectivePairs.Values.Any(pp => pp.SlOrder == order || pp.TpOrder == order));
 
-    public void Reset()
-    {
-        _orderGroups.Clear();
-    }
+    public void Reset() => _orderGroups.Clear();
 }
 ```
+
+### IStrategyOrderOperations (interface)
+
+```csharp
+public interface IStrategyOrderOperations
+{
+    Order PlaceOrder(Order order);
+    void CancelOrder(Order order);
+}
+```
+
+**Notes**: Minimal interface with only two methods. Implemented by `CustomStrategyBase`.
 
 ## Relationships
 
 | From | To | Cardinality | Description |
 |------|-----|-------------|-------------|
 | OrderRegistry | EntryOrderGroup | 1:N | Registry manages multiple order groups |
-| EntryOrderGroup | ProtectivePairOrders | 1:N | Each entry has multiple protective pairs |
+| EntryOrderGroup | ProtectivePair tuple | 1:N | Each entry has multiple protective pairs (as tuples) |
 | OrderRequest | ProtectivePair | 1:N | Request contains protective pair specs |
 | EntryOrderGroup | Order | 1:1 | Entry order reference |
-| ProtectivePairOrders | Order | 1:2 | SL and TP order references |
+| ProtectivePair tuple | Order | 0..2 | SL and TP order references (nullable until placed) |
 
 ## Validation Rules
 
-1. **Volume Consistency**: Sum of `ProtectivePair.Volume` must equal `EntryOrder.Volume`
-2. **Price Direction**: SL/TP prices must be on correct side of entry based on order direction
-3. **Concurrent Limit**: Active groups cannot exceed `MaxConcurrentGroups`
-4. **State Transitions**: Only valid transitions allowed (see state machine above)
-5. **Unique Group ID**: Each group has a unique GUID identifier
+1. **Volume Consistency**: Sum of `ProtectivePair.Volume` must equal `EntryOrder.Volume` (when multiple pairs)
+2. **Concurrent Limit**: Active groups cannot exceed `MaxConcurrentGroups`
+3. **State Transitions**: Only valid transitions allowed (see state machine above)
+4. **Unique Group ID**: Each group has a unique GUID identifier
+5. **Tolerance Default**: `0.00000001m` for price matching (works across all asset types)
 
 ## Infrastructure Entities (Infrastructure Assembly)
 
@@ -298,9 +270,14 @@ public class DebugModeProvider : IDisposable
     private IDebugModeOutput? _humanOutput;
     private IDebugModeOutput? _aiOutput;
 
-    public void Initialize(CustomStrategyBase strategy, TimeSpan mainTimeframe);
+    public void SetHumanOutput(IDebugModeOutput output);
+    public void SetAiOutput(IDebugModeOutput output);
     public void CaptureEvent(object eventData, DateTimeOffset timestamp, bool isAuxiliaryTimeframe);
-    public void Cleanup();
+    public void CaptureCandle(ICandleMessage candle, string securityId, bool isAuxiliaryTimeframe);
+    public void CaptureIndicator(string indicatorName, decimal? value, DateTimeOffset timestamp, bool isAuxiliaryTimeframe);
+    public void CaptureTrade(MyTrade trade, bool isAuxiliaryTimeframe);
+    public void Flush();
+    public void Dispose();
 }
 ```
 
@@ -309,7 +286,6 @@ public class DebugModeProvider : IDisposable
 ```csharp
 public interface IDebugModeOutput : IDisposable
 {
-    void Initialize(CustomStrategyBase strategy);
     void Write(object eventData, DateTimeOffset displayTimestamp);
     void Flush();
 }

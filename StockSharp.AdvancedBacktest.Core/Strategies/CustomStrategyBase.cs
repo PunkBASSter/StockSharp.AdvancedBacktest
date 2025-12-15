@@ -1,6 +1,8 @@
 using Ecng.Collections;
+using Ecng.Logging;
 using StockSharp.Algo.Strategies;
 using StockSharp.BusinessEntities;
+using StockSharp.Messages;
 using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.AdvancedBacktest.Statistics;
 using StockSharp.AdvancedBacktest.Utilities;
@@ -10,7 +12,7 @@ using System.Text;
 
 namespace StockSharp.AdvancedBacktest.Strategies;
 
-public abstract class CustomStrategyBase : Strategy
+public abstract class CustomStrategyBase : Strategy, IStrategyOrderOperations
 {
     public string Hash => $"{GetType().Name}V{Version}_{SecuritiesHash}_{ParamsHash}";
     public PerformanceMetrics? PerformanceMetrics { get; protected set; }
@@ -18,6 +20,8 @@ public abstract class CustomStrategyBase : Strategy
     public DateTimeOffset MetricWindowEnd { get; set; }
 
     public IDebugEventSink DebugEventSink { get; set; } = NullDebugEventSink.Instance;
+
+    public TimeSpan? AuxiliaryTimeframe { get; set; }
 
     public virtual string Version { get; set; } = "1.0.0";
 
@@ -65,4 +69,16 @@ public abstract class CustomStrategyBase : Strategy
     }
 
     public List<ICustomParam> ParamsBackup { get; set; } = [];
+
+    public new void LogInfo(string format, params object[] args) => this.AddInfoLog(format, args);
+
+    public Order PlaceOrder(Order order)
+    {
+        if (order.Type == OrderTypes.Market)
+            return order.Side == Sides.Buy ? BuyMarket(order.Volume) : SellMarket(order.Volume);
+
+        return order.Side == Sides.Buy
+            ? BuyLimit(order.Price, order.Volume)
+            : SellLimit(order.Price, order.Volume);
+    }
 }

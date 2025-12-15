@@ -39,14 +39,13 @@ var orderRequest = new OrderRequest(entryOrder, protectivePairs);
 public class MyStrategy : CustomStrategyBase
 {
     private OrderPositionManager _orderManager;
-    private OrderRegistry _orderRegistry;
 
     protected override void OnStarted2(DateTime time)
     {
         base.OnStarted2(time);
 
-        _orderRegistry = new OrderRegistry(this.Name) { MaxConcurrentGroups = 5 };
-        _orderManager = new OrderPositionManager(this, _orderRegistry);
+        // OrderPositionManager creates its own OrderRegistry internally
+        _orderManager = new OrderPositionManager(this, Security, Name);
 
         // Subscribe to main timeframe candles
         SubscribeCandles(mainSubscription)
@@ -66,7 +65,11 @@ public class MyStrategy : CustomStrategyBase
         {
             var (price, sl, tp) = signal.Value;
             var orderRequest = CreateOrderRequest(price, sl, tp);
-            _orderManager.HandleOrderRequest(orderRequest);
+
+            // HandleOrderRequest returns the Order to register, or null
+            var orderToRegister = _orderManager.HandleOrderRequest(orderRequest);
+            if (orderToRegister != null)
+                RegisterOrder(orderToRegister);
         }
     }
 
@@ -80,23 +83,16 @@ public class MyStrategy : CustomStrategyBase
 
 ### 3. Enabling Multiple Concurrent Positions
 
-By default, up to 5 concurrent order groups are allowed:
-
-```csharp
-_orderRegistry = new OrderRegistry(strategyId)
-{
-    MaxConcurrentGroups = 5  // Default value
-};
-```
-
-Each new signal creates an independent order group, even if existing positions are open:
+By default, up to 5 concurrent order groups are allowed. Each new signal creates an independent order group, even if existing positions are open:
 
 ```csharp
 // First signal: creates group A
-_orderManager.HandleOrderRequest(orderRequest1);
+var order1 = _orderManager.HandleOrderRequest(orderRequest1);
+if (order1 != null) RegisterOrder(order1);
 
 // Second signal (while A is still active): creates group B
-_orderManager.HandleOrderRequest(orderRequest2);
+var order2 = _orderManager.HandleOrderRequest(orderRequest2);
+if (order2 != null) RegisterOrder(order2);
 
 // Group A's SL/TP and Group B's SL/TP are tracked independently
 ```
@@ -111,7 +107,7 @@ Pending → EntryFilled → ProtectionActive → Closed
 
 Query active groups:
 ```csharp
-var activeGroups = _orderRegistry.GetActiveGroups();
+var activeGroups = _orderManager.ActiveOrders();
 foreach (var group in activeGroups)
 {
     Console.WriteLine($"Group {group.GroupId}: State={group.State}, Entry={group.EntryOrder.Price}");
@@ -135,10 +131,12 @@ Both AI debug and human debug can run simultaneously:
 var debugProvider = new DebugModeProvider
 {
     IsHumanDebugEnabled = true,
-    IsAiDebugEnabled = true
+    IsAiDebugEnabled = true,
+    MainTimeframe = TimeSpan.FromHours(1)
 };
 
-debugProvider.Initialize(strategy, mainTimeframe: TimeSpan.FromHours(1));
+debugProvider.SetHumanOutput(humanOutput);
+debugProvider.SetAiOutput(aiOutput);
 
 // Events are automatically filtered and timestamped correctly
 debugProvider.CaptureCandle(candle, securityId, isAuxiliaryTimeframe: false);
@@ -165,21 +163,31 @@ private OrderRequest CreateSplitExitRequest(decimal entryPrice, decimal zigzagTa
 
 ### Pattern: Checking for Duplicate Signals
 
+Duplicate detection is built into `HandleOrderRequest()` - it uses `FindMatchingGroup()` internally:
+
 ```csharp
-var priceStep = PriceStepHelper.GetPriceStep(Security);
-var existingGroup = _orderRegistry.FindMatchingGroup(
-    entryPrice: newEntryPrice,
-    slPrice: newSlPrice,
-    tpPrice: newTpPrice,
-    tolerance: priceStep);
+// If an existing pending group matches the new request (same entry, SL, TP, volume),
+// HandleOrderRequest returns null (no new order needed)
+var orderToRegister = _orderManager.HandleOrderRequest(orderRequest);
+if (orderToRegister == null)
+{
+    // Either duplicate signal or null request - no action needed
+    return;
+}
+RegisterOrder(orderToRegister);
+```
+
+For manual duplicate checking with OrderRegistry directly:
+
+```csharp
+var registry = new OrderRegistry("my-strategy");
+var existingGroup = registry.FindMatchingGroup(orderRequest);
 
 if (existingGroup != null && existingGroup.State == OrderGroupState.Pending)
 {
     // Exact same signal already pending - skip
     return;
 }
-
-// New or different signal - create order request
 ```
 
 ### Pattern: Handling Entry Cancellation
@@ -198,9 +206,10 @@ All components are testable in isolation:
 public void RegisterGroup_WithValidRequest_CreatesGroup()
 {
     var registry = new OrderRegistry("test-strategy");
-    var request = CreateValidOrderRequest();
+    var entry = new Order { Side = Sides.Buy, Price = 100m, Volume = 1m };
+    var pairs = new List<ProtectivePair> { new(95m, 110m, null) };
 
-    var group = registry.RegisterGroup(request);
+    var group = registry.RegisterGroup(entry, pairs);
 
     Assert.NotNull(group);
     Assert.Equal(OrderGroupState.Pending, group.State);
@@ -210,12 +219,16 @@ public void RegisterGroup_WithValidRequest_CreatesGroup()
 public void RegisterGroup_ExceedsLimit_Throws()
 {
     var registry = new OrderRegistry("test") { MaxConcurrentGroups = 2 };
+    var entry1 = new Order { Side = Sides.Buy, Price = 100m, Volume = 1m };
+    var entry2 = new Order { Side = Sides.Buy, Price = 101m, Volume = 1m };
+    var entry3 = new Order { Side = Sides.Buy, Price = 102m, Volume = 1m };
+    var pairs = new List<ProtectivePair> { new(95m, 110m, null) };
 
-    registry.RegisterGroup(CreateValidOrderRequest());
-    registry.RegisterGroup(CreateValidOrderRequest());
+    registry.RegisterGroup(entry1, pairs);
+    registry.RegisterGroup(entry2, pairs);
 
     Assert.Throws<InvalidOperationException>(() =>
-        registry.RegisterGroup(CreateValidOrderRequest()));
+        registry.RegisterGroup(entry3, pairs));
 }
 ```
 
@@ -224,6 +237,7 @@ public void RegisterGroup_ExceedsLimit_Throws()
 If upgrading from the previous single-position model:
 
 1. Replace direct order placement with `OrderRequest` + `HandleOrderRequest()`
-2. Replace `_order` field with `OrderRegistry` queries
+2. Replace `_order` field with `ActiveOrders()` queries
 3. Keep `OnOwnTradeReceived()` delegation to `OrderPositionManager`
-4. Existing tests should continue passing (backward compatible API)
+4. **Important**: `HandleOrderRequest()` now returns `Order?` - you must register it with `RegisterOrder()`
+5. Existing tests should continue passing (backward compatible API)
