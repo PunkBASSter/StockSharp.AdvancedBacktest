@@ -132,13 +132,6 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
 
     private async Task LaunchDebugWebServerAsync()
     {
-        // Skip web app if agentic logging is enabled (avoid startup overhead)
-        if (_config.AgenticLogging?.Enabled == true)
-        {
-            Logger?.AddInfoLog("Agentic logging enabled. Skipping web app launch.");
-            return;
-        }
-
         if (_config.DebugMode?.Enabled != true)
             return;
 
@@ -335,9 +328,26 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
         return null;
     }
 
+    private bool IsAuxiliaryTimeframeCandle(Subscription? subscription)
+    {
+        if (_strategy is not CustomStrategyBase customStrategy)
+            return false;
+
+        if (!customStrategy.AuxiliaryTimeframe.HasValue)
+            return false;
+
+        var subscriptionTimeframe = subscription?.DataType?.Arg as TimeSpan?;
+        return subscriptionTimeframe.HasValue
+            && subscriptionTimeframe.Value == customStrategy.AuxiliaryTimeframe.Value;
+    }
+
     private void OnCandleReceivedForDebug(Subscription subscription, ICandleMessage candle)
     {
         if (_debugExporter == null || !_debugExporter.IsInitialized)
+            return;
+
+        // Filter out auxiliary timeframe candles - only capture main TF
+        if (IsAuxiliaryTimeframeCandle(subscription))
             return;
 
         try
@@ -389,6 +399,10 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
     private void OnCandleReceivedForAgentic(Subscription subscription, ICandleMessage candle)
     {
         if (_agenticLogger == null)
+            return;
+
+        // Filter out auxiliary timeframe candles - only capture main TF
+        if (IsAuxiliaryTimeframeCandle(subscription))
             return;
 
         try
