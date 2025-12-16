@@ -44,6 +44,22 @@ public class OrderPositionManager
         if (existing != null && existing.State == OrderGroupState.Pending)
             return null;
 
+        // Cancel any non-matching pending groups before creating a new one
+        // This prevents accumulation of multiple pending groups with different signals
+        CancelPendingOrders();
+
+        // Check if at capacity - skip new signal if max concurrent groups reached
+        var activeGroups = _orderRegistry.GetActiveGroups();
+        if (activeGroups.Length >= _orderRegistry.MaxConcurrentGroups)
+        {
+            OnOrderEvent?.Invoke("MaxConcurrentGroupsReached", new {
+                ActiveCount = activeGroups.Length,
+                MaxAllowed = _orderRegistry.MaxConcurrentGroups,
+                SkippedOrder = orderRequest.Order.Side
+            });
+            return null;
+        }
+
         _orderRegistry.RegisterGroup(orderRequest.Order, orderRequest.ProtectivePairs);
         return orderRequest.Order;
     }
@@ -268,8 +284,10 @@ public class OrderPositionManager
 
     private void CancelPendingOrders()
     {
+        // Materialize the list to avoid modifying collection during enumeration
         var pendingGroups = _orderRegistry.GetActiveGroups()
-            .Where(g => g.State == OrderGroupState.Pending);
+            .Where(g => g.State == OrderGroupState.Pending)
+            .ToList();
 
         foreach (var group in pendingGroups)
         {

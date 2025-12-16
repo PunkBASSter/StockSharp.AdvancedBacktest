@@ -221,11 +221,11 @@ Based on plan.md structure (consolidated design):
 - **Setup (Phase 1)**: No dependencies - can start immediately ✅ COMPLETE
 - **Foundational (Phase 2)**: Depends on Setup - BLOCKS all user stories ✅ COMPLETE
 - **User Story 1 (Phase 3)**: Depends on Foundational - Infrastructure for auxiliary TF ✅ COMPLETE
-- **User Story 2 (Phase 4)**: Depends on Foundational - Core registry and state tracking ✅ IMPLEMENTATION COMPLETE (tests pending)
-- **User Story 3 (Phase 5)**: Depends on US1 + US2 - Multiple concurrent positions ✅ IMPLEMENTATION COMPLETE (some tests pending)
-- **User Story 4 (Phase 6)**: Depends on US2 + US3 - Split exits build on concurrent positions (partial)
-- **User Story 5 (Phase 7)**: Depends on US3 + US4 - Partial fills need position management in place
-- **Polish (Phase 8)**: Depends on all user stories being complete (partial)
+- **User Story 2 (Phase 4)**: Depends on Foundational - Core registry and state tracking ✅ COMPLETE
+- **User Story 3 (Phase 5)**: Depends on US1 + US2 - Multiple concurrent positions ✅ COMPLETE
+- **User Story 4 (Phase 6)**: Depends on US2 + US3 - Split exits build on concurrent positions ✅ COMPLETE
+- **User Story 5 (Phase 7)**: Depends on US3 + US4 - Partial fills need position management in place ✅ COMPLETE
+- **Polish (Phase 8)**: Depends on all user stories being complete ✅ COMPLETE
 
 ### Current Status Summary
 

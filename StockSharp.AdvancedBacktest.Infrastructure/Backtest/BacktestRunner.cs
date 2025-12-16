@@ -588,13 +588,17 @@ public class BacktestRunner<TStrategy> : IDisposable where TStrategy : Strategy
 
     private BacktestResult<TStrategy> CreateErrorResult(Exception error)
     {
+        // Include full stack trace for debugging
+        var fullErrorMessage = error.ToString();
+        Logger?.AddErrorLog($"Full error details:\n{fullErrorMessage}");
+
         return new BacktestResult<TStrategy>
         {
             Strategy = _strategy,
             Metrics = new PerformanceMetrics(),
             Config = _config,
             IsSuccessful = false,
-            ErrorMessage = error.Message,
+            ErrorMessage = fullErrorMessage,
             StartTime = _startTime,
             EndTime = DateTimeOffset.UtcNow
         };
