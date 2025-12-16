@@ -90,7 +90,15 @@ public class OrderPositionManager
 
         foreach (var kv in group.ProtectivePairs)
         {
-            var spec = kv.Value.Spec;
+            var pair = kv.Value;
+            var spec = pair.Spec;
+
+            // Always skip candle-based market order fallback when using limit order protection
+            // Limit orders will fill at exact SL/TP prices - market orders fill at arbitrary candle prices
+            // The candle-based check was originally for non-limit protection modes
+            if (spec.OrderType == OrderTypes.Limit)
+                continue;
+
             var slHit = isLong
                 ? candle.LowPrice <= spec.StopLossPrice
                 : candle.HighPrice >= spec.StopLossPrice;
@@ -120,12 +128,20 @@ public class OrderPositionManager
         var isLong = group.EntryOrder.Side == Sides.Buy;
         var volume = pair.Spec.Volume ?? group.EntryOrder.Volume;
 
+        // Check if either protective order was already filled (prevents double exit)
+        var slFilled = pair.SlOrder?.State == OrderStates.Done && pair.SlOrder?.Balance == 0;
+        var tpFilled = pair.TpOrder?.State == OrderStates.Done && pair.TpOrder?.Balance == 0;
+
+        // Cancel any still-active orders
         if (pair.SlOrder?.State == OrderStates.Active)
             _strategy.CancelOrder(pair.SlOrder);
         if (pair.TpOrder?.State == OrderStates.Active)
             _strategy.CancelOrder(pair.TpOrder);
 
-        PlaceMarketOrder(isLong ? Sides.Sell : Sides.Buy, volume);
+        // Only place market order if neither protective order was filled
+        // If one was filled, the position is already closed by the limit order
+        if (!slFilled && !tpFilled)
+            PlaceMarketOrder(isLong ? Sides.Sell : Sides.Buy, volume);
 
         group.ProtectivePairs.Remove(pairId);
 

@@ -1,8 +1,15 @@
 # 2025 Q4 Roadmap
 
-Стратегия туду:
+Медленный стал репортинг со вспомогательным ТФ: сначала бэктест, потом виснет, потом снова историю вычитывает, и завершается + в браузере репорты тормозят, ценовые данные за 3 года до 10 МБ весят - проблема в этом?
+В репортах нет метрик и эквити.
 
-Учёт связанных ордеров и управление ими - от какого сигнала, кто (стратегия - реф инстанса, сигнал модуль айди или тип+реф) их может закрыть. - нужно чтобы не пропускать сигналы, сидя в позиции.
+В стратегии может сделать чтобы логика на каждой 5-минутной вспомогательной свече выполнялась?
+
+В дебаг моде сделать чтобы последняя свечка дописывалась/менялась с каждой новой свечой вспомогательного ТФ.
+
+Понять что аи-дебаг правильно работает без 5 мин ТФ, пишет все трейды и т.д.
+
+Стратегия туду:
 
 Сменяемые трендовые фильтры, подгрузка параметров, брутфорс оптимизация с поддержкой сменных фильтров.
 Фильтры по мин/макс волатильности
@@ -25,7 +32,7 @@
 - ? Keep an eye on AI debug - ALPHA VERSION
 
 ## Refactoring:
-- Unify debug event export under a single abstraction but different implementations for AI/Human that can be enabled simultaneously.
+- Unify debug event export under a single abstraction but different implementations for AI/Human that can be enabled simultaneously (? мб сделано уже).
 
 ## 2. Add .claude/CLAUDE.md definitions
 !! - Instruct Claude code to use /ai-debug command for running backtests and analyzing the execution logs. Maybe it's possible to place breakpoints and use step into/forward, see watch and etc?

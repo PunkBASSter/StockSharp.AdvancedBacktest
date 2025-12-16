@@ -179,8 +179,11 @@ public class ZigZagBreakout : CustomStrategyBase
         var price = nonZeroPoints[1];
         var l1 = nonZeroPoints[2];
 
-        // Check pattern: sl < l1 < price and price > sl
-        if (price > sl && sl < l1 && l1 < price)
+        // Check pattern for breakout:
+        // - price > sl: resistance level above stop loss (valid risk/reward)
+        // - l1 < price: current swing is below resistance (waiting for breakout)
+        // Note: Removed "sl < l1" (higher-low requirement) to catch all breakouts
+        if (price > sl && l1 < price)
         {
             var tp = price + Math.Abs(price - sl);
             return (price, sl, tp);
