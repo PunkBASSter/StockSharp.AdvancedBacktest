@@ -104,6 +104,7 @@ export default function WFComparisonChart({ windows }: WFComparisonChartProps) {
           label: (context) => {
             const label = context.dataset.label || '';
             const value = context.parsed.y;
+            if (value == null) return label;
             if (metricType === 'totalReturn') {
               return `${label}: ${value.toFixed(2)}%`;
             } else {

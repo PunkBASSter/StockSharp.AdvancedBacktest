@@ -114,7 +114,7 @@ public class Program
                 // Standard Debug Mode - Real-time browser visualization
                 config.DebugMode = new DebugModeSettings
                 {
-                    Enabled = false,
+                    Enabled = true,
                     OutputDirectory = WebAppPath(@"public\debug-mode"),
                     FlushIntervalMs = 800,
                     WebAppPath = WebAppPath(),
