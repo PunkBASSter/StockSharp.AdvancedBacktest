@@ -44,10 +44,6 @@ public class OrderPositionManager
         if (existing != null && existing.State == OrderGroupState.Pending)
             return null;
 
-        // Cancel any non-matching pending groups before creating a new one
-        // This prevents accumulation of multiple pending groups with different signals
-        CancelPendingOrders();
-
         // Check if at capacity - skip new signal if max concurrent groups reached
         var activeGroups = _orderRegistry.GetActiveGroups();
         if (activeGroups.Length >= _orderRegistry.MaxConcurrentGroups)

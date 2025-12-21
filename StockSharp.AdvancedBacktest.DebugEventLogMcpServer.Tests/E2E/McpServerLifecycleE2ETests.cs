@@ -60,7 +60,7 @@ public sealed class McpServerLifecycleE2ETests : IAsyncDisposable
         await client.InitializeAsync();
 
         // Verify the server can query the database
-        var result = await client.CallToolAsync("GetEventsByTypeAsync", new
+        var result = await client.CallToolAsync("get_events_by_type", new
         {
             runId = runId,
             eventType = "TradeExecution",
@@ -85,7 +85,7 @@ public sealed class McpServerLifecycleE2ETests : IAsyncDisposable
         // Call with invalid run ID - should return error in content, not crash
         var exception = await Assert.ThrowsAnyAsync<Exception>(async () =>
         {
-            await client.CallToolAsync("GetEventsByTypeAsync", new
+            await client.CallToolAsync("get_events_by_type", new
             {
                 runId = "non-existent-run-id",
                 eventType = "InvalidEventType",

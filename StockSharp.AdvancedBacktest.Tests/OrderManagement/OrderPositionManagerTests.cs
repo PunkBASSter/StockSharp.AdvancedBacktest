@@ -170,8 +170,9 @@ public class OrderPositionManagerTests
     {
         // Group1: entry at 100, SL at 95, TP at 110
         // Group2: entry at 80, SL at 70, TP at 120 (both SL and TP outside candle range)
-        var signal1 = CreateBuySignal(100m, 95m, 110m);
-        var signal2 = CreateBuySignal(80m, 70m, 120m);
+        // Using Market order protection to enable candle-based SL/TP triggering
+        var signal1 = CreateBuySignalWithMarketProtection(100m, 95m, 110m);
+        var signal2 = CreateBuySignalWithMarketProtection(80m, 70m, 120m);
 
         var order1 = _manager.HandleOrderRequest(signal1);
         var order2 = _manager.HandleOrderRequest(signal2);
@@ -352,7 +353,8 @@ public class OrderPositionManagerTests
     [Fact]
     public void CheckProtectionLevels_MultiplePairs_ClosesOnlyTriggeredPair()
     {
-        var signal = CreateMultiplePairSignal(100m, [
+        // Using Market order protection to enable candle-based SL/TP triggering
+        var signal = CreateMultiplePairSignalWithMarketProtection(100m, [
             (95m, 105m, 5m),
             (90m, 115m, 5m)
         ]);
@@ -451,6 +453,41 @@ public class OrderPositionManagerTests
         };
 
         var protectivePairs = pairs.Select(p => new ProtectivePair(p.sl, p.tp, p.volume)).ToList();
+        return new OrderRequest(order, protectivePairs);
+    }
+
+    private OrderRequest CreateBuySignalWithMarketProtection(decimal entryPrice, decimal slPrice, decimal tpPrice)
+    {
+        var order = new Order
+        {
+            Side = Sides.Buy,
+            Price = entryPrice,
+            Volume = 10m,
+            Security = _security,
+            Portfolio = new Portfolio { Name = "TEST" },
+            Type = OrderTypes.Limit,
+            State = OrderStates.Active
+        };
+
+        var protectivePair = new ProtectivePair(slPrice, tpPrice, 10m, OrderTypes.Market);
+        return new OrderRequest(order, [protectivePair]);
+    }
+
+    private OrderRequest CreateMultiplePairSignalWithMarketProtection(decimal entryPrice, (decimal sl, decimal tp, decimal volume)[] pairs)
+    {
+        var totalVolume = pairs.Sum(p => p.volume);
+        var order = new Order
+        {
+            Side = Sides.Buy,
+            Price = entryPrice,
+            Volume = totalVolume,
+            Security = _security,
+            Portfolio = new Portfolio { Name = "TEST" },
+            Type = OrderTypes.Limit,
+            State = OrderStates.Active
+        };
+
+        var protectivePairs = pairs.Select(p => new ProtectivePair(p.sl, p.tp, p.volume, OrderTypes.Market)).ToList();
         return new OrderRequest(order, protectivePairs);
     }
 

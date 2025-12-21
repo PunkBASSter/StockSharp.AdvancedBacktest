@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
@@ -218,7 +219,7 @@ public sealed class TokenEfficiencyTests : IAsyncDisposable
 				EventType = eventTypes[i % eventTypes.Length],
 				Severity = EventSeverity.Info,
 				Category = EventCategory.Execution,
-				Properties = $$$"""{"Price": {{{100 + random.NextDouble() * 100:F2}}}, "Quantity": {{{random.Next(1, 100)}}}}"""
+				Properties = $$"""{"Price": {{(100 + random.NextDouble() * 100).ToString("F2", CultureInfo.InvariantCulture)}}, "Quantity": {{random.Next(1, 100)}}}"""
 			});
 		}
 	}
