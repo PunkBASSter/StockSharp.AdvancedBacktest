@@ -45,7 +45,7 @@ public class ZigZagBreakout : CustomStrategyBase
             _config.MaxPositionSize);
 
         // Initialize order manager
-        _orderManager = new OrderPositionManager(this);
+        _orderManager = new OrderPositionManager(this, Security, Name);
 
         _dzz = new DeltaZigZag
         {
@@ -118,32 +118,36 @@ public class ZigZagBreakout : CustomStrategyBase
         // If no valid signal, cancel any pending entry orders
         if (!signalData.HasValue)
         {
-            _orderManager.HandleSignal(null);
+            _orderManager.HandleOrderRequest(null);
             return;
         }
 
         // Don't place new orders if there's already an active pending order with same signal
-        var activeOrders = _orderManager.ActiveOrders();
-        if (activeOrders.Length > 0)
+        var activeGroups = _orderManager.ActiveOrders();
+        if (activeGroups.Length > 0)
         {
-            // Let HandleSignal decide if the signal changed enough to replace
+            // Let HandleOrderRequest decide if the signal changed enough to replace
         }
 
         var (price, sl, tp) = signalData.Value;
         var volume = CalculatePositionSize(price, sl);
 
-        var signal = new TradeSignal
+        var entryOrder = new Order
         {
-            Direction = Sides.Buy,
-            EntryPrice = price,
+            Side = Sides.Buy,
+            Price = price,
             Volume = volume,
-            StopLoss = sl,
-            TakeProfit = tp,
-            OrderType = OrderTypes.Limit
+            Security = Security,
+            Portfolio = Portfolio,
+            Type = OrderTypes.Limit
         };
 
+        var protectivePair = new ProtectivePair(sl, tp, volume);
+
         this.LogInfo("Signal: BUY LIMIT at {0:F2} SL:{1:F2} TP:{2:F2} Volume:{3}", price, sl, tp, volume);
-        _orderManager.HandleSignal(signal);
+        var orderToRegister = _orderManager.HandleOrderRequest(new OrderRequest(entryOrder, [protectivePair]));
+        if (orderToRegister != null)
+            RegisterOrder(orderToRegister);
     }
 
     private (decimal price, decimal sl, decimal tp)? TryGetBuyOrder()
@@ -175,8 +179,11 @@ public class ZigZagBreakout : CustomStrategyBase
         var price = nonZeroPoints[1];
         var l1 = nonZeroPoints[2];
 
-        // Check pattern: sl < l1 < price and price > sl
-        if (price > sl && sl < l1 && l1 < price)
+        // Check pattern for breakout:
+        // - price > sl: resistance level above stop loss (valid risk/reward)
+        // - l1 < price: current swing is below resistance (waiting for breakout)
+        // Note: Removed "sl < l1" (higher-low requirement) to catch all breakouts
+        if (price > sl && l1 < price)
         {
             var tp = price + Math.Abs(price - sl);
             return (price, sl, tp);
@@ -205,5 +212,13 @@ public class ZigZagBreakout : CustomStrategyBase
     {
         base.OnOwnTradeReceived(trade);
         _orderManager?.OnOwnTradeReceived(trade);
+    }
+
+    protected override void OnAuxiliaryCandle(ICandleMessage candle)
+    {
+        // Check protection levels on auxiliary TF candles for more granular SL/TP checking
+        // This is invisible in all outputs - purely internal
+        if (candle.State == CandleStates.Finished)
+            _orderManager?.CheckProtectionLevels(candle);
     }
 }

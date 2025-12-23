@@ -48,12 +48,13 @@ public sealed class McpServerE2ETests : IAsyncDisposable
             .Select(t => t.GetProperty("name").GetString())
             .ToList();
 
-        Assert.Contains("GetEventsByTypeAsync", toolNames);
-        Assert.Contains("GetEventsByEntityAsync", toolNames);
-        Assert.Contains("GetStateSnapshotAsync", toolNames);
-        Assert.Contains("AggregateMetricsAsync", toolNames);
-        Assert.Contains("QueryEventSequenceAsync", toolNames);
-        Assert.True(toolNames.Count >= 5, $"Expected at least 5 tools, got {toolNames.Count}");
+        Assert.Contains("get_events_by_type", toolNames);
+        Assert.Contains("get_events_by_entity", toolNames);
+        Assert.Contains("get_state_snapshot", toolNames);
+        Assert.Contains("aggregate_metrics", toolNames);
+        Assert.Contains("query_event_sequence", toolNames);
+        Assert.Contains("list_backtest_runs", toolNames);
+        Assert.True(toolNames.Count >= 6, $"Expected at least 6 tools, got {toolNames.Count}");
     }
 
     [SkippableFact]
@@ -61,7 +62,7 @@ public sealed class McpServerE2ETests : IAsyncDisposable
     {
         await SetupAsync(MockDataProfile.Default);
 
-        var result = await _client!.CallToolAsync("GetEventsByTypeAsync", new
+        var result = await _client!.CallToolAsync("get_events_by_type", new
         {
             runId = _runId,
             eventType = "TradeExecution",
@@ -87,7 +88,7 @@ public sealed class McpServerE2ETests : IAsyncDisposable
     {
         await SetupAsync(MockDataProfile.Default);
 
-        var result = await _client!.CallToolAsync("GetEventsByEntityAsync", new
+        var result = await _client!.CallToolAsync("get_events_by_entity", new
         {
             runId = _runId,
             entityType = "SecuritySymbol",
@@ -116,7 +117,7 @@ public sealed class McpServerE2ETests : IAsyncDisposable
         JsonElement result;
         try
         {
-            result = await _client!.CallToolAsync("GetStateSnapshotAsync", new
+            result = await _client!.CallToolAsync("get_state_snapshot", new
             {
                 runId = _runId,
                 timestamp = DateTime.UtcNow.AddHours(1).ToString("o"),
@@ -146,7 +147,7 @@ public sealed class McpServerE2ETests : IAsyncDisposable
     {
         await SetupAsync(MockDataProfile.Default);
 
-        var result = await _client!.CallToolAsync("AggregateMetricsAsync", new
+        var result = await _client!.CallToolAsync("aggregate_metrics", new
         {
             runId = _runId,
             eventType = "TradeExecution",

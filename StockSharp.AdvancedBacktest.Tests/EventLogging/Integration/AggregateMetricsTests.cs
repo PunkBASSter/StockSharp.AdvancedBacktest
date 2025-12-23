@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Data.Sqlite;
 using StockSharp.AdvancedBacktest.DebugMode.AiAgenticDebug.EventLogging.Models;
 using StockSharp.AdvancedBacktest.DebugMode.AiAgenticDebug.EventLogging.Storage;
@@ -317,7 +318,7 @@ public sealed class AggregateMetricsTests : IAsyncDisposable
 			EventType = EventType.TradeExecution,
 			Severity = EventSeverity.Info,
 			Category = EventCategory.Execution,
-			Properties = $$$"""{"OrderId": "{{{Guid.NewGuid()}}}", "Price": {{{price}}}, "Quantity": 10}"""
+			Properties = $$"""{"OrderId": "{{Guid.NewGuid()}}", "Price": {{price.ToString(CultureInfo.InvariantCulture)}}, "Quantity": 10}"""
 		};
 		await _repository.WriteEventAsync(entity);
 	}
@@ -332,7 +333,7 @@ public sealed class AggregateMetricsTests : IAsyncDisposable
 			EventType = EventType.IndicatorCalculation,
 			Severity = EventSeverity.Debug,
 			Category = EventCategory.Analysis,
-			Properties = $$$"""{"IndicatorName": "{{{name}}}", "Value": {{{value}}}}"""
+			Properties = $$"""{"IndicatorName": "{{name}}", "Value": {{value.ToString(CultureInfo.InvariantCulture)}}}"""
 		};
 		await _repository.WriteEventAsync(entity);
 	}

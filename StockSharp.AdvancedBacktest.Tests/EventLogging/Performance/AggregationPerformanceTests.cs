@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Data.Sqlite;
 using StockSharp.AdvancedBacktest.DebugMode.AiAgenticDebug.EventLogging.Models;
 using StockSharp.AdvancedBacktest.DebugMode.AiAgenticDebug.EventLogging.Storage;
@@ -111,7 +112,7 @@ public sealed class AggregationPerformanceTests : IAsyncDisposable
 				EventType = EventType.TradeExecution,
 				Severity = EventSeverity.Info,
 				Category = EventCategory.Execution,
-				Properties = $$$"""{"Price": {{{100 + random.NextDouble() * 100:F2}}}, "Quantity": {{{random.Next(1, 100)}}}}"""
+				Properties = $$"""{"Price": {{(100 + random.NextDouble() * 100).ToString("F2", CultureInfo.InvariantCulture)}}, "Quantity": {{random.Next(1, 100)}}}"""
 			});
 		}
 	}

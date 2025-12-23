@@ -1,6 +1,9 @@
 using Ecng.Collections;
+using Ecng.Logging;
+using StockSharp.Algo.Candles;
 using StockSharp.Algo.Strategies;
 using StockSharp.BusinessEntities;
+using StockSharp.Messages;
 using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.AdvancedBacktest.Statistics;
 using StockSharp.AdvancedBacktest.Utilities;
@@ -18,6 +21,8 @@ public abstract class CustomStrategyBase : Strategy, IStrategyOrderOperations
     public DateTimeOffset MetricWindowEnd { get; set; }
 
     public IDebugEventSink DebugEventSink { get; set; } = NullDebugEventSink.Instance;
+
+    public TimeSpan? AuxiliaryTimeframe { get; set; }
 
     public virtual string Version { get; set; } = "1.0.0";
 
@@ -66,10 +71,42 @@ public abstract class CustomStrategyBase : Strategy, IStrategyOrderOperations
 
     public List<ICustomParam> ParamsBackup { get; set; } = [];
 
-    Order IStrategyOrderOperations.BuyLimit(decimal price, decimal volume) => BuyLimit(price, volume);
-    Order IStrategyOrderOperations.SellLimit(decimal price, decimal volume) => SellLimit(price, volume);
-    Order IStrategyOrderOperations.BuyMarket(decimal volume) => BuyMarket(volume);
-    Order IStrategyOrderOperations.SellMarket(decimal volume) => SellMarket(volume);
-    void IStrategyOrderOperations.LogInfo(string format, params object[] args) => this.LogInfo(format, args);
-    void IStrategyOrderOperations.LogWarning(string format, params object[] args) => this.LogWarning(format, args);
+    public new void LogInfo(string format, params object[] args) => this.AddInfoLog(format, args);
+
+    public Order PlaceOrder(Order order)
+    {
+        if (order.Type == OrderTypes.Market)
+            return order.Side == Sides.Buy ? BuyMarket(order.Volume) : SellMarket(order.Volume);
+
+        return order.Side == Sides.Buy
+            ? BuyLimit(order.Price, order.Volume)
+            : SellLimit(order.Price, order.Volume);
+    }
+
+    protected override void OnStarted2(DateTime time)
+    {
+        base.OnStarted2(time);
+
+        if (AuxiliaryTimeframe.HasValue && AuxiliaryTimeframe.Value > TimeSpan.Zero)
+        {
+            var auxSubscription = new Subscription(AuxiliaryTimeframe.Value.TimeFrame(), Security)
+            {
+                MarketData =
+                {
+                    IsFinishedOnly = true,
+                    BuildMode = MarketDataBuildModes.LoadAndBuild,
+                }
+            };
+
+            SubscribeCandles(auxSubscription)
+                .Bind(OnAuxiliaryCandle)
+                .Start();
+        }
+    }
+
+    protected virtual void OnAuxiliaryCandle(ICandleMessage candle)
+    {
+        // Override in derived classes to handle auxiliary TF candles
+        // Typically used to call OrderPositionManager.CheckProtectionLevels(candle)
+    }
 }

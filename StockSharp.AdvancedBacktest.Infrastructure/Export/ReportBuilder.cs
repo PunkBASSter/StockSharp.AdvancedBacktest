@@ -70,7 +70,7 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
             var jsonOptions = new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                WriteIndented = true
+                WriteIndented = false
             };
 
             await File.WriteAllTextAsync(chartDataPath, JsonSerializer.Serialize(chartData, jsonOptions));
@@ -135,6 +135,8 @@ public class ReportBuilder<TStrategy> where TStrategy : CustomStrategyBase, new(
 
     private async Task<List<CandleDataPoint>> ExtractCandleDataAsync(StrategySecurityChartModel model, CancellationToken cancellationToken = default)
     {
+        _logger?.LogDebug("Loading candle data from storage");
+
         var historyPath = model.HistoryPath;
         var securities = model.Strategy.Securities;
         using var dataDrive = new LocalMarketDataDrive(historyPath);

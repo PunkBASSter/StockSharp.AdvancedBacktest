@@ -114,7 +114,7 @@ public class Program
                 // Standard Debug Mode - Real-time browser visualization
                 config.DebugMode = new DebugModeSettings
                 {
-                    Enabled = false,
+                    Enabled = true,
                     OutputDirectory = WebAppPath(@"public\debug-mode"),
                     FlushIntervalMs = 800,
                     WebAppPath = WebAppPath(),
@@ -127,7 +127,10 @@ public class Program
             var strategy = new ZigZagBreakout
             {
                 Security = security,
-                Portfolio = portfolio
+                Portfolio = portfolio,
+                // Set auxiliary timeframe for more granular SL/TP checking during backtests
+                // This is invisible in all outputs - purely internal implementation
+                AuxiliaryTimeframe = TimeSpan.FromMinutes(5)
             };
 
             // Set timeframe - using 1 hour candles for this backtest
