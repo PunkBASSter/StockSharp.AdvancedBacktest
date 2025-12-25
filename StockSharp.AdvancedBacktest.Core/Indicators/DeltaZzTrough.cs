@@ -1,0 +1,86 @@
+using System.ComponentModel.DataAnnotations;
+using Ecng.Serialization;
+using StockSharp.Algo.Indicators;
+
+namespace StockSharp.AdvancedBacktest.Indicators;
+
+/// <summary>
+/// Derived indicator that filters DeltaZigZag to output only troughs.
+/// </summary>
+/// <remarks>
+/// Useful for frontend visualization where you want separate peak and trough series
+/// without double values on the same timestamp.
+/// </remarks>
+[Display(Name = "DeltaZzTrough", Description = "Filters DeltaZigZag to output only troughs")]
+[IndicatorIn(typeof(CandleIndicatorValue))]
+[IndicatorOut(typeof(ZigZagIndicatorValue))]
+public class DeltaZzTrough : BaseIndicator
+{
+    private readonly DeltaZigZag _deltaZigZag = new();
+
+    public DeltaZzTrough()
+    {
+        AddResetTracking(_deltaZigZag);
+    }
+
+    /// <summary>
+    /// Percentage of last swing size required for reversal confirmation.
+    /// </summary>
+    [Display(Name = "Delta", Description = "Percentage of last swing size required for reversal (0.0-1.0)", GroupName = "Parameters")]
+    [Range(0.0, 1.0)]
+    public decimal Delta
+    {
+        get => _deltaZigZag.Delta;
+        set => _deltaZigZag.Delta = value;
+    }
+
+    /// <summary>
+    /// Absolute minimum threshold used when no prior swing exists.
+    /// </summary>
+    [Display(Name = "MinimumThreshold", Description = "Absolute minimum threshold when no prior swing exists", GroupName = "Parameters")]
+    public decimal MinimumThreshold
+    {
+        get => _deltaZigZag.MinimumThreshold;
+        set => _deltaZigZag.MinimumThreshold = value;
+    }
+
+    /// <inheritdoc />
+    public override int NumValuesToInitialize => _deltaZigZag.NumValuesToInitialize;
+
+    /// <inheritdoc />
+    protected override bool CalcIsFormed() => _deltaZigZag.IsFormed;
+
+    /// <inheritdoc />
+    protected override IIndicatorValue OnProcess(IIndicatorValue input)
+    {
+        var result = (ZigZagIndicatorValue)_deltaZigZag.Process(input);
+
+        if (!result.IsEmpty && !result.IsUp)
+        {
+            return new ZigZagIndicatorValue(this, result.GetValue<decimal>(null), result.Shift, input.Time, isUp: false);
+        }
+
+        return new ZigZagIndicatorValue(this, input.Time);
+    }
+
+    /// <inheritdoc />
+    public override void Load(SettingsStorage storage)
+    {
+        base.Load(storage);
+
+        Delta = storage.GetValue<decimal>(nameof(Delta));
+        MinimumThreshold = storage.GetValue<decimal>(nameof(MinimumThreshold));
+    }
+
+    /// <inheritdoc />
+    public override void Save(SettingsStorage storage)
+    {
+        base.Save(storage);
+
+        storage.SetValue(nameof(Delta), Delta);
+        storage.SetValue(nameof(MinimumThreshold), MinimumThreshold);
+    }
+
+    /// <inheritdoc />
+    public override string ToString() => base.ToString() + $" Delta={Delta} MinThreshold={MinimumThreshold}";
+}
