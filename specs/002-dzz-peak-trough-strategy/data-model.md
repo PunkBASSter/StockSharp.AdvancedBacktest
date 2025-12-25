@@ -82,7 +82,7 @@ DzzPeakTroughStrategy : CustomStrategyBase
 ├── _orderManager: OrderPositionManager?
 ├── _positionSizer: IRiskAwarePositionSizer?
 ├── _signalDeduplicator: SignalDeduplicator
-├── _dzzHistory: List<(decimal value, bool isUp, DateTimeOffset time)>
+├── _dzzHistory: List<(decimal value, bool isUp, DateTimeOffset time)>  # Implements DzzPeakTroughHistory (FR-002)
 └── Methods:
     ├── GetWorkingSecurities(): IEnumerable<(Security, DataType)>
     ├── OnStarted2(time): void

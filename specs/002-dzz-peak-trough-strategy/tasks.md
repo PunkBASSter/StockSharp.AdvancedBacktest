@@ -136,6 +136,7 @@ Based on plan.md structure:
   - Test TryGetBuyOrder returns correct (Entry, SL, TP) for breakout pattern
   - Test strategy waits for minimum 3 zigzag points before generating signals
   - Test signal generation matches ZigZagBreakoutStrategy output
+  - Test same-candle Peak+Trough handling (both values processed in sequence)
 
 ### Implementation for User Story 1
 
@@ -150,8 +151,9 @@ Based on plan.md structure:
   - Register both indicators in Indicators collection
   - Subscribe to candles and bind both indicators
 - [ ] T020 [US1] Implement OnProcessCandle method in DzzPeakTroughStrategy.cs (depends on T019)
-  - Add non-empty Peak values to _dzzHistory
-  - Add non-empty Trough values to _dzzHistory
+  - Add non-empty Peak values to _dzzHistory (satisfies FR-002: synchronized history)
+  - Add non-empty Trough values to _dzzHistory (chronologically ordered)
+  - _dzzHistory serves as DzzPeakTroughHistory entity from spec
   - Call TryGetBuyOrder for signal detection
 - [ ] T021 [US1] Implement TryGetBuyOrder method in DzzPeakTroughStrategy.cs (depends on T020)
   - Extract last 3 non-zero points from history
@@ -207,7 +209,7 @@ Based on plan.md structure:
 
 - [ ] T027 [US6] Add OrderPositionManager field to DzzPeakTroughStrategy in DzzPeakTroughStrategy.cs (depends on T018)
 - [ ] T028 [US6] Initialize OrderPositionManager in OnStarted2 in DzzPeakTroughStrategy.cs (depends on T027)
-- [ ] T029 [US6] Create order via HandleOrderRequest in OnProcessCandle in DzzPeakTroughStrategy.cs (depends on T21, T028)
+- [ ] T029 [US6] Create order via HandleOrderRequest in OnProcessCandle in DzzPeakTroughStrategy.cs (depends on T021, T028)
   - Create Order with Entry price and volume
   - Create ProtectivePair with SL and TP prices
   - Create OrderRequest and call HandleOrderRequest
@@ -308,7 +310,7 @@ Within Phase 4 (US4):
 - T012 (tests) and T013 (config) can run in parallel
 
 Within Phase 5 (US1):
-- T017 (tests) can run in parallel with T18 skeleton
+- T017 (tests) can run in parallel with T018 skeleton
 
 Within Phase 6 (US2):
 - T022 (tests) runs before T023-T025

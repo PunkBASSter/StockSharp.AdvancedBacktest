@@ -2,6 +2,36 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Debug DzzPeakTrough Strategy",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "Build",
+            "program": "${workspaceFolder}/StockSharp.AdvancedBacktest.LauncherTemplate/bin/Debug/net8.0/StockSharp.AdvancedBacktest.LauncherTemplate.dll",
+            "args": ["--strategy", "DzzPeakTrough"],
+            "cwd": "${workspaceFolder}/StockSharp.AdvancedBacktest.LauncherTemplate",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "env": {
+                "StockSharp__HistoryPath": "C:\\Users\\Andrew\\Documents\\StockSharp\\Hydra\\Storage",
+                "StockSharp__StorageFormat": "Binary"
+            }
+        },
+        {
+            "name": "Debug ZigZagBreakout Strategy",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "Build",
+            "program": "${workspaceFolder}/StockSharp.AdvancedBacktest.LauncherTemplate/bin/Debug/net8.0/StockSharp.AdvancedBacktest.LauncherTemplate.dll",
+            "args": ["--strategy", "ZigZagBreakout", "--ai-debug"],
+            "cwd": "${workspaceFolder}/StockSharp.AdvancedBacktest.LauncherTemplate",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "env": {
+                "StockSharp__HistoryPath": "C:\\Users\\Andrew\\Documents\\StockSharp\\Hydra\\Storage",
+                "StockSharp__StorageFormat": "Binary"
+            }
+        },
+        {
             "name": "Debug Tests (.NET Core)",
             "type": "coreclr",
             "request": "launch",
