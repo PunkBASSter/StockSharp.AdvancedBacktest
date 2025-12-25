@@ -25,9 +25,9 @@
 
 **Purpose**: Project structure verification and namespace preparation
 
-- [ ] T001 Verify Indicators directory exists in StockSharp.AdvancedBacktest.Core/Indicators/
-- [ ] T002 Verify Indicators test directory exists in StockSharp.AdvancedBacktest.Core.Tests/Indicators/
-- [ ] T003 Verify project references to StockSharp.Algo.Indicators are correct
+- [x] T001 Verify Indicators directory exists in StockSharp.AdvancedBacktest.Core/Indicators/
+- [x] T002 Verify Indicators test directory exists in StockSharp.AdvancedBacktest.Core.Tests/Indicators/
+- [x] T003 Verify project references to StockSharp.Algo.Indicators are correct
 
 ---
 
@@ -37,7 +37,7 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Create synthetic candle builder helper in StockSharp.AdvancedBacktest.Core.Tests/Indicators/TestCandleBuilder.cs
+- [x] T004 Create synthetic candle builder helper in StockSharp.AdvancedBacktest.Core.Tests/Indicators/TestCandleBuilder.cs
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -53,35 +53,35 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation (Constitution Principle II)**
 
-- [ ] T005 [P] [US1] Create test class skeleton in StockSharp.AdvancedBacktest.Core.Tests/Indicators/DeltaZigZagTests.cs
-- [ ] T006 [P] [US1] Test initial direction from first candle (close > open = uptrend) in DeltaZigZagTests.cs
-- [ ] T007 [P] [US1] Test initial direction doji tie-breaker (high-open vs open-low) in DeltaZigZagTests.cs
-- [ ] T008 [P] [US1] Test peak detection with dynamic threshold in DeltaZigZagTests.cs
-- [ ] T009 [P] [US1] Test trough detection with dynamic threshold in DeltaZigZagTests.cs
-- [ ] T010 [P] [US1] Test MinimumThreshold fallback when no swing history in DeltaZigZagTests.cs
-- [ ] T011 [P] [US1] Test bar shift calculation for correct chart placement in DeltaZigZagTests.cs
-- [ ] T012 [P] [US1] Test edge case Delta=0 uses MinimumThreshold exclusively in DeltaZigZagTests.cs
-- [ ] T013 [P] [US1] Test edge case Delta=1.0 requires full retracement in DeltaZigZagTests.cs
-- [ ] T014 [P] [US1] Test price gap through threshold detection in DeltaZigZagTests.cs
-- [ ] T015 [P] [US1] Test Reset() clears all state in DeltaZigZagTests.cs
-- [ ] T016 [US1] Run tests - confirm all FAIL (red phase)
+- [x] T005 [P] [US1] Create test class skeleton in StockSharp.AdvancedBacktest.Core.Tests/Indicators/DeltaZigZagTests.cs
+- [x] T006 [P] [US1] Test initial direction from first candle (close > open = uptrend) in DeltaZigZagTests.cs
+- [x] T007 [P] [US1] Test initial direction doji tie-breaker (high-open vs open-low) in DeltaZigZagTests.cs
+- [x] T008 [P] [US1] Test peak detection with dynamic threshold in DeltaZigZagTests.cs
+- [x] T009 [P] [US1] Test trough detection with dynamic threshold in DeltaZigZagTests.cs
+- [x] T010 [P] [US1] Test MinimumThreshold fallback when no swing history in DeltaZigZagTests.cs
+- [x] T011 [P] [US1] Test bar shift calculation for correct chart placement in DeltaZigZagTests.cs
+- [x] T012 [P] [US1] Test edge case Delta=0 uses MinimumThreshold exclusively in DeltaZigZagTests.cs
+- [x] T013 [P] [US1] Test edge case Delta=1.0 requires full retracement in DeltaZigZagTests.cs
+- [x] T014 [P] [US1] Test price gap through threshold detection in DeltaZigZagTests.cs
+- [x] T015 [P] [US1] Test Reset() clears all state in DeltaZigZagTests.cs
+- [x] T016 [US1] Run tests - confirm all FAIL (red phase)
 
 ### Implementation for User Story 1
 
-- [ ] T017 [US1] Create DeltaZigZag class skeleton extending BaseIndicator in StockSharp.AdvancedBacktest.Core/Indicators/DeltaZigZag.cs
-- [ ] T018 [US1] Add Delta property with validation (0.0 to 1.0) in DeltaZigZag.cs
-- [ ] T019 [US1] Add MinimumThreshold property with validation (> 0) in DeltaZigZag.cs
-- [ ] T020 [US1] Add internal state fields (_isUpTrend, _currentExtremum, _lastPeakPrice, _lastTroughPrice, _lastSwingSize, _shift) in DeltaZigZag.cs
-- [ ] T021 [US1] Implement initial direction logic from first candle in OnProcess() in DeltaZigZag.cs
-- [ ] T022 [US1] Implement dynamic threshold calculation (Delta * lastSwingSize with MinimumThreshold fallback) in DeltaZigZag.cs
-- [ ] T023 [US1] Implement peak detection during uptrend (track highest high, detect reversal) in DeltaZigZag.cs
-- [ ] T024 [US1] Implement trough detection during downtrend (track lowest low, detect reversal) in DeltaZigZag.cs
-- [ ] T025 [US1] Implement bar shift tracking and output in ZigZagIndicatorValue in DeltaZigZag.cs
-- [ ] T026 [US1] Implement Reset() method to clear all state in DeltaZigZag.cs
-- [ ] T027 [US1] Add [IndicatorIn], [IndicatorOut], [Display] attributes in DeltaZigZag.cs
-- [ ] T028 [US1] Implement Load/Save for settings persistence in DeltaZigZag.cs
-- [ ] T029 [US1] Run tests - confirm all PASS (green phase)
-- [ ] T030 [US1] Refactor if needed while keeping tests green
+- [x] T017 [US1] Create DeltaZigZag class skeleton extending BaseIndicator in StockSharp.AdvancedBacktest.Core/Indicators/DeltaZigZag.cs
+- [x] T018 [US1] Add Delta property with validation (0.0 to 1.0) in DeltaZigZag.cs
+- [x] T019 [US1] Add MinimumThreshold property with validation (> 0) in DeltaZigZag.cs
+- [x] T020 [US1] Add internal state fields (_isUpTrend, _currentExtremum, _lastPeakPrice, _lastTroughPrice, _lastSwingSize, _shift) in DeltaZigZag.cs
+- [x] T021 [US1] Implement initial direction logic from first candle in OnProcess() in DeltaZigZag.cs
+- [x] T022 [US1] Implement dynamic threshold calculation (Delta * lastSwingSize with MinimumThreshold fallback) in DeltaZigZag.cs
+- [x] T023 [US1] Implement peak detection during uptrend (track highest high, detect reversal) in DeltaZigZag.cs
+- [x] T024 [US1] Implement trough detection during downtrend (track lowest low, detect reversal) in DeltaZigZag.cs
+- [x] T025 [US1] Implement bar shift tracking and output in ZigZagIndicatorValue in DeltaZigZag.cs
+- [x] T026 [US1] Implement Reset() method to clear all state in DeltaZigZag.cs
+- [x] T027 [US1] Add [IndicatorIn], [IndicatorOut], [Display] attributes in DeltaZigZag.cs
+- [x] T028 [US1] Implement Load/Save for settings persistence in DeltaZigZag.cs
+- [x] T029 [US1] Run tests - confirm all PASS (green phase)
+- [x] T030 [US1] Refactor if needed while keeping tests green
 
 **Checkpoint**: DeltaZigZag indicator fully functional and tested independently
 
@@ -95,26 +95,26 @@
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T031 [P] [US2] Create test class skeleton in StockSharp.AdvancedBacktest.Core.Tests/Indicators/DeltaZzPeakTests.cs
-- [ ] T032 [P] [US2] Test peak output when DeltaZigZag outputs peak in DeltaZzPeakTests.cs
-- [ ] T033 [P] [US2] Test empty output when DeltaZigZag outputs trough in DeltaZzPeakTests.cs
-- [ ] T034 [P] [US2] Test single value per timestamp (no double values) in DeltaZzPeakTests.cs
-- [ ] T035 [P] [US2] Test Delta property delegates to internal DeltaZigZag in DeltaZzPeakTests.cs
-- [ ] T036 [P] [US2] Test MinimumThreshold property delegates to internal DeltaZigZag in DeltaZzPeakTests.cs
-- [ ] T037 [US2] Run tests - confirm all FAIL (red phase)
+- [x] T031 [P] [US2] Create test class skeleton in StockSharp.AdvancedBacktest.Core.Tests/Indicators/DeltaZzPeakTests.cs
+- [x] T032 [P] [US2] Test peak output when DeltaZigZag outputs peak in DeltaZzPeakTests.cs
+- [x] T033 [P] [US2] Test empty output when DeltaZigZag outputs trough in DeltaZzPeakTests.cs
+- [x] T034 [P] [US2] Test single value per timestamp (no double values) in DeltaZzPeakTests.cs
+- [x] T035 [P] [US2] Test Delta property delegates to internal DeltaZigZag in DeltaZzPeakTests.cs
+- [x] T036 [P] [US2] Test MinimumThreshold property delegates to internal DeltaZigZag in DeltaZzPeakTests.cs
+- [x] T037 [US2] Run tests - confirm all FAIL (red phase)
 
 ### Implementation for User Story 2
 
-- [ ] T038 [US2] Create DeltaZzPeak class skeleton extending BaseIndicator in StockSharp.AdvancedBacktest.Core/Indicators/DeltaZzPeak.cs
-- [ ] T039 [US2] Add internal _deltaZigZag field in DeltaZzPeak.cs
-- [ ] T040 [US2] Add Delta property delegating to _deltaZigZag.Delta in DeltaZzPeak.cs
-- [ ] T041 [US2] Add MinimumThreshold property delegating to _deltaZigZag.MinimumThreshold in DeltaZzPeak.cs
-- [ ] T042 [US2] Implement OnProcess() - process through _deltaZigZag, filter by IsUp==true in DeltaZzPeak.cs
-- [ ] T043 [US2] Return empty ZigZagIndicatorValue for non-peaks in DeltaZzPeak.cs
-- [ ] T044 [US2] Add [IndicatorIn], [IndicatorOut], [Display] attributes in DeltaZzPeak.cs
-- [ ] T045 [US2] Implement Reset() delegating to _deltaZigZag.Reset() in DeltaZzPeak.cs
-- [ ] T046 [US2] Implement Load/Save delegating to _deltaZigZag in DeltaZzPeak.cs
-- [ ] T047 [US2] Run tests - confirm all PASS (green phase)
+- [x] T038 [US2] Create DeltaZzPeak class skeleton extending BaseIndicator in StockSharp.AdvancedBacktest.Core/Indicators/DeltaZzPeak.cs
+- [x] T039 [US2] Add internal _deltaZigZag field in DeltaZzPeak.cs
+- [x] T040 [US2] Add Delta property delegating to _deltaZigZag.Delta in DeltaZzPeak.cs
+- [x] T041 [US2] Add MinimumThreshold property delegating to _deltaZigZag.MinimumThreshold in DeltaZzPeak.cs
+- [x] T042 [US2] Implement OnProcess() - process through _deltaZigZag, filter by IsUp==true in DeltaZzPeak.cs
+- [x] T043 [US2] Return empty ZigZagIndicatorValue for non-peaks in DeltaZzPeak.cs
+- [x] T044 [US2] Add [IndicatorIn], [IndicatorOut], [Display] attributes in DeltaZzPeak.cs
+- [x] T045 [US2] Implement Reset() delegating to _deltaZigZag.Reset() in DeltaZzPeak.cs
+- [x] T046 [US2] Implement Load/Save delegating to _deltaZigZag in DeltaZzPeak.cs
+- [x] T047 [US2] Run tests - confirm all PASS (green phase)
 
 **Checkpoint**: DeltaZzPeak indicator fully functional and tested independently
 
@@ -128,26 +128,26 @@
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T048 [P] [US3] Create test class skeleton in StockSharp.AdvancedBacktest.Core.Tests/Indicators/DeltaZzTroughTests.cs
-- [ ] T049 [P] [US3] Test trough output when DeltaZigZag outputs trough in DeltaZzTroughTests.cs
-- [ ] T050 [P] [US3] Test empty output when DeltaZigZag outputs peak in DeltaZzTroughTests.cs
-- [ ] T051 [P] [US3] Test single value per timestamp (no double values) in DeltaZzTroughTests.cs
-- [ ] T052 [P] [US3] Test Delta property delegates to internal DeltaZigZag in DeltaZzTroughTests.cs
-- [ ] T053 [P] [US3] Test MinimumThreshold property delegates to internal DeltaZigZag in DeltaZzTroughTests.cs
-- [ ] T054 [US3] Run tests - confirm all FAIL (red phase)
+- [x] T048 [P] [US3] Create test class skeleton in StockSharp.AdvancedBacktest.Core.Tests/Indicators/DeltaZzTroughTests.cs
+- [x] T049 [P] [US3] Test trough output when DeltaZigZag outputs trough in DeltaZzTroughTests.cs
+- [x] T050 [P] [US3] Test empty output when DeltaZigZag outputs peak in DeltaZzTroughTests.cs
+- [x] T051 [P] [US3] Test single value per timestamp (no double values) in DeltaZzTroughTests.cs
+- [x] T052 [P] [US3] Test Delta property delegates to internal DeltaZigZag in DeltaZzTroughTests.cs
+- [x] T053 [P] [US3] Test MinimumThreshold property delegates to internal DeltaZigZag in DeltaZzTroughTests.cs
+- [x] T054 [US3] Run tests - confirm all FAIL (red phase)
 
 ### Implementation for User Story 3
 
-- [ ] T055 [US3] Create DeltaZzTrough class skeleton extending BaseIndicator in StockSharp.AdvancedBacktest.Core/Indicators/DeltaZzTrough.cs
-- [ ] T056 [US3] Add internal _deltaZigZag field in DeltaZzTrough.cs
-- [ ] T057 [US3] Add Delta property delegating to _deltaZigZag.Delta in DeltaZzTrough.cs
-- [ ] T058 [US3] Add MinimumThreshold property delegating to _deltaZigZag.MinimumThreshold in DeltaZzTrough.cs
-- [ ] T059 [US3] Implement OnProcess() - process through _deltaZigZag, filter by IsUp==false in DeltaZzTrough.cs
-- [ ] T060 [US3] Return empty ZigZagIndicatorValue for non-troughs in DeltaZzTrough.cs
-- [ ] T061 [US3] Add [IndicatorIn], [IndicatorOut], [Display] attributes in DeltaZzTrough.cs
-- [ ] T062 [US3] Implement Reset() delegating to _deltaZigZag.Reset() in DeltaZzTrough.cs
-- [ ] T063 [US3] Implement Load/Save delegating to _deltaZigZag in DeltaZzTrough.cs
-- [ ] T064 [US3] Run tests - confirm all PASS (green phase)
+- [x] T055 [US3] Create DeltaZzTrough class skeleton extending BaseIndicator in StockSharp.AdvancedBacktest.Core/Indicators/DeltaZzTrough.cs
+- [x] T056 [US3] Add internal _deltaZigZag field in DeltaZzTrough.cs
+- [x] T057 [US3] Add Delta property delegating to _deltaZigZag.Delta in DeltaZzTrough.cs
+- [x] T058 [US3] Add MinimumThreshold property delegating to _deltaZigZag.MinimumThreshold in DeltaZzTrough.cs
+- [x] T059 [US3] Implement OnProcess() - process through _deltaZigZag, filter by IsUp==false in DeltaZzTrough.cs
+- [x] T060 [US3] Return empty ZigZagIndicatorValue for non-troughs in DeltaZzTrough.cs
+- [x] T061 [US3] Add [IndicatorIn], [IndicatorOut], [Display] attributes in DeltaZzTrough.cs
+- [x] T062 [US3] Implement Reset() delegating to _deltaZigZag.Reset() in DeltaZzTrough.cs
+- [x] T063 [US3] Implement Load/Save delegating to _deltaZigZag in DeltaZzTrough.cs
+- [x] T064 [US3] Run tests - confirm all PASS (green phase)
 
 **Checkpoint**: DeltaZzTrough indicator fully functional and tested independently
 
@@ -161,19 +161,19 @@
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T065 [P] [US4] Create integration test class in StockSharp.AdvancedBacktest.Core.Tests/Indicators/DeltaZigZagIntegrationTests.cs
-- [ ] T066 [P] [US4] Test output format matches ZigZagIndicatorValue expectations in DeltaZigZagIntegrationTests.cs
-- [ ] T067 [P] [US4] Test deterministic results across multiple backtest runs in DeltaZigZagIntegrationTests.cs
-- [ ] T068 [P] [US4] Test integration with IndicatorExporter (if applicable) in DeltaZigZagIntegrationTests.cs
-- [ ] T069 [US4] Run tests - confirm all FAIL (red phase)
+- [x] T065 [P] [US4] Create integration test class in StockSharp.AdvancedBacktest.Core.Tests/Indicators/DeltaZigZagIntegrationTests.cs
+- [x] T066 [P] [US4] Test output format matches ZigZagIndicatorValue expectations in DeltaZigZagIntegrationTests.cs
+- [x] T067 [P] [US4] Test deterministic results across multiple backtest runs in DeltaZigZagIntegrationTests.cs
+- [x] T068 [P] [US4] Test integration with IndicatorExporter (if applicable) in DeltaZigZagIntegrationTests.cs
+- [x] T069 [US4] Run tests - confirm all FAIL (red phase)
 
 ### Implementation for User Story 4
 
-- [ ] T070 [US4] Verify ZigZagIndicatorValue output compatibility in DeltaZigZag.cs
-- [ ] T071 [US4] Verify NumValuesToInitialize returns correct value in DeltaZigZag.cs
-- [ ] T072 [US4] Verify CalcIsFormed() returns correct formation state in DeltaZigZag.cs
-- [ ] T073 [US4] Verify ToString() returns readable representation in DeltaZigZag.cs
-- [ ] T074 [US4] Run tests - confirm all PASS (green phase)
+- [x] T070 [US4] Verify ZigZagIndicatorValue output compatibility in DeltaZigZag.cs
+- [x] T071 [US4] Verify NumValuesToInitialize returns correct value in DeltaZigZag.cs
+- [x] T072 [US4] Verify CalcIsFormed() returns correct formation state in DeltaZigZag.cs
+- [x] T073 [US4] Verify ToString() returns readable representation in DeltaZigZag.cs
+- [x] T074 [US4] Run tests - confirm all PASS (green phase)
 
 **Checkpoint**: All indicators integrate with existing strategy infrastructure
 
@@ -183,11 +183,11 @@
 
 **Purpose**: Final validation and cleanup
 
-- [ ] T075 Run full test suite: dotnet test StockSharp.AdvancedBacktest.Core.Tests/
-- [ ] T076 Build solution: dotnet build StockSharp.AdvancedBacktest.slnx
-- [ ] T077 [P] Validate quickstart.md examples compile correctly
-- [ ] T078 [P] Code cleanup and ensure consistent code style across all three indicators
-- [ ] T079 Verify no compiler warnings in new indicator files
+- [x] T075 Run full test suite: dotnet test StockSharp.AdvancedBacktest.Core.Tests/
+- [x] T076 Build solution: dotnet build StockSharp.AdvancedBacktest.slnx
+- [x] T077 [P] Validate quickstart.md examples compile correctly
+- [x] T078 [P] Code cleanup and ensure consistent code style across all three indicators
+- [x] T079 Verify no compiler warnings in new indicator files
 
 ---
 
