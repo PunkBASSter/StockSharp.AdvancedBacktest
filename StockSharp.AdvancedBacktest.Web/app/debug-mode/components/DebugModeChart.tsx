@@ -69,6 +69,14 @@ export default function DebugModeChart({ events }: Props) {
     // Accumulated indicator history (persist across updates)
     const indicatorHistoryRef = useRef<Map<string, Map<number, IndicatorDataPoint>>>(new Map());
 
+    // Pending ZigZag points - one slot per (indicator, type) for type-aware deduplication
+    // Key format: `${indicatorName}_peak` or `${indicatorName}_trough`
+    const pendingZigZagPointsRef = useRef<Map<string, IndicatorDataPoint>>(new Map());
+
+    // Combined ZigZag series - merges matching Peak/Trough pairs into single zigzag line
+    // Key format: base name without Peak/Trough suffix (e.g., "DeltaZz" for DeltaZzPeak+DeltaZzTrough)
+    const combinedZigZagSeriesRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
+
     /**
      * Initialize chart on mount
      */
@@ -144,6 +152,7 @@ export default function DebugModeChart({ events }: Props) {
         // Capture refs for cleanup
         const capturedIndicatorSeriesRef = indicatorSeriesRef;
         const capturedTradePriceSeriesRef = tradePriceSeriesRef;
+        const capturedCombinedZigZagSeriesRef = combinedZigZagSeriesRef;
 
         // Cleanup
         return () => {
@@ -158,9 +167,88 @@ export default function DebugModeChart({ events }: Props) {
             volumeSeriesRef.current = null;
             capturedIndicatorSeriesRef.current.clear();
             capturedTradePriceSeriesRef.current.clear();
+            capturedCombinedZigZagSeriesRef.current.clear();
             chartRef.current = null;
         };
     }, []);
+
+    /**
+     * Create combined ZigZag series from matching Peak/Trough indicator pairs.
+     * Detects pairs like "DeltaZzPeak" + "DeltaZzTrough" and merges into single zigzag.
+     */
+    const createCombinedZigZagSeries = () => {
+        if (!chartRef.current) return;
+
+        // Find Peak/Trough pairs by looking for matching base names
+        const indicatorNames = Array.from(indicatorHistoryRef.current.keys());
+        const peakIndicators = indicatorNames.filter(name => name.endsWith('Peak'));
+        const troughIndicators = indicatorNames.filter(name => name.endsWith('Trough'));
+
+        for (const peakName of peakIndicators) {
+            // Extract base name (e.g., "DeltaZz" from "DeltaZzPeak")
+            const baseName = peakName.slice(0, -4); // Remove "Peak"
+            const troughName = baseName + 'Trough';
+
+            // Check if matching trough indicator exists
+            if (!troughIndicators.includes(troughName)) continue;
+
+            const combinedName = baseName + 'ZigZag';
+
+            // Get or create combined series
+            let combinedSeries = combinedZigZagSeriesRef.current.get(combinedName);
+            if (!combinedSeries) {
+                combinedSeries = chartRef.current.addLineSeries({
+                    color: '#000000', // Black for combined zigzag
+                    lineWidth: 2,
+                    title: combinedName,
+                    priceLineVisible: false,
+                    crosshairMarkerVisible: true,
+                    lastValueVisible: true,
+                });
+                combinedZigZagSeriesRef.current.set(combinedName, combinedSeries);
+            }
+
+            // Collect all points from both Peak and Trough indicators
+            const allPoints: IndicatorDataPoint[] = [];
+
+            // Add confirmed peaks
+            const peakHistory = indicatorHistoryRef.current.get(peakName);
+            if (peakHistory) {
+                allPoints.push(...peakHistory.values());
+            }
+
+            // Add confirmed troughs
+            const troughHistory = indicatorHistoryRef.current.get(troughName);
+            if (troughHistory) {
+                allPoints.push(...troughHistory.values());
+            }
+
+            // Add pending peak (if any)
+            const pendingPeakKey = `${peakName}_peak`;
+            const pendingPeak = pendingZigZagPointsRef.current.get(pendingPeakKey);
+            if (pendingPeak) {
+                allPoints.push(pendingPeak);
+            }
+
+            // Add pending trough (if any)
+            const pendingTroughKey = `${troughName}_trough`;
+            const pendingTrough = pendingZigZagPointsRef.current.get(pendingTroughKey);
+            if (pendingTrough) {
+                allPoints.push(pendingTrough);
+            }
+
+            // Sort by time to create proper zigzag sequence
+            allPoints.sort((a, b) => a.time - b.time);
+
+            // Convert to chart format
+            const lineData: LineData[] = allPoints.map((point) => ({
+                time: toUTCTimestamp(point.time),
+                value: point.value,
+            }));
+
+            combinedSeries.setData(lineData);
+        }
+    };
 
     /**
      * Flush pending updates to chart (batched for performance)
@@ -245,9 +333,30 @@ export default function DebugModeChart({ events }: Props) {
                     indicatorHistoryRef.current.set(indicatorName, historyMap);
                 }
 
-                // Add new points to history (by timestamp to avoid duplicates)
+                // Process each point with ZigZag-aware deduplication
                 for (const point of points) {
-                    historyMap.set(point.time, point);
+                    // Check if this is a ZigZag-type indicator (has isPending defined)
+                    if (point.isPending !== undefined) {
+                        // ZigZag indicator with type-aware deduplication
+                        const pendingKey = `${indicatorName}_${point.isUp ? 'peak' : 'trough'}`;
+
+                        if (point.isPending) {
+                            // Pending point: replace existing pending point of same type
+                            // Use extremumTime if available, otherwise use time
+                            const pointTime = point.extremumTime ?? point.time;
+                            pendingZigZagPointsRef.current.set(pendingKey, {
+                                ...point,
+                                time: pointTime, // Use extremum time for correct positioning
+                            });
+                        } else {
+                            // Confirmed point: clear pending slot and add to permanent history
+                            pendingZigZagPointsRef.current.delete(pendingKey);
+                            historyMap.set(point.time, point);
+                        }
+                    } else {
+                        // Regular indicator: simple timestamp deduplication
+                        historyMap.set(point.time, point);
+                    }
                 }
 
                 let series = indicatorSeriesRef.current.get(indicatorName);
@@ -276,6 +385,14 @@ export default function DebugModeChart({ events }: Props) {
                 if (series) {
                     // Convert accumulated history to chart format
                     const allPoints = Array.from(historyMap.values());
+
+                    // Add pending ZigZag points for this indicator
+                    for (const [key, pendingPoint] of pendingZigZagPointsRef.current.entries()) {
+                        if (key.startsWith(indicatorName + '_')) {
+                            allPoints.push(pendingPoint);
+                        }
+                    }
+
                     allPoints.sort((a, b) => a.time - b.time);
 
                     const lineData: LineData[] = allPoints.map((point) => ({
@@ -286,6 +403,9 @@ export default function DebugModeChart({ events }: Props) {
                     series.setData(lineData);
                 }
             }
+
+            // Create combined ZigZag series for matching Peak/Trough pairs
+            createCombinedZigZagSeries();
 
             // Clear pending indicators
             pendingIndicatorsRef.current.clear();
@@ -445,6 +565,16 @@ export default function DebugModeChart({ events }: Props) {
                                     style={{
                                         backgroundColor: getIndicatorColor(index),
                                     }}
+                                />
+                                <span className="text-sm font-medium text-gray-700">{name}</span>
+                            </div>
+                        ))}
+                        {/* Combined ZigZag series (auto-generated from Peak+Trough pairs) */}
+                        {Array.from(combinedZigZagSeriesRef.current.keys()).map((name) => (
+                            <div key={name} className="flex items-center gap-2">
+                                <div
+                                    className="w-4 h-0.5 rounded-full"
+                                    style={{ backgroundColor: '#000000' }}
                                 />
                                 <span className="text-sm font-medium text-gray-700">{name}</span>
                             </div>

@@ -13,7 +13,7 @@ namespace StockSharp.AdvancedBacktest.Indicators;
 /// </remarks>
 [Display(Name = "DeltaZigZag", Description = "ZigZag indicator with dynamic volatility-based thresholds")]
 [IndicatorIn(typeof(CandleIndicatorValue))]
-[IndicatorOut(typeof(ZigZagIndicatorValue))]
+[IndicatorOut(typeof(DeltaZigZagIndicatorValue))]
 public class DeltaZigZag : BaseIndicator
 {
     private bool? _isUpTrend;
@@ -23,6 +23,7 @@ public class DeltaZigZag : BaseIndicator
     private decimal? _lastSwingSize;
     private int _extremumBarIndex;
     private int _currentBarIndex;
+    private DateTime _extremumTime;
 
     public DeltaZigZag()
     {
@@ -92,6 +93,7 @@ public class DeltaZigZag : BaseIndicator
         _lastSwingSize = null;
         _extremumBarIndex = 0;
         _currentBarIndex = 0;
+        _extremumTime = default;
 
         base.Reset();
     }
@@ -112,32 +114,44 @@ public class DeltaZigZag : BaseIndicator
                 _isUpTrend = DetermineInitialDirection(open, high, low, close);
                 _currentExtremum = _isUpTrend.Value ? high : low;
                 _extremumBarIndex = _currentBarIndex;
+                _extremumTime = input.Time;
                 _currentBarIndex++;
+
+                // Emit initial pending point
+                return new DeltaZigZagIndicatorValue(this, _currentExtremum.Value,
+                    _extremumTime, input.Time, isUp: _isUpTrend.Value);
             }
 
-            return new ZigZagIndicatorValue(this, input.Time);
+            return new DeltaZigZagIndicatorValue(this, input.Time);
         }
 
         var isUpTrend = _isUpTrend.Value;
         var currentExtremum = _currentExtremum!.Value;
         var threshold = CalculateThreshold();
 
-        ZigZagIndicatorValue? result = null;
+        DeltaZigZagIndicatorValue? result = null;
 
         if (isUpTrend)
         {
             if (high > currentExtremum)
             {
+                // New high found - emit pending peak
                 if (input.IsFinal)
                 {
                     _currentExtremum = high;
                     _extremumBarIndex = _currentBarIndex;
+                    _extremumTime = input.Time;
                 }
+
+                // Emit pending peak point (extremum moved to new high)
+                result = new DeltaZigZagIndicatorValue(this, high,
+                    input.IsFinal ? _extremumTime : input.Time, input.Time, isUp: true);
             }
             else if (low <= currentExtremum - threshold)
             {
+                // Reversal confirmed - emit confirmed peak
                 var shift = _currentBarIndex - _extremumBarIndex;
-                result = new ZigZagIndicatorValue(this, currentExtremum, shift, input.Time, isUp: true);
+                result = new DeltaZigZagIndicatorValue(this, currentExtremum, shift, input.Time, isUp: true);
 
                 if (input.IsFinal)
                 {
@@ -148,6 +162,7 @@ public class DeltaZigZag : BaseIndicator
                     _isUpTrend = false;
                     _currentExtremum = low;
                     _extremumBarIndex = _currentBarIndex;
+                    _extremumTime = input.Time;
                 }
             }
         }
@@ -155,16 +170,23 @@ public class DeltaZigZag : BaseIndicator
         {
             if (low < currentExtremum)
             {
+                // New low found - emit pending trough
                 if (input.IsFinal)
                 {
                     _currentExtremum = low;
                     _extremumBarIndex = _currentBarIndex;
+                    _extremumTime = input.Time;
                 }
+
+                // Emit pending trough point (extremum moved to new low)
+                result = new DeltaZigZagIndicatorValue(this, low,
+                    input.IsFinal ? _extremumTime : input.Time, input.Time, isUp: false);
             }
             else if (high >= currentExtremum + threshold)
             {
+                // Reversal confirmed - emit confirmed trough
                 var shift = _currentBarIndex - _extremumBarIndex;
-                result = new ZigZagIndicatorValue(this, currentExtremum, shift, input.Time, isUp: false);
+                result = new DeltaZigZagIndicatorValue(this, currentExtremum, shift, input.Time, isUp: false);
 
                 if (input.IsFinal)
                 {
@@ -175,6 +197,7 @@ public class DeltaZigZag : BaseIndicator
                     _isUpTrend = true;
                     _currentExtremum = high;
                     _extremumBarIndex = _currentBarIndex;
+                    _extremumTime = input.Time;
                 }
             }
         }
@@ -182,7 +205,7 @@ public class DeltaZigZag : BaseIndicator
         if (input.IsFinal)
             _currentBarIndex++;
 
-        return result ?? new ZigZagIndicatorValue(this, input.Time);
+        return result ?? new DeltaZigZagIndicatorValue(this, input.Time);
     }
 
     private bool DetermineInitialDirection(decimal open, decimal high, decimal low, decimal close)

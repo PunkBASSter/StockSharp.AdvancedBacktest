@@ -27,11 +27,11 @@ public class DeltaZigZagIntegrationTests
             result = (ZigZagIndicatorValue)indicator.Process(input);
         }
 
-        // Assert - verify ZigZagIndicatorValue structure
+        // Assert - verify DeltaZigZagIndicatorValue structure (extends ZigZagIndicatorValue)
         Assert.NotNull(result);
         Assert.False(result.IsEmpty);
         Assert.True(result.IsUp); // Peak detected
-        Assert.IsType<ZigZagIndicatorValue>(result);
+        Assert.IsAssignableFrom<ZigZagIndicatorValue>(result); // DeltaZigZagIndicatorValue extends ZigZagIndicatorValue
 
         // Value should be accessible
         var value = result.GetValue<decimal>(null);
