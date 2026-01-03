@@ -1,6 +1,4 @@
-using StockSharp.AdvancedBacktest.Launchers;
-
-namespace StockSharp.AdvancedBacktest.LauncherTemplate.Launchers;
+namespace StockSharp.AdvancedBacktest.Launchers;
 
 /// <summary>
 /// Abstraction for strategy launchers enabling DI resolution and CLI selection.

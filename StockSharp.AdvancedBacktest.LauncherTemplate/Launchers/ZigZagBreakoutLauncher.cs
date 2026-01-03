@@ -1,5 +1,7 @@
 using StockSharp.AdvancedBacktest.Backtest;
+using StockSharp.AdvancedBacktest.DebugMode;
 using StockSharp.AdvancedBacktest.Export;
+using StockSharp.AdvancedBacktest.Launchers;
 using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.ZigZagBreakout;
 using StockSharp.AdvancedBacktest.Parameters;
 using StockSharp.Algo.Storages;
@@ -11,8 +13,11 @@ public class ZigZagBreakoutLauncher : IStrategyLauncher
 {
     public string Name => "ZigZagBreakout";
 
-    public async Task<int> RunAsync(bool aiDebug)
+    public async Task<int> RunAsync(RunFlags flags)
     {
+        var aiDebug = flags.HasFlag(RunFlags.AiDebug);
+        var visualDebug = flags.HasFlag(RunFlags.VisualDebug);
+
         Console.WriteLine("=== ZigZag Breakout Strategy Backtest ===");
         Console.WriteLine();
 
@@ -21,6 +26,14 @@ public class ZigZagBreakoutLauncher : IStrategyLauncher
             Console.WriteLine("[AI Debug Mode Enabled]");
             Console.WriteLine("  - Using SQLite event repository");
             Console.WriteLine("  - Web app launcher disabled");
+            Console.WriteLine();
+        }
+
+        DebugWebAppLauncher? webAppLauncher = null;
+        if (visualDebug)
+        {
+            Console.WriteLine("[Visual Debug Mode Enabled]");
+            Console.WriteLine("  - Web app for visual debugging will be started");
             Console.WriteLine();
         }
 
@@ -101,6 +114,21 @@ public class ZigZagBreakoutLauncher : IStrategyLauncher
                     WebAppUrl = "http://localhost:3000",
                     DebugPagePath = "/debug-mode"
                 };
+            }
+
+            // Start visual debug web app if requested
+            if (visualDebug)
+            {
+                webAppLauncher = new DebugWebAppLauncher(
+                    WebAppPath(),
+                    "http://localhost:3000",
+                    "/debug-mode");
+
+                var serverStarted = await webAppLauncher.EnsureServerRunningAndOpenAsync();
+                if (!serverStarted)
+                {
+                    Console.WriteLine("Warning: Could not start debug web server, continuing without visual debug...");
+                }
             }
 
             // Create Strategy Instance
@@ -233,6 +261,10 @@ public class ZigZagBreakoutLauncher : IStrategyLauncher
             Console.WriteLine($"ERROR: {ex.Message}");
             Console.WriteLine($"Stack Trace: {ex.StackTrace}");
             return 1;
+        }
+        finally
+        {
+            webAppLauncher?.Dispose();
         }
     }
 

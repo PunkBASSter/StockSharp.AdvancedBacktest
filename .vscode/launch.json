@@ -7,7 +7,7 @@
             "request": "launch",
             "preLaunchTask": "Build",
             "program": "${workspaceFolder}/StockSharp.AdvancedBacktest.LauncherTemplate/bin/Debug/net8.0/StockSharp.AdvancedBacktest.LauncherTemplate.dll",
-            "args": ["--strategy", "DzzPeakTrough"],
+            "args": ["--strategy", "DzzPeakTrough", "--ai-debug", "--visual-debug"],
             "cwd": "${workspaceFolder}/StockSharp.AdvancedBacktest.LauncherTemplate",
             "console": "integratedTerminal",
             "stopAtEntry": false,

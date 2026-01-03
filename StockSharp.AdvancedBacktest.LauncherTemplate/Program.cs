@@ -1,6 +1,8 @@
 using System.CommandLine;
 using Microsoft.Extensions.DependencyInjection;
-using StockSharp.AdvancedBacktest.LauncherTemplate.Launchers;
+using StockSharp.AdvancedBacktest.Launchers;
+using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.DzzPeakTrough;
+using StockSharp.AdvancedBacktest.LauncherTemplate.Strategies.ZigZagBreakout;
 
 namespace StockSharp.AdvancedBacktest.LauncherTemplate;
 
@@ -18,11 +20,17 @@ public class Program
             description: "Strategy to run (ZigZagBreakout, DzzPeakTrough)",
             getDefaultValue: () => "ZigZagBreakout");
 
+        var visualDebugOption = new Option<bool>(
+            name: "--visual-debug",
+            description: "Enable visual debugging web app",
+            getDefaultValue: () => false);
+
         var rootCommand = new RootCommand("Strategy Backtest Launcher");
         rootCommand.AddOption(aiDebugOption);
         rootCommand.AddOption(strategyOption);
+        rootCommand.AddOption(visualDebugOption);
 
-        rootCommand.SetHandler(async (bool aiDebug, string strategy) =>
+        rootCommand.SetHandler(async (bool aiDebug, string strategy, bool visualDebug) =>
         {
             var services = ConfigureServices();
             var launcher = ResolveLauncher(services, strategy);
@@ -35,8 +43,12 @@ public class Program
                 return;
             }
 
-            Environment.ExitCode = await launcher.RunAsync(aiDebug);
-        }, aiDebugOption, strategyOption);
+            var flags = RunFlags.None;
+            if (aiDebug) flags |= RunFlags.AiDebug;
+            if (visualDebug) flags |= RunFlags.VisualDebug;
+
+            Environment.ExitCode = await launcher.RunAsync(flags);
+        }, aiDebugOption, strategyOption, visualDebugOption);
 
         return await rootCommand.InvokeAsync(args);
     }
