@@ -115,7 +115,13 @@ public abstract class StrategyLauncherBase<TStrategy> : IStrategyLauncher
             PrintConfiguration(config);
 
             var portfolio = CreatePortfolio(config);
-            var backtestConfig = CreateBacktestConfig(config, aiDebug);
+            var backtestConfig = CreateBacktestConfig(config, aiDebug, visualDebug);
+
+            // Clear old debug data before starting visual debug
+            if (visualDebug)
+            {
+                ClearDebugOutputDirectory(config);
+            }
 
             // Start visual debug web app if requested
             if (visualDebug)
@@ -182,7 +188,7 @@ public abstract class StrategyLauncherBase<TStrategy> : IStrategyLauncher
         return portfolio;
     }
 
-    private BacktestConfig CreateBacktestConfig(LauncherConfig config, bool aiDebug)
+    private BacktestConfig CreateBacktestConfig(LauncherConfig config, bool aiDebug, bool visualDebug)
     {
         var backtestConfig = new BacktestConfig
         {
@@ -211,7 +217,8 @@ public abstract class StrategyLauncherBase<TStrategy> : IStrategyLauncher
                 LogMarketData = false
             };
         }
-        else
+
+        if (visualDebug)
         {
             backtestConfig.DebugMode = new DebugModeSettings
             {
@@ -375,6 +382,25 @@ public abstract class StrategyLauncherBase<TStrategy> : IStrategyLauncher
         Console.WriteLine($"Location: {Path.Combine(reportPath, "index.html")}");
         Console.WriteLine("Open in browser to view interactive charts");
         Console.WriteLine();
+    }
+
+    private void ClearDebugOutputDirectory(LauncherConfig config)
+    {
+        try
+        {
+            var debugOutputPath = GetWebAppPath(config, @"public\debug-mode");
+            var jsonlFile = Path.Combine(debugOutputPath, "latest.jsonl");
+
+            if (File.Exists(jsonlFile))
+            {
+                File.Delete(jsonlFile);
+                Console.WriteLine($"[DEBUG] Cleared old debug data: {jsonlFile}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Warning: Could not clear old debug data: {ex.Message}");
+        }
     }
 
     private string GetWebAppPath(LauncherConfig config, string subdirectory = "")
