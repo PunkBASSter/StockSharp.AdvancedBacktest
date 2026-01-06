@@ -34,6 +34,22 @@ public class IndicatorDataPoint
 	public double Value { get; set; }
 
 	public long? SequenceNumber { get; set; }
+
+	// ZigZag-specific fields (nullable for backward compatibility)
+	/// <summary>
+	/// For ZigZag indicators: true = peak, false = trough, null = not applicable.
+	/// </summary>
+	public bool? IsUp { get; set; }
+
+	/// <summary>
+	/// For ZigZag indicators: true = pending (tentative), false = confirmed reversal, null = not applicable.
+	/// </summary>
+	public bool? IsPending { get; set; }
+
+	/// <summary>
+	/// For pending ZigZag points: the timestamp of the bar where the extremum occurred.
+	/// </summary>
+	public long? ExtremumTime { get; set; }
 }
 
 public class TradeDataPoint

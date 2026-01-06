@@ -27,11 +27,16 @@ public static class IndicatorValueHelper
             throw new InvalidOperationException($"Indicator value reported IsEmpty=false but contains no data. Time: {value.Time}, Type: {value.GetType().Name}", ex);
         }
 
-        return new IndicatorDataPoint
+        var dataPoint = new IndicatorDataPoint
         {
             Time = timestamp.ToUnixTimeMilliseconds(),
             Value = (double)decimalValue
         };
+
+        // Extract ZigZag-specific properties if present
+        ExtractZigZagProperties(value, dataPoint);
+
+        return dataPoint;
     }
 
     public static DateTimeOffset GetAdjustedTimestamp(IIndicatorValue value, TimeSpan? candleInterval)
@@ -113,5 +118,66 @@ public static class IndicatorValueHelper
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Extracts ZigZag-specific properties (IsUp, IsPending, ExtremumTime) from indicator value.
+    /// </summary>
+    /// <param name="value">The indicator value to extract from.</param>
+    /// <param name="dataPoint">The data point to populate with ZigZag properties.</param>
+    public static void ExtractZigZagProperties(IIndicatorValue value, IndicatorDataPoint dataPoint)
+    {
+        if (value == null || dataPoint == null)
+            return;
+
+        var valueType = value.GetType();
+
+        // Try to get IsUp property (for ZigZagIndicatorValue and derived types)
+        try
+        {
+            var isUpProperty = valueType.GetProperty("IsUp");
+            if (isUpProperty?.PropertyType == typeof(bool))
+            {
+                dataPoint.IsUp = (bool?)isUpProperty.GetValue(value);
+            }
+        }
+        catch
+        {
+            // Ignore reflection errors
+        }
+
+        // Try to get IsPending property (for DeltaZigZagIndicatorValue)
+        try
+        {
+            var isPendingProperty = valueType.GetProperty("IsPending");
+            if (isPendingProperty?.PropertyType == typeof(bool?) || isPendingProperty?.PropertyType == typeof(bool))
+            {
+                var isPendingValue = isPendingProperty.GetValue(value);
+                dataPoint.IsPending = isPendingValue as bool?;
+            }
+        }
+        catch
+        {
+            // Ignore reflection errors
+        }
+
+        // Try to get ExtremumTime property (for DeltaZigZagIndicatorValue)
+        try
+        {
+            var extremumTimeProperty = valueType.GetProperty("ExtremumTime");
+            if (extremumTimeProperty?.PropertyType == typeof(DateTime?))
+            {
+                var extremumTime = (DateTime?)extremumTimeProperty.GetValue(value);
+                if (extremumTime.HasValue)
+                {
+                    dataPoint.ExtremumTime = new DateTimeOffset(extremumTime.Value, TimeSpan.Zero)
+                        .ToUnixTimeMilliseconds();
+                }
+            }
+        }
+        catch
+        {
+            // Ignore reflection errors
+        }
     }
 }

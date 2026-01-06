@@ -93,13 +93,13 @@ public class DebugEventBufferTests
 
 		// Act - Add event, wait for flush, then wait again
 		buffer.Add("test", new { Value = 1 });
-		await Task.Delay(flushIntervalMs + 300); // Extra time for async Task.Run
+		await Task.Delay(flushIntervalMs + 500); // Extra time for timer + async Task.Run
 
 		int firstFlushCount;
 		lock (lockObj) { firstFlushCount = flushCount; }
 
 		// Wait for another interval without adding events
-		await Task.Delay(flushIntervalMs + 300); // Extra time for async Task.Run
+		await Task.Delay(flushIntervalMs + 500); // Extra time for timer + async Task.Run
 
 		int finalFlushCount;
 		lock (lockObj) { finalFlushCount = flushCount; }

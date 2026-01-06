@@ -13,7 +13,7 @@ namespace StockSharp.AdvancedBacktest.Indicators;
 /// </remarks>
 [Display(Name = "DeltaZzPeak", Description = "Filters DeltaZigZag to output only peaks")]
 [IndicatorIn(typeof(CandleIndicatorValue))]
-[IndicatorOut(typeof(ZigZagIndicatorValue))]
+[IndicatorOut(typeof(DeltaZigZagIndicatorValue))]
 public class DeltaZzPeak : BaseIndicator
 {
     private readonly DeltaZigZag _deltaZigZag = new();
@@ -53,11 +53,45 @@ public class DeltaZzPeak : BaseIndicator
     /// <inheritdoc />
     protected override IIndicatorValue OnProcess(IIndicatorValue input)
     {
-        var result = (ZigZagIndicatorValue)_deltaZigZag.Process(input);
+        var result = _deltaZigZag.Process(input);
 
-        if (!result.IsEmpty && result.IsUp)
+        // Check if result is DeltaZigZagIndicatorValue (with IsPending info)
+        if (result is DeltaZigZagIndicatorValue dzzResult)
         {
-            return new ZigZagIndicatorValue(this, result.GetValue<decimal>(null), result.Shift, input.Time, isUp: true);
+            // Only propagate peaks (IsUp = true)
+            if (!dzzResult.IsEmpty && dzzResult.IsUp)
+            {
+                // Propagate pending/confirmed state
+                if (dzzResult.IsPending == true)
+                {
+                    // Pending peak - use extremum time for positioning
+                    return new DeltaZigZagIndicatorValue(
+                        this,
+                        dzzResult.GetValue<decimal>(null),
+                        dzzResult.ExtremumTime ?? input.Time,
+                        input.Time,
+                        isUp: true);
+                }
+                else
+                {
+                    // Confirmed peak
+                    return new DeltaZigZagIndicatorValue(
+                        this,
+                        dzzResult.GetValue<decimal>(null),
+                        dzzResult.Shift,
+                        input.Time,
+                        isUp: true);
+                }
+            }
+
+            return new DeltaZigZagIndicatorValue(this, input.Time);
+        }
+
+        // Fallback for plain ZigZagIndicatorValue (shouldn't happen with current impl)
+        var zigZagResult = (ZigZagIndicatorValue)result;
+        if (!zigZagResult.IsEmpty && zigZagResult.IsUp)
+        {
+            return new ZigZagIndicatorValue(this, zigZagResult.GetValue<decimal>(null), zigZagResult.Shift, input.Time, isUp: true);
         }
 
         return new ZigZagIndicatorValue(this, input.Time);

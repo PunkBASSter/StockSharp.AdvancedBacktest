@@ -130,16 +130,22 @@ public class DeltaZzPeakTests
         var candle1 = TestCandleBuilder.CreateCandle(100m, 110m, 99m, 108m, startTime);
         var candle2 = TestCandleBuilder.CreateCandle(108m, 120m, 107m, 118m, startTime.AddMinutes(1));
 
-        indicator.Process(new CandleIndicatorValue(indicator, candle1));
-        indicator.Process(new CandleIndicatorValue(indicator, candle2));
+        var result1Before = indicator.Process(new CandleIndicatorValue(indicator, candle1));
+        var result2Before = indicator.Process(new CandleIndicatorValue(indicator, candle2));
 
         // Act
         indicator.Reset();
 
         // Process same candles again
-        var result1 = indicator.Process(new CandleIndicatorValue(indicator, candle1));
+        var result1After = indicator.Process(new CandleIndicatorValue(indicator, candle1));
+        var result2After = indicator.Process(new CandleIndicatorValue(indicator, candle2));
 
-        // Assert - after reset, first candle should return empty again
-        Assert.True(result1.IsEmpty);
+        // Assert - after reset, processing same candles should produce same results
+        Assert.Equal(result1Before.IsEmpty, result1After.IsEmpty);
+        Assert.Equal(result2Before.IsEmpty, result2After.IsEmpty);
+        if (!result1Before.IsEmpty && !result1After.IsEmpty)
+        {
+            Assert.Equal(result1Before.GetValue<decimal>(null), result1After.GetValue<decimal>(null));
+        }
     }
 }

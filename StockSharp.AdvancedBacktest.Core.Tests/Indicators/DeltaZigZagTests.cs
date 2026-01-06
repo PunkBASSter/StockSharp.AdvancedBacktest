@@ -16,8 +16,12 @@ public class DeltaZigZagTests
         var input = new CandleIndicatorValue(indicator, upCandle);
         var result = indicator.Process(input);
 
-        // Assert - first candle should not output a reversal, but indicator should track uptrend
-        Assert.True(result.IsEmpty);
+        // Assert - first candle emits pending point for visualization
+        var dzzResult = Assert.IsType<DeltaZigZagIndicatorValue>(result);
+        Assert.False(result.IsEmpty);
+        Assert.True(dzzResult.IsPending);
+        Assert.True(dzzResult.IsUp); // Uptrend based on close > open
+        Assert.Equal(105m, dzzResult.GetValue<decimal>(null)); // High is the initial extremum
     }
 
     [Fact]
@@ -31,8 +35,12 @@ public class DeltaZigZagTests
         var input = new CandleIndicatorValue(indicator, downCandle);
         var result = indicator.Process(input);
 
-        // Assert - first candle should not output a reversal
-        Assert.True(result.IsEmpty);
+        // Assert - first candle emits pending point for visualization
+        var dzzResult = Assert.IsType<DeltaZigZagIndicatorValue>(result);
+        Assert.False(result.IsEmpty);
+        Assert.True(dzzResult.IsPending);
+        Assert.False(dzzResult.IsUp); // Downtrend based on close < open
+        Assert.Equal(95m, dzzResult.GetValue<decimal>(null)); // Low is the initial extremum
     }
 
     [Fact]
@@ -47,8 +55,12 @@ public class DeltaZigZagTests
         var input = new CandleIndicatorValue(indicator, dojiCandle);
         var result = indicator.Process(input);
 
-        // Assert
-        Assert.True(result.IsEmpty);
+        // Assert - first candle emits pending point for visualization
+        var dzzResult = Assert.IsType<DeltaZigZagIndicatorValue>(result);
+        Assert.False(result.IsEmpty);
+        Assert.True(dzzResult.IsPending);
+        Assert.True(dzzResult.IsUp); // Upper wick larger => uptrend
+        Assert.Equal(108m, dzzResult.GetValue<decimal>(null)); // High is the initial extremum
     }
 
     [Fact]
@@ -63,8 +75,12 @@ public class DeltaZigZagTests
         var input = new CandleIndicatorValue(indicator, dojiCandle);
         var result = indicator.Process(input);
 
-        // Assert
-        Assert.True(result.IsEmpty);
+        // Assert - first candle emits pending point for visualization
+        var dzzResult = Assert.IsType<DeltaZigZagIndicatorValue>(result);
+        Assert.False(result.IsEmpty);
+        Assert.True(dzzResult.IsPending);
+        Assert.False(dzzResult.IsUp); // Lower wick larger => downtrend
+        Assert.Equal(92m, dzzResult.GetValue<decimal>(null)); // Low is the initial extremum
     }
 
     [Fact]
@@ -306,8 +322,11 @@ public class DeltaZigZagTests
         var result1 = indicator.Process(new CandleIndicatorValue(indicator, candle1));
         var result2 = indicator.Process(new CandleIndicatorValue(indicator, candle2));
 
-        // Assert - after reset, first candle should return empty again
-        Assert.True(result1.IsEmpty);
+        // Assert - after reset, first candle should emit initial pending point (like fresh start)
+        var dzzResult1 = Assert.IsType<DeltaZigZagIndicatorValue>(result1);
+        Assert.True(dzzResult1.IsPending);
+        Assert.True(dzzResult1.IsUp); // close > open => uptrend
+        Assert.Equal(110m, dzzResult1.GetValue<decimal>(null)); // High is the initial extremum
     }
 
     [Fact]

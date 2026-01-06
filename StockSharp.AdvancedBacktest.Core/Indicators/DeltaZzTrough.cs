@@ -13,7 +13,7 @@ namespace StockSharp.AdvancedBacktest.Indicators;
 /// </remarks>
 [Display(Name = "DeltaZzTrough", Description = "Filters DeltaZigZag to output only troughs")]
 [IndicatorIn(typeof(CandleIndicatorValue))]
-[IndicatorOut(typeof(ZigZagIndicatorValue))]
+[IndicatorOut(typeof(DeltaZigZagIndicatorValue))]
 public class DeltaZzTrough : BaseIndicator
 {
     private readonly DeltaZigZag _deltaZigZag = new();
@@ -53,11 +53,45 @@ public class DeltaZzTrough : BaseIndicator
     /// <inheritdoc />
     protected override IIndicatorValue OnProcess(IIndicatorValue input)
     {
-        var result = (ZigZagIndicatorValue)_deltaZigZag.Process(input);
+        var result = _deltaZigZag.Process(input);
 
-        if (!result.IsEmpty && !result.IsUp)
+        // Check if result is DeltaZigZagIndicatorValue (with IsPending info)
+        if (result is DeltaZigZagIndicatorValue dzzResult)
         {
-            return new ZigZagIndicatorValue(this, result.GetValue<decimal>(null), result.Shift, input.Time, isUp: false);
+            // Only propagate troughs (IsUp = false)
+            if (!dzzResult.IsEmpty && !dzzResult.IsUp)
+            {
+                // Propagate pending/confirmed state
+                if (dzzResult.IsPending == true)
+                {
+                    // Pending trough - use extremum time for positioning
+                    return new DeltaZigZagIndicatorValue(
+                        this,
+                        dzzResult.GetValue<decimal>(null),
+                        dzzResult.ExtremumTime ?? input.Time,
+                        input.Time,
+                        isUp: false);
+                }
+                else
+                {
+                    // Confirmed trough
+                    return new DeltaZigZagIndicatorValue(
+                        this,
+                        dzzResult.GetValue<decimal>(null),
+                        dzzResult.Shift,
+                        input.Time,
+                        isUp: false);
+                }
+            }
+
+            return new DeltaZigZagIndicatorValue(this, input.Time);
+        }
+
+        // Fallback for plain ZigZagIndicatorValue (shouldn't happen with current impl)
+        var zigZagResult = (ZigZagIndicatorValue)result;
+        if (!zigZagResult.IsEmpty && !zigZagResult.IsUp)
+        {
+            return new ZigZagIndicatorValue(this, zigZagResult.GetValue<decimal>(null), zigZagResult.Shift, input.Time, isUp: false);
         }
 
         return new ZigZagIndicatorValue(this, input.Time);

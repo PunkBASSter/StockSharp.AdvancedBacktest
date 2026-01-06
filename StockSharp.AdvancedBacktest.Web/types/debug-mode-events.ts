@@ -36,6 +36,14 @@ export interface IndicatorDataPoint {
     time: number;           // Unix timestamp (milliseconds)
     value: number;
     sequenceNumber?: number;  // Debug mode field
+
+    // ZigZag-specific fields (for DeltaZigZag and similar indicators)
+    /** For ZigZag indicators: true = peak, false = trough, undefined = not applicable */
+    isUp?: boolean;
+    /** For ZigZag indicators: true = pending (tentative), false = confirmed reversal, undefined = not applicable */
+    isPending?: boolean;
+    /** For pending ZigZag points: the timestamp of the bar where the extremum occurred */
+    extremumTime?: number;
 }
 
 /**
